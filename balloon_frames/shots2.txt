@@ -1,0 +1,15 @@
+seq01|10|Static locked camera, no camera movement. The still painting gently comes alive: warm dawn light slowly spreads across the rooftops, thin smoke rises from a distant chimney, everything else perfectly still
+seq02|10|Static locked camera, no camera movement. The still painting gently comes alive: the woman's hair stirs almost imperceptibly in a light breeze, the river water shimmers faintly, the couple stands perfectly still
+seq03|10|Static locked camera, no camera movement. The still painting gently comes alive: the canal water shimmers gently, the couple stands perfectly still
+seq04|15|Static locked camera, no camera movement. The still painting gently comes alive: cherry petals fall very slowly, the couple stands perfectly still
+seq05|15|Static locked camera, no camera movement. The still painting gently comes alive: the woman's scarf sways gently, the golden light warms slowly, the couple stands perfectly still
+seq06|10|Static locked camera, no camera movement. The still painting gently comes alive: the sea horizon shimmers faintly, small waves lap the shore, the couple stands perfectly still
+seq07|5|Static locked camera, no camera movement. The still painting gently comes alive: thin clouds drift very slowly across the vast sky, the sea glints faintly, nothing else moves
+seq08|18|Static locked camera, no camera movement. The still painting gently comes alive: the golden grass sways gently, the acacia leaves stir softly, the couple stands perfectly still
+seq09|15|Static locked camera, no camera movement. The still painting gently comes alive: snow falls slowly and steadily, the couple stands perfectly still
+seq10|15|Static locked camera, no camera movement. The still painting gently comes alive: the red lanterns glow warmly and sway almost imperceptibly, the couple stands perfectly still
+seq11|15|Static locked camera, no camera movement. The still painting gently comes alive: the northern lights ripple very slowly, snow glitters faintly, the couple stands perfectly still
+seq12|15|Static locked camera, no camera movement. The still painting gently comes alive: autumn leaves fall slowly around the couple, they stand perfectly still
+seq13|15|Static locked camera, no camera movement. The still painting gently comes alive: the sea light shimmers faintly, the couple stands perfectly still
+seq14|15|Static locked camera, no camera movement. The still painting gently comes alive: the bride's veil breathes softly in the breeze, wildflowers sway gently, the couple stands perfectly still
+seq15|15|Static locked camera, no camera movement. The still painting gently comes alive: the stars twinkle faintly, a thin soft cloud drifts past the moon, the rooftops stay still

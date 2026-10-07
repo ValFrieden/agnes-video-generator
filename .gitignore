@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 *.pyo
+.env
 .working_dir/
 .workbuddy/
 .agnes_config/
@@ -71,3 +72,34 @@ scripts/_i18n_langswitch.py
 scripts/_i18n_cc.py
 scripts/_i18n_resume.py
 scripts/_i18n_edit.py
+
+# graphify knowledge graph (auto-generated)
+graphify-out/
+
+# Music video production files (heavy regenerable media, kept local)
+clips/
+clips2/
+frames_169/
+storyboard_frames/
+balloon_frames/*
+!balloon_frames/prompts.txt
+!balloon_frames/prompts_v5.txt
+!balloon_frames/shots2.txt
+!balloon_frames/seq01.png
+!balloon_frames/seq02.png
+!balloon_frames/seq03.png
+!balloon_frames/seq04.png
+!balloon_frames/seq05.png
+!balloon_frames/seq06.png
+!balloon_frames/seq07.png
+!balloon_frames/seq08.png
+!balloon_frames/seq09.png
+!balloon_frames/seq10.png
+!balloon_frames/seq11.png
+!balloon_frames/seq12.png
+!balloon_frames/seq13.png
+!balloon_frames/seq14.png
+!balloon_frames/seq15.png
+!balloon_frames/balloon_sprite.png
+*.mp4
+*.mp3
