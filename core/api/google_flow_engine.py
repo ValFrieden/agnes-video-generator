@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
 
+from core.api import google_flow_ui as ui
 from core.api.google_flow_errors import FlowStoppedError
 
 logger = logging.getLogger(__name__)
@@ -441,6 +442,256 @@ class GoogleFlowEngine:
         await asyncio.sleep(2.0)
         return cost
 
+    # =========================================================================
+    # Teil C: Projekt-Einstellungen prüfen (nur lesen, nie ändern)
+    # =========================================================================
+
+    async def read_confirm_policy(self) -> Optional[str]:
+        """Liest „Vor dem Generieren bestätigen“ aus den Agent-Einstellungen.
+
+        Returns:
+            ``"always"`` (Flow fragt vor dem Ausgeben), ``"never"`` (Flow gibt
+            Guthaben automatisch aus) oder ``None`` bei unlesbarer Oberfläche.
+            Die Einstellung wird nur gelesen und beim Verlassen nicht gespeichert.
+        """
+        page = await self.connect()
+        try:
+            await page.locator(ui.AGENT_SETTINGS_BUTTON).last.click(timeout=5000)
+            group = page.locator(ui.CONFIRM_POLICY_GROUP).first
+            await group.wait_for(state="visible", timeout=5000)
+            value = await group.evaluate(
+                "g => g.querySelector('input[type=\"radio\"]:checked')?.value || null"
+            )
+        except Exception as e:
+            logger.warning(f"[GoogleFlowEngine] Could not read confirm policy: {e}")
+            return None
+        finally:
+            try:
+                back = page.locator(ui.SETTINGS_BACK_BUTTON).first
+                if await self._visible(back, 1000):
+                    await back.click()
+            except Exception:
+                pass
+        if value == ui.CONFIRM_POLICY_ALWAYS_VALUE:
+            return "always"
+        if value == ui.CONFIRM_POLICY_NEVER_VALUE:
+            return "never"
+        return None
+
+    async def ensure_cost_guard_active(self) -> None:
+        """Bricht ab, wenn Flow Guthaben ohne Rückfrage ausgeben würde.
+
+        Steht die Bestätigung auf „Nie“, generiert Flow schon beim Absenden und
+        zieht das Guthaben ab — ``confirm_within_budget`` käme zu spät. Die
+        Einstellung gehört dem Nutzer und wird deshalb nicht automatisch geändert.
+
+        Raises:
+            FlowStoppedError: Bestätigung steht auf „Nie“ oder ist unlesbar.
+        """
+        policy = await self.read_confirm_policy()
+        if policy == "always":
+            return
+        shown = "Nie" if policy == "never" else "unlesbar"
+        raise FlowStoppedError(
+            f"Flow-Einstellung 'Vor dem Generieren bestätigen' ist {shown}. Dann wird beim "
+            "Absenden sofort bezahlt und der Kostenschutz greift nicht. In den "
+            "Agent-Einstellungen auf 'Immer' stellen und erneut starten.",
+            status="confirm_policy_off",
+        )
+
+    async def clear_prompt(self) -> None:
+        """Leert das Prompt-Feld samt angehängter Referenzen.
+
+        Ohne das bleiben Referenz-Chips der vorigen Szene im Feld und die nächste
+        Generierung zeigt die falsche Figur.
+
+        Raises:
+            RuntimeError: Das Feld ließ sich nicht leeren.
+        """
+        page = await self.connect()
+        editor = page.locator(ui.PROMPT_EDITOR).first
+        for _ in range(3):
+            await editor.click()
+            await page.keyboard.press("Control+A")
+            await page.keyboard.press("Backspace")
+            await asyncio.sleep(0.4)
+            left = await editor.evaluate(
+                "e => ({text: (e.innerText || '').trim(), "
+                "chips: e.querySelectorAll('[contenteditable=\"false\"], img').length})"
+            )
+            if not left["text"] and left["chips"] == 0:
+                return
+        raise RuntimeError(
+            f"[GoogleFlowEngine] Prompt field not empty after clearing: {left}"
+        )
+
+    # =========================================================================
+    # Teil A: Charaktere (gleiches Aussehen in allen Clips)
+    # =========================================================================
+    #
+    # Ein Flow-Charakter ist ein gespeichertes Bündel aus 1–2 Referenzbildern.
+    # Er wird im Prompt per ``@Name`` angesprochen. Ein Charakter aus hochgeladenen
+    # Bildern kostet keine Credits. NIEMALS 'Generierung starten' auf der
+    # Charakterseite klicken: das würde Referenzbilder generieren (kostet).
+
+    @staticmethod
+    def _project_base_url(page_url: str) -> str:
+        """Schneidet ``…/project/<id>`` aus einer Flow-URL."""
+        if "/project/" not in page_url:
+            raise RuntimeError(f"[GoogleFlowEngine] Not inside a Flow project: {page_url}")
+        head, tail = page_url.split("/project/", 1)
+        return f"{head}/project/{tail.split('/', 1)[0].split('?', 1)[0]}"
+
+    async def _open_character_page(self) -> Page:
+        page = await self.connect()
+        await page.goto(
+            self._project_base_url(page.url) + ui.CHARACTER_PATH,
+            wait_until="domcontentloaded",
+        )
+        await asyncio.sleep(2.5)
+        return page
+
+    async def list_characters(self) -> List[str]:
+        """Namen der vorhandenen Charaktere des Projekts.
+
+        UNVERIFIED: Das Prüfprojekt hatte noch keine Charaktere, die Kartenform
+        stammt aus Annahmen. Ergebnis ist deshalb als Mindestliste zu lesen.
+        """
+        page = await self._open_character_page()
+        names = await page.evaluate(
+            """(sel) => Array.from(document.querySelectorAll(sel))
+                .map(c => (c.innerText || '').trim().split('\\n')[0])
+                .filter(Boolean)""",
+            ui.CHARACTER_CARD,
+        )
+        return [n.strip() for n in names]
+
+    async def create_character(
+        self,
+        name: str,
+        image_paths: List[str],
+        description: Optional[str] = None,
+    ) -> bool:
+        """Legt einen Charakter aus 1–2 hochgeladenen Bildern an (0 Credits).
+
+        Idempotent: Existiert der Name schon, passiert nichts. Flow legt bei
+        gleichem Namen sonst einen zweiten Charakter an.
+
+        Returns:
+            ``True`` wenn neu angelegt, ``False`` wenn er bereits existierte.
+
+        Raises:
+            ValueError: Keine oder mehr als 2 Bilder.
+            FileNotFoundError: Ein Bild fehlt.
+            RuntimeError: Anlegen nicht bestätigt (Charakter danach nicht gelistet).
+        """
+        if not 1 <= len(image_paths) <= 2:
+            raise ValueError("A Flow character needs 1 or 2 reference images.")
+        files = []
+        for p in image_paths:
+            f = Path(p)
+            if not f.exists():
+                raise FileNotFoundError(f"Character image not found: {p}")
+            files.append(str(f.resolve()).replace("\\", "/"))
+
+        if name.strip().lower() in {c.lower() for c in await self.list_characters()}:
+            logger.info(f"[GoogleFlowEngine] Character '{name}' already exists. Skipping.")
+            return False
+
+        page = await self._open_character_page()
+        async with page.expect_file_chooser(timeout=15000) as fc_info:
+            await page.locator(ui.CHARACTER_UPLOAD_BUTTON).first.click()
+        chooser = await fc_info.value
+        await chooser.set_files(files)
+        await asyncio.sleep(4.0)
+
+        # UNVERIFIED: das Namensfeld erscheint erst nach dem Bild
+        name_input = page.locator(ui.CHARACTER_NAME_INPUT).first
+        if not await self._visible(name_input, 8000):
+            raise RuntimeError("[GoogleFlowEngine] Character name field did not appear after upload.")
+        await name_input.click()
+        await name_input.fill(name)
+
+        if description:
+            desc = page.locator(ui.CHARACTER_DESCRIPTION).first
+            if await self._visible(desc, 2000):
+                await desc.click()
+                await page.keyboard.type(description)
+
+        done = page.locator(ui.CHARACTER_DONE_BUTTON).first
+        if not await self._visible(done, 5000):
+            raise RuntimeError("[GoogleFlowEngine] Character 'Done' button not found.")
+        await done.click()
+        await asyncio.sleep(3.0)
+
+        if name.strip().lower() not in {c.lower() for c in await self.list_characters()}:
+            raise RuntimeError(
+                f"[GoogleFlowEngine] Character '{name}' was not listed after creation."
+            )
+        logger.info(f"[GoogleFlowEngine] Character '{name}' created.")
+        return True
+
+    async def insert_character_mention(self, name: str) -> None:
+        """Fügt ``@Name`` an den Anfang des Prompts ein und wählt den Treffer.
+
+        Nur getippter Text würde keine Referenz anhängen, die Identität ginge
+        verloren. Darum wird der Vorschlagseintrag wirklich ausgewählt.
+
+        UNVERIFIED: Selektor der Vorschlagsliste (Projekt hatte keinen Charakter).
+
+        Raises:
+            RuntimeError: Kein passender Vorschlag erschien (Name unbekannt).
+        """
+        page = await self.connect()
+        await page.locator(ui.PROMPT_EDITOR).first.click()
+        await page.keyboard.press("Control+Home")
+        await page.keyboard.type(f"@{name}", delay=40)
+        option = page.locator(
+            '[role="option"], [role="menuitem"], flow-mention-option, mat-option'
+        ).filter(has_text=name).first
+        if not await self._visible(option, 4000):
+            await page.keyboard.press("Escape")
+            raise RuntimeError(
+                f"[GoogleFlowEngine] No character suggestion for '@{name}' — "
+                "does the character exist in this project?"
+            )
+        await option.click()
+        await asyncio.sleep(0.6)
+        await page.keyboard.type(" ")
+
+    # =========================================================================
+    # Teil B: Szenen-Montage in Flow (statt ffmpeg-Zusammenschnitt)
+    # =========================================================================
+    #
+    # Eine Flow-Szene ist eine geordnete Folge fertiger Clips (umsortieren,
+    # trimmen, herunterladen). Es gibt dafür keine eigene Seite: ``/scenes``
+    # liefert 404, „Szenen“ filtert nur die Medienansicht. Der Zusammenschnitt
+    # kostet nichts, enthält aber nicht unseren Song — den legt weiter ffmpeg darüber.
+
+    async def add_latest_clip_to_scene(self) -> bool:
+        """Kachelmenü des neuesten Clips → „Zu Szene hinzufügen“.
+
+        UNVERIFIED: Das Prüfprojekt hatte keine Clips, der Menüeintrag stammt
+        aus Googles Hilfe. Fehler sind darum nur eine Warnung, nie fatal.
+        """
+        page = await self.connect()
+        tile = page.locator(ui.VIDEO_TILE_CONTAINER).first
+        try:
+            await tile.hover()
+            await tile.locator(ui.TILE_MORE_BUTTON).first.click(timeout=5000)
+            await asyncio.sleep(0.8)
+            for label in ui.ADD_TO_SCENE_ITEM:
+                item = page.locator('[role="menuitem"], button').filter(has_text=label).first
+                if await self._visible(item, 1200):
+                    await item.click()
+                    await asyncio.sleep(1.5)
+                    logger.info("[GoogleFlowEngine] Clip added to scene.")
+                    return True
+            await page.keyboard.press("Escape")
+        except Exception as e:
+            logger.warning(f"[GoogleFlowEngine] Could not add clip to scene: {e}")
+        return False
+
     async def get_video_tiles_count(self) -> int:
         """Gibt die aktuelle Anzahl der Videokacheln im Canvas zurück."""
         page = await self.connect()
@@ -640,8 +891,21 @@ class GoogleFlowEngine:
         style_suffix: str = "Authentic 35mm film still, Kodak Portra 400 grain, Roger Deakins natural lighting, human documentary realism, quiet emotion, 16:9 widescreen",
         skip_if_exists: bool = True,
         max_retries: int = 2,
+        character: Optional[str] = None,
+        add_to_scene: bool = False,
     ) -> bool:
-        """Führt eine komplette Szene Ende-zu-Ende durch."""
+        """Führt eine komplette Szene Ende-zu-Ende durch.
+
+        Args:
+            character: Name eines Flow-Charakters; wird per ``@Name`` im Prompt
+                angesprochen, damit die Figur in allen Clips gleich aussieht.
+            add_to_scene: Fertigen Clip zusätzlich der Flow-Szene hinzufügen
+                (kostenloser Zusammenschnitt in Flow, Fehler nur Warnung).
+
+        Raises:
+            FlowStoppedError: Bestätigung steht auf „Nie“, Kosten über dem Limit,
+                Kostenkarte unlesbar oder Aktivitätswarnung — nichts genehmigt.
+        """
         target = Path(output_clip_path)
         pending_marker = target.with_suffix(target.suffix + ".flow_pending.json")
 
@@ -661,6 +925,11 @@ class GoogleFlowEngine:
 
         full_prompt = f"Generate video with Veo: {prompt}. {style_suffix}".strip()
 
+        # Teil C: VOR dem Absenden prüfen. Bei „Nie“ zahlt Flow schon beim Absenden,
+        # der Kostenschutz käme zu spät. Bewusst außerhalb des try-Blocks: der
+        # FlowStoppedError muss den Stapel anhalten und darf nicht abgefangen werden.
+        await self.ensure_cost_guard_active()
+
         # ── Phase 1: Vorbereitung (kostenlos, daher wiederholbar) ──
         prepared = False
         initial_tiles = 0
@@ -669,9 +938,12 @@ class GoogleFlowEngine:
             try:
                 logger.info(f"[GoogleFlowEngine] Preparing generation, attempt {attempt} for {target.name}...")
                 await self.exit_editor_if_open()
+                await self.clear_prompt()
                 if reference_image_path and os.path.exists(reference_image_path):
                     await self.attach_reference_image(reference_image_path)
                 await self.set_prompt(full_prompt)
+                if character:
+                    await self.insert_character_mention(character)
                 initial_tiles = await self.get_video_tiles_count()
                 cards_before = await self.count_cost_cards()
                 prepared = True
@@ -730,6 +1002,10 @@ class GoogleFlowEngine:
             self.generate_qa_trio(str(target))
         except Exception as e:
             logger.warning(f"[GoogleFlowEngine] QA contact sheet for {target.name} failed (clip is fine): {e}")
+
+        # ── Szenen-Montage in Flow: Zusatz, der den fertigen Clip nie gefährdet ──
+        if add_to_scene:
+            await self.add_latest_clip_to_scene()
 
         return True
 

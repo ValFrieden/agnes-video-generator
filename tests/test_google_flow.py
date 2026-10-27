@@ -288,6 +288,28 @@ class ScriptedEngine:
                 raise FileNotFoundError("ffprobe missing")
             return "trio.png"
 
+        async def ensure_guard():
+            self.calls.append("guard")
+            if behaviour.get("policy_never"):
+                raise FlowStoppedError("policy is Nie", status="confirm_policy_off")
+
+        async def clear():
+            self.calls.append("clear")
+            return None
+
+        async def mention(name):
+            self.calls.append(f"mention:{name}")
+            if behaviour.get("mention_fails"):
+                raise RuntimeError("no suggestion")
+
+        async def add_scene():
+            self.calls.append("add_scene")
+            return not behaviour.get("scene_fails")
+
+        e.ensure_cost_guard_active = ensure_guard
+        e.clear_prompt = clear
+        e.insert_character_mention = mention
+        e.add_latest_clip_to_scene = add_scene
         e.exit_editor_if_open = exit_editor_if_open
         e.attach_reference_image = attach
         e.set_prompt = set_prompt
@@ -391,3 +413,133 @@ def test_fileless_unknown_status_raises_pending():
 
     with pytest.raises(FlowPendingError):
         GoogleFlowAPI._raise_for_fileless_result("Video", {"status": "completed"})
+
+
+# ── Teil C: Einstellungen vor dem Absenden ──────────────────────────────────
+
+
+async def test_policy_never_stops_before_anything_is_submitted(tmp_path):
+    """Bei 'Nie' zahlt Flow schon beim Absenden — also davor abbrechen."""
+    scripted = ScriptedEngine(tmp_path, policy_never=True)
+
+    with pytest.raises(FlowStoppedError) as excinfo:
+        await scripted.run()
+
+    assert excinfo.value.status == "confirm_policy_off"
+    assert "submit" not in scripted.calls
+    assert "set_prompt" not in scripted.calls
+
+
+async def test_prompt_is_cleared_before_references_attach(tmp_path):
+    """Sonst bleibt die Figur der vorigen Szene als Chip im Feld."""
+    ref = tmp_path / "ref.png"
+    ref.write_bytes(b"x")
+    scripted = ScriptedEngine(tmp_path)
+
+    await scripted.engine.generate_scene(
+        prompt="p", reference_image_path=str(ref), output_clip_path=str(scripted.target)
+    )
+
+    assert scripted.calls.index("clear") < scripted.calls.index("attach")
+
+
+# ── Teil A: Charaktere ──────────────────────────────────────────────────────
+
+
+async def test_character_mention_is_inserted_after_prompt(tmp_path):
+    scripted = ScriptedEngine(tmp_path)
+
+    await scripted.run(character="Anna")
+
+    assert "mention:Anna" in scripted.calls
+    assert scripted.calls.index("set_prompt") < scripted.calls.index("mention:Anna")
+
+
+async def test_unresolved_mention_never_submits(tmp_path):
+    """Ein nur getippter @Name hängt keine Referenz an — dann nicht bezahlen."""
+    scripted = ScriptedEngine(tmp_path, mention_fails=True)
+
+    assert await scripted.run(character="Anna", max_retries=1) is False
+    assert "submit" not in scripted.calls
+
+
+async def test_create_character_is_idempotent(tmp_path):
+    """Gleicher Name erzeugt in Flow sonst einen zweiten Charakter."""
+    img = tmp_path / "face.png"
+    img.write_bytes(b"x")
+    engine = make_engine(FakePage())
+
+    async def existing():
+        return ["anna"]
+
+    async def boom():
+        raise AssertionError("must not open the page when the name exists")
+
+    engine.list_characters = existing
+    engine._open_character_page = boom
+
+    assert await engine.create_character("Anna", [str(img)]) is False
+
+
+async def test_create_character_rejects_bad_image_counts(tmp_path):
+    engine = make_engine(FakePage())
+    with pytest.raises(ValueError):
+        await engine.create_character("Anna", [])
+    with pytest.raises(ValueError):
+        await engine.create_character("Anna", ["a.png", "b.png", "c.png"])
+
+
+async def test_create_character_missing_file(tmp_path):
+    engine = make_engine(FakePage())
+    with pytest.raises(FileNotFoundError):
+        await engine.create_character("Anna", [str(tmp_path / "nope.png")])
+
+
+def test_project_base_url_strips_subpage():
+    url = "https://flow.google.com/project/abc-123/character?x=1"
+    assert GoogleFlowEngine._project_base_url(url) == "https://flow.google.com/project/abc-123"
+
+
+def test_project_base_url_outside_project():
+    with pytest.raises(RuntimeError):
+        GoogleFlowEngine._project_base_url("https://flow.google.com/")
+
+
+# ── Teil B: Szenen-Montage ──────────────────────────────────────────────────
+
+
+async def test_scene_montage_is_added_only_on_request(tmp_path):
+    scripted = ScriptedEngine(tmp_path)
+    await scripted.run()
+    assert "add_scene" not in scripted.calls
+
+    scripted = ScriptedEngine(tmp_path / "b")
+    (tmp_path / "b").mkdir()
+    await scripted.run(add_to_scene=True)
+    assert "add_scene" in scripted.calls
+
+
+async def test_scene_montage_failure_keeps_the_clip(tmp_path):
+    """Unverifizierter Menüeintrag darf einen bezahlten Clip nie entwerten."""
+    scripted = ScriptedEngine(tmp_path, scene_fails=True)
+
+    assert await scripted.run(add_to_scene=True) is True
+    assert scripted.target.exists()
+
+
+# ── Selektoren-Modul ────────────────────────────────────────────────────────
+
+
+def test_always_approve_is_listed_only_as_forbidden():
+    from core.api import google_flow_ui as ui
+
+    assert "Immer genehmigen" in ui.COST_ALWAYS_APPROVE_LABELS
+    assert "Immer genehmigen" not in ui.COST_APPROVE_LABELS
+
+
+def test_german_sidebar_labels_are_singular_character():
+    """Live geprüft: 'Charakter', nicht das französische 'Personnages'."""
+    from core.api import google_flow_ui as ui
+
+    assert 'has-text("Charakter")' in ui.NAV_CHARACTERS
+    assert ui.CHARACTER_PATH == "/character"
