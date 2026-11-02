@@ -202,3 +202,209 @@ class SilentTTSEngine(TTSEngine):
 
         # 返回空 cues（用 None 而非 {}，让下游正确识别为无 SubMaker 可用）
         return output_path, None
+
+
+class WhisperSubtitleEngine:
+    """Verfeinert Untertitel-Timestamps durch lokale Whisper-Transkription.
+
+    Kein TTS — transkribiert bereits vorhandene Audiodateien und liefert
+    wortgenaue Timestamps als SRT-kompatible Cues zurück.
+    Nutzt openai-whisper (lokal, kein API-Key nötig).
+
+    Verwendung:
+        engine = WhisperSubtitleEngine(model_name="base")
+        cues = await engine.transcribe(audio_path="narration.mp3", language="ru")
+        # cues: List[dict] mit keys: word, start, end (Sekunden)
+    """
+
+    def __init__(self, model_name: str = "base"):
+        """Initialisiert Whisper-Modell (lädt beim ersten Aufruf).
+
+        Args:
+            model_name: Whisper-Modellgröße: "tiny", "base", "small", "medium", "large".
+                        "base" empfohlen: gute Balance Geschwindigkeit/Genauigkeit.
+        """
+        self._model_name = model_name
+        self._model = None  # lazy load
+
+    def _load_model(self):
+        """Lädt Whisper-Modell (lazy, thread-safe per GIL)."""
+        if self._model is None:
+            try:
+                import whisper
+                logger.info(f"[TTS] Lade Whisper-Modell: {self._model_name}")
+                self._model = whisper.load_model(self._model_name)
+                logger.info(f"[TTS] Whisper-Modell '{self._model_name}' geladen \u2705")
+            except ImportError:
+                raise RuntimeError(
+                    "[TTS] openai-whisper nicht installiert. "
+                    "Installieren mit: pip install openai-whisper"
+                )
+
+    async def transcribe(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        word_timestamps: bool = True,
+    ) -> list:
+        """Transkribiert Audio und gibt Wort-Timestamps zurück.
+
+        Args:
+            audio_path: Pfad zur Audiodatei (.mp3, .wav, .ogg etc.)
+            language: Sprachcode (z.B. "ru", "de", "zh", None = auto-detect)
+            word_timestamps: True = Wort-Level Timestamps; False = Segment-Level
+
+        Returns:
+            Liste von Dicts: [{"word": str, "start": float, "end": float}, ...]
+            Leere Liste bei Fehler oder leerem Audio.
+
+        Raises:
+            RuntimeError: Wenn openai-whisper nicht verfügbar.
+            FileNotFoundError: Wenn audio_path nicht existiert.
+        """
+        if not os.path.exists(audio_path):
+            raise FileNotFoundError(f"[TTS] Audio nicht gefunden: {audio_path}")
+
+        self._load_model()
+        loop = asyncio.get_event_loop()
+
+        def _do_transcribe():
+            import whisper
+            logger.info(
+                f"[TTS] Whisper transkribiert: {os.path.basename(audio_path)}"
+                f" (lang={language or 'auto'}, word_ts={word_timestamps})"
+            )
+            options = {"word_timestamps": word_timestamps}
+            if language:
+                options["language"] = language
+
+            result = self._model.transcribe(audio_path, **options)
+
+            cues = []
+            if word_timestamps:
+                for segment in result.get("segments", []):
+                    for word_info in segment.get("words", []):
+                        cues.append({
+                            "word": word_info.get("word", "").strip(),
+                            "start": word_info.get("start", 0.0),
+                            "end": word_info.get("end", 0.0),
+                        })
+            else:
+                # Segment-Level Fallback
+                for segment in result.get("segments", []):
+                    cues.append({
+                        "word": segment.get("text", "").strip(),
+                        "start": segment.get("start", 0.0),
+                        "end": segment.get("end", 0.0),
+                    })
+
+            logger.info(f"[TTS] Whisper: {len(cues)} Cues extrahiert")
+            return cues
+
+        return await loop.run_in_executor(None, _do_transcribe)
+
+
+class WhisperSubtitleEngine:
+    """Verfeinert Untertitel-Timestamps durch lokale Whisper-Transkription.
+
+    Kein TTS — transkribiert bereits vorhandene Audiodateien und liefert
+    wortgenaue Timestamps als SRT-kompatible Cues zurück.
+    Nutzt openai-whisper (lokal, kein API-Key nötig).
+
+    Modellgrößen (trade-off Geschwindigkeit/Genauigkeit):
+        "tiny"   — sehr schnell, grobe Timestamps
+        "base"   — empfohlen: guter Kompromiss (Standard)
+        "small"  — besser für schwierige Akzente / Musik-TTS
+        "medium" — hohe Genauigkeit, langsam auf CPU
+        "large"  — maximale Genauigkeit, nur GPU empfohlen
+
+    Verwendung:
+        engine = WhisperSubtitleEngine(model_name="base")
+        cues = await engine.transcribe("narration.mp3", language="ru")
+        # cues: List[dict] mit keys: word (str), start (float), end (float)
+    """
+
+    def __init__(self, model_name: str = "base"):
+        """Initialisiert den Engine (Modell wird lazy geladen).
+
+        Args:
+            model_name: Whisper-Modellgröße: "tiny", "base", "small", "medium", "large".
+        """
+        self._model_name = model_name
+        self._model = None  # lazy load
+
+    def _load_model(self):
+        """Lädt Whisper-Modell (lazy, erster Aufruf dauert ~5-30s je nach Modell)."""
+        if self._model is None:
+            try:
+                import whisper
+                logger.info(f"[TTS] Lade Whisper-Modell: '{self._model_name}'")
+                self._model = whisper.load_model(self._model_name)
+                logger.info(f"[TTS] Whisper-Modell '{self._model_name}' geladen ✅")
+            except ImportError:
+                raise RuntimeError(
+                    "[TTS] openai-whisper nicht installiert. "
+                    "Installieren mit: pip install openai-whisper"
+                )
+
+    async def transcribe(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        word_timestamps: bool = True,
+    ) -> list:
+        """Transkribiert Audio und gibt Wort-Timestamps zurück.
+
+        Args:
+            audio_path: Pfad zur Audiodatei (.mp3, .wav, .ogg etc.)
+            language: Sprachcode (z.B. "ru", "de", "zh", None = auto-detect).
+                      Automatische Erkennung verlangsamt den ersten Durchlauf.
+            word_timestamps: True = Wort-Level; False = Segment-Level Timestamps.
+
+        Returns:
+            Liste von Dicts: [{"word": str, "start": float, "end": float}, ...]
+            Leere Liste bei leerem Audio oder fehlgeschlagener Transkription.
+
+        Raises:
+            RuntimeError: Wenn openai-whisper nicht verfügbar ist.
+            FileNotFoundError: Wenn audio_path nicht existiert.
+        """
+        if not os.path.exists(audio_path):
+            raise FileNotFoundError(f"[TTS] Audio nicht gefunden: {audio_path}")
+
+        self._load_model()
+        loop = asyncio.get_event_loop()
+
+        def _do_transcribe() -> list:
+            logger.info(
+                f"[TTS] Whisper transkribiert: {os.path.basename(audio_path)}"
+                f" (lang={language or 'auto'}, word_ts={word_timestamps})"
+            )
+            options: dict = {"word_timestamps": word_timestamps}
+            if language:
+                options["language"] = language
+
+            result = self._model.transcribe(audio_path, **options)
+
+            cues = []
+            if word_timestamps:
+                for segment in result.get("segments", []):
+                    for word_info in segment.get("words", []):
+                        cues.append({
+                            "word": word_info.get("word", "").strip(),
+                            "start": float(word_info.get("start", 0.0)),
+                            "end": float(word_info.get("end", 0.0)),
+                        })
+            else:
+                # Segment-Level Fallback
+                for segment in result.get("segments", []):
+                    cues.append({
+                        "word": segment.get("text", "").strip(),
+                        "start": float(segment.get("start", 0.0)),
+                        "end": float(segment.get("end", 0.0)),
+                    })
+
+            logger.info(f"[TTS] Whisper: {len(cues)} Cues extrahiert")
+            return cues
+
+        return await loop.run_in_executor(None, _do_transcribe)

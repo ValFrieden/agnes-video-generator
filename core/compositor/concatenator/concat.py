@@ -100,6 +100,113 @@ class ConcatMixin:
         return output_path
 
     @staticmethod
+    def concat_videos_with_crossfade(
+        video_paths: List[str],
+        output_path: str,
+        crossfade_duration: float = 0.5,
+    ) -> str:
+        """Konkateniert Videos mit Crossfade-Ueberblendungen zwischen Clips.
+
+        Jede Ueberblende dauert ``crossfade_duration`` Sekunden. Faellt graceful
+        auf harte Cuts (``concat_videos``) zurueck wenn ein Clip zu kurz ist oder
+        moviepy fehlschlaegt.
+
+        Args:
+            video_paths: Liste der Videodateien
+            output_path: Ausgabepfad
+            crossfade_duration: Ueberblenddauer in Sekunden (Standard: 0.5s)
+
+        Returns:
+            output_path
+        """
+        logger.info(
+            f"[Compositor] Crossfade-Konkatenation: {len(video_paths)} Clips, "
+            f"fade={crossfade_duration}s -> {output_path}"
+        )
+
+        if not video_paths:
+            raise RuntimeError("No videos to concatenate")
+
+        if len(video_paths) == 1 or crossfade_duration <= 0:
+            logger.info("[Compositor] Einzelvideo oder fade=0 -> harter Cut")
+            return ConcatMixin.concat_videos(video_paths, output_path)
+
+        try:
+            from moviepy import CompositeVideoClip, VideoFileClip
+            from moviepy.video.fx import CrossFadeIn, CrossFadeOut
+
+            clips = [VideoFileClip(p) for p in video_paths]
+
+            # Pruefe Mindestlaenge
+            for i, clip in enumerate(clips):
+                if clip.duration <= crossfade_duration:
+                    logger.warning(
+                        f"[Compositor] Clip {i} zu kurz ({clip.duration:.1f}s) fuer "
+                        f"Crossfade ({crossfade_duration}s) -> falle zurueck auf harte Cuts"
+                    )
+                    for c in clips:
+                        try:
+                            c.close()
+                        except Exception:
+                            pass
+                    return ConcatMixin.concat_videos(video_paths, output_path)
+
+            # CrossFadeIn/Out anwenden
+            processed = []
+            for i, clip in enumerate(clips):
+                c = clip
+                if i > 0:
+                    c = c.with_effects([CrossFadeIn(crossfade_duration)])
+                if i < len(clips) - 1:
+                    c = c.with_effects([CrossFadeOut(crossfade_duration)])
+                processed.append(c)
+
+            # Startzeiten berechnen (Clips ueberlappen um crossfade_duration)
+            t = 0.0
+            positioned = []
+            for i, clip in enumerate(processed):
+                positioned.append(clip.with_start(t))
+                if i < len(processed) - 1:
+                    t += clip.duration - crossfade_duration
+                else:
+                    t += clip.duration
+
+            final = None
+            os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+            try:
+                final = CompositeVideoClip(positioned)
+                final.write_videofile(
+                    output_path,
+                    codec="libx264",
+                    audio_codec=_AUDIO_CODEC,
+                    audio_bitrate=_AUDIO_BITRATE,
+                    audio_fps=_AUDIO_FPS,
+                    fps=_VIDEO_FPS,
+                    logger="bar",
+                )
+            finally:
+                for c in clips + processed:
+                    try:
+                        c.close()
+                    except Exception:
+                        pass
+                if final is not None:
+                    try:
+                        final.close()
+                    except Exception:
+                        pass
+
+            logger.info(f"[Compositor] Crossfade-Video erstellt: {output_path}")
+            return output_path
+
+        except Exception as exc:
+            logger.warning(
+                f"[Compositor] Crossfade fehlgeschlagen ({exc!r}) -> falle zurueck auf harte Cuts"
+            )
+            return ConcatMixin.concat_videos(video_paths, output_path)
+
+
+    @staticmethod
     def _try_ffmpeg_copy_concat(video_paths: List[str], output_path: str) -> bool:
         """2.1a：尝试 ffmpeg concat demuxer + ``-c copy`` 快速拼接。
 
