@@ -86,6 +86,7 @@ storyboard_frames/
 *_frames/*.webp
 
 # 本地实验/QA 产物与日志（不入库）
+output/
 agnes_out/
 fal_out/
 scratch_watch_analysis/
