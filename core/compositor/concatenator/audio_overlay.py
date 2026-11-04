@@ -992,3 +992,91 @@ class AudioOverlayMixin:
 
         logger.info(f"[Compositor] composite_anchor_video done: {output_path}")
         return output_path
+
+    # ─────────────────────────────────────────────────────────────
+    # Студийное сведение BGM и голоса + Мастеринг (из AudioGenerator Studio)
+    # ─────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def get_mastering_eq(profile: str = "flat") -> str:
+        """Возвращает строку FFmpeg equalizer фильтра для выбранного профиля мастеринга.
+
+        Профили калиброваны под кино- и музыкальное звучание:
+        - warm/tape: винтажная сатурация, аналоговое тепло (+2dB на 200Hz, мягкий спад на 9kHz).
+        - club/bass: насыщенный саб-бас и бочка (+4dB на 60Hz, +2dB на 120Hz).
+        - radio/air/bright: кристальная разборчивость голоса (+3.5dB на 11kHz, +1dB на 3.5kHz).
+        - lofi/vinyl: радио/телефонный срез (полоса 300Hz - 4800Hz).
+        - flat: нейтральный студийный баланс.
+        """
+        p = (profile or "flat").lower()
+        if p in ["tape", "warm"]:
+            return ",equalizer=f=200:width_type=h:width=120:g=2,equalizer=f=9000:width_type=h:width=2500:g=-1.5"
+        elif p in ["bass", "club"]:
+            return ",equalizer=f=60:width_type=h:width=40:g=4,equalizer=f=120:width_type=h:width=60:g=2"
+        elif p in ["air", "radio", "bright"]:
+            return ",equalizer=f=11000:width_type=h:width=3000:g=3.5,equalizer=f=3500:width_type=h:width=1000:g=1"
+        elif p in ["lofi", "vinyl"]:
+            return ",highpass=f=300,lowpass=f=4800"
+        return ""
+
+    @staticmethod
+    def mix_voice_and_bgm(
+        voice_path: str,
+        bgm_path: str,
+        output_path: str,
+        voice_volume: float = 1.25,
+        bgm_volume: float = 0.25,
+        mastering_profile: str = "flat",
+        target_duration: Optional[float] = None,
+    ) -> str:
+        """Сводит дикторскую речь и фоновую музыку с сайдчейн-балансировкой и мастерингом.
+
+        Args:
+            voice_path: Путь к аудиофайлу голоса (например, сгенерированному Edge-TTS).
+            bgm_path: Путь к фоновому музыкальному треку.
+            output_path: Путь к итоговому смикшированному файлу (.mp3).
+            voice_volume: Коэффициент громкости диктора (по умолчанию 1.25x).
+            bgm_volume: Коэффициент громкости музыки (0.2-0.3 для слышимости диктора).
+            mastering_profile: Профиль мастеринга ('flat', 'warm', 'club', 'radio', 'lofi').
+            target_duration: Целевая длительность микса (если None, то по длине голоса).
+
+        Returns:
+            Путь к смикшированному файлу.
+        """
+        if not os.path.isfile(voice_path):
+            raise FileNotFoundError(f"Файл голоса не найден: {voice_path}")
+        if not os.path.isfile(bgm_path):
+            raise FileNotFoundError(f"Файл фоновой музыки не найден: {bgm_path}")
+
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+
+        voice_dur = VideoConcatenator._get_duration(voice_path)
+        final_dur = target_duration if target_duration and target_duration > 0 else voice_dur
+        master_eq = AudioOverlayMixin.get_mastering_eq(mastering_profile)
+
+        filter_complex = (
+            f"[0:a]volume={voice_volume:.2f},equalizer=f=3500:width_type=h:width=1000:g=1.2[v_raw];"
+            f"[1:a]aloop=loop=-1:size=2e+09,volume={bgm_volume:.2f}[bgm_raw];"
+            f"[v_raw][bgm_raw]amix=inputs=2:duration=first:dropout_transition=2[mixed];"
+            f"[mixed]aformat=sample_fmts=fltp:sample_rates=44100{master_eq}[out]"
+        )
+
+        cmd = [
+            resolve_binary("ffmpeg"), "-y",
+            "-i", voice_path,
+            "-i", bgm_path,
+            "-filter_complex", filter_complex,
+            "-map", "[out]",
+            "-c:a", "libmp3lame",
+            "-b:a", "320k",
+            "-t", f"{final_dur:.2f}",
+            output_path,
+        ]
+
+        logger.info(
+            f"[Compositor] Mixing voice ({voice_volume:.2f}x) + BGM ({bgm_volume:.2f}x, {mastering_profile}) "
+            f"-> {output_path} ({final_dur:.2f}s)"
+        )
+        VideoConcatenator._run_ffmpeg(cmd, desc="mix voice and background music")
+        return output_path
+

@@ -100,6 +100,11 @@ class AudioConfig(BaseModel):
     voice: str = "zh-CN-XiaoxiaoNeural"
     rate: str = "+0%"
     add_tashkeel: bool = False  # 阿拉伯语旁白自动加变音符号（harakat），提升 TTS 朗读准确度
+    bgm_enabled: bool = False   # 是否启用 AI 背景音乐生成与混音
+    bgm_prompt: str = ""        # BGM 描述词或主题
+    bgm_style: str = ""         # BGM 风格标签（如 "Cinematic Soundtrack, 120 BPM"）
+    bgm_volume: float = 0.25    # BGM 混音音量比重 (0.1 ~ 0.5)
+    mastering_profile: str = "flat"  # 母带处理风格 ('flat', 'warm', 'club', 'radio', 'lofi')
 
 
 class ManualConfig(BaseModel):
@@ -265,6 +270,13 @@ class SimpleVideoTask(BaseTaskState):
     prompt: str = ""
     mode: VideoMode = VideoMode.T2V
     reference_image: str = ""
+    generate_music: bool = False  # 是否通过 Suno AI 自动生成背景音乐/歌曲
+    music_prompt: str = ""        # 音乐生成提示词
+    music_style: str = ""         # 音乐风格标签或预设
+    instrumental: bool = True     # 纯音乐伴奏还是带人声歌词
+    suno_model: str = "V6"        # Suno 模型 (V6, V6_MINI, V6_WILD, V5)
+    trim_start_sec: float = 0.0   # 音频裁剪起始秒数
+    trim_end_sec: float = 0.0     # 音频裁剪结束秒数 (0 = 不裁剪全长)
     end_frame_image: str = ""
     duration: int = 5
     # v6.2：2.5 系列模型分辨率档位（720P/960P/2K；v2.0 忽略，默认 720P）
@@ -421,7 +433,7 @@ class AnchorVideoTask(BaseTaskState):
     script_text: str = ""
 
     # 配置
-    audio_source: str = "post_stitch"  # "post_stitch" | "model"
+    audio_source: str = "post_stitch"  # "post_stitch" | "model" | "lipsync"
 
     # 步骤状态
     step_generate_anchor: StepStatus = StepStatus.PENDING

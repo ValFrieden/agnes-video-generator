@@ -873,6 +873,19 @@ class BasePipeline(ABC):
 
         # 路径 A：音频开 → EdgeTTS 生成
         if audio_enabled:
+            # Kokoro 本地离线引擎探测（若音色为 Kokoro 命名且本地依赖已就绪）
+            if voice.startswith(("af_", "am_", "bf_", "bm_", "ef_", "em_", "ff_", "if_", "jf_", "pf_", "zf_")):
+                from core.audio.tts import KokoroTTSEngine
+                if KokoroTTSEngine.is_available():
+                    try:
+                        kokoro_engine = KokoroTTSEngine()
+                        _, sub_maker = await kokoro_engine.generate(
+                            text=text, output_path=output_path, voice=voice, rate=rate,
+                        )
+                        return sub_maker
+                    except Exception as e:
+                        logger.warning("[Audio] KokoroTTS failed, falling back to EdgeTTS: %s", e)
+
             try:
                 edge_tts = EdgeTTSEngine()
                 _, sub_maker = await edge_tts.generate(

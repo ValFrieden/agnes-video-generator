@@ -21,7 +21,7 @@ const form = reactive({
   refName: '',
   script: '',
   resolution: '768x1344',
-  audioSource: 'post_stitch' as 'post_stitch' | 'model',
+  audioSource: 'post_stitch' as 'post_stitch' | 'model' | 'lipsync',
 })
 
 const charCount = computed(() => form.script.length)
@@ -35,7 +35,7 @@ const draft = useDraft('anchor')
   if (typeof d.prompt === 'string') form.prompt = d.prompt
   if (typeof d.script === 'string') form.script = d.script
   if (typeof d.resolution === 'string') form.resolution = d.resolution
-  if (d.audioSource === 'post_stitch' || d.audioSource === 'model') form.audioSource = d.audioSource
+  if (d.audioSource === 'post_stitch' || d.audioSource === 'model' || d.audioSource === 'lipsync') form.audioSource = d.audioSource
 })()
 draft.autoSave(form, (v) => ({
   prompt: v.prompt, script: v.script, resolution: v.resolution, audioSource: v.audioSource,
@@ -150,6 +150,13 @@ async function submitAnchor() {
             <div>
               <span class="text-sm text-ink-2 group-hover:text-ink transition">{{ t('audioModel') }}</span>
               <p class="text-xs text-muted mt-0.5">{{ t('audioModelDesc') }}</p>
+            </div>
+          </label>
+          <label class="flex items-start gap-3 cursor-pointer group">
+            <input v-model="form.audioSource" type="radio" name="a_audio_source" value="lipsync" class="mt-0.5 accent-blue-500" />
+            <div>
+              <span class="text-sm text-ink-2 group-hover:text-ink transition">LivePortrait Lip-Sync ✨</span>
+              <p class="text-xs text-muted mt-0.5">Синхронизация губ и мимики диктора под речь через нейросеть LivePortrait/EchoMimic</p>
             </div>
           </label>
         </div>

@@ -204,6 +204,147 @@ class SilentTTSEngine(TTSEngine):
         return output_path, None
 
 
+class KokoroTTSEngine(TTSEngine):
+    """基于 Kokoro-82M (hexgrad) 的开源本地轻量级 TTS 引擎 (Apache 2.0)。
+
+    无需外部 API Key，完全在本地 CPU/GPU 离线运行，高保真 24kHz 音质。
+    若未安装依赖或模型尚未就绪，提供 is_available() 状态自检，并在失败时优雅抛出 RuntimeError
+    以便流水线自动回退。
+    """
+
+    VOICE_LANG_PREFIX = {
+        "a": "a",  # American English (e.g. af_heart, am_adam)
+        "b": "b",  # British English (e.g. bf_emma, bm_george)
+        "e": "e",  # Spanish (e.g. ef_dora, em_alex)
+        "f": "f",  # French (e.g. ff_siwis)
+        "h": "h",  # Hindi
+        "i": "i",  # Italian
+        "j": "j",  # Japanese
+        "p": "p",  # Brazilian Portuguese
+        "z": "z",  # Mandarin Chinese (e.g. zf_xiaobei, zm_yunjian)
+    }
+
+    def __init__(self, lang_code: str = "a"):
+        """初始化 Kokoro 引擎。
+        
+        Args:
+            lang_code: 默认语言代码 ('a'=American English, 'b'=British, 'z'=Chinese 等)
+        """
+        self._default_lang = lang_code
+        self._pipeline = None
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """检查本地环境是否满足 Kokoro 运行所需依赖。"""
+        try:
+            import kokoro  # noqa: F401
+            import soundfile  # noqa: F401
+            return True
+        except ImportError:
+            return False
+
+    def _infer_lang_code(self, voice: str) -> str:
+        """根据音色名称前缀（如 af_heart -> a, zf_xiaobei -> z）推断语言代码。"""
+        if voice and len(voice) >= 2 and voice[0] in self.VOICE_LANG_PREFIX:
+            return voice[0]
+        return self._default_lang
+
+    def _parse_speed(self, rate: str) -> float:
+        """将 rate 字符串（如 '+0%', '+20%', '-10%'）转换为浮点倍速（如 1.0, 1.2, 0.9）。"""
+        if not rate:
+            return 1.0
+        try:
+            cleaned = rate.replace("%", "").strip()
+            if cleaned.startswith("+"):
+                percent = float(cleaned[1:])
+                return round(1.0 + percent / 100.0, 2)
+            elif cleaned.startswith("-"):
+                percent = float(cleaned[1:])
+                return round(max(0.5, 1.0 - percent / 100.0), 2)
+            else:
+                return float(cleaned)
+        except Exception:
+            return 1.0
+
+    async def generate(
+        self, text: str, output_path: str, voice: str = "af_heart", rate: str = "+0%"
+    ) -> Tuple[str, Optional[object]]:
+        """使用本地 Kokoro-82M 生成音频文件 (.mp3 或 .wav)。
+
+        Args:
+            text: 要朗读的文本
+            output_path: 输出音频文件路径
+            voice: Kokoro 音色标识（默认 af_heart）
+            rate: 语速调节（如 "+0%", "+20%"）
+
+        Returns:
+            (audio_path, None) 元组
+
+        Raises:
+            RuntimeError: 当依赖未安装或推理失败时抛出。
+        """
+        if not self.is_available():
+            raise RuntimeError(
+                "[TTS] Kokoro-82M 依赖未安装。如需启用离线合成，请运行: pip install kokoro soundfile"
+            )
+
+        logger.info(f"[TTS] [Kokoro] Generating audio: voice={voice}, rate={rate}, text={len(text)} chars...")
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
+        lang_code = self._infer_lang_code(voice)
+        speed = self._parse_speed(rate)
+        loop = asyncio.get_event_loop()
+
+        def _synthesize() -> str:
+            import numpy as np
+            import soundfile as sf
+            from kokoro import KPipeline
+
+            pipeline = KPipeline(lang_code=lang_code)
+            generator = pipeline(text, voice=voice, speed=speed, split_pattern=r"\n+")
+            
+            all_audio = []
+            for _, _, audio in generator:
+                if audio is not None and len(audio) > 0:
+                    all_audio.append(audio)
+
+            if not all_audio:
+                raise RuntimeError("[TTS] Kokoro did not produce any audio segments")
+
+            combined_audio = np.concatenate(all_audio) if len(all_audio) > 1 else all_audio[0]
+
+            # 统一输出 WAV 或 MP3
+            is_mp3 = output_path.lower().endswith(".mp3")
+            temp_wav = output_path + ".wav" if is_mp3 else output_path
+            sf.write(temp_wav, combined_audio, 24000)
+
+            if is_mp3:
+                ffmpeg = resolve_binary("ffmpeg") or "ffmpeg"
+                import subprocess
+                cmd = [
+                    ffmpeg, "-y",
+                    "-i", temp_wav,
+                    "-c:a", "libmp3lame",
+                    "-q:a", "2",
+                    output_path
+                ]
+                res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                try:
+                    if os.path.exists(temp_wav):
+                        os.remove(temp_wav)
+                except OSError:
+                    pass
+                if res.returncode != 0:
+                    raise RuntimeError(f"[TTS] Failed to convert Kokoro wav to mp3: {res.stderr.decode()[:300]}")
+
+            return output_path
+
+        await loop.run_in_executor(None, _synthesize)
+        logger.info(f"[TTS] [Kokoro] Audio successfully generated: {output_path}")
+        return output_path, None
+
+
+
 class WhisperSubtitleEngine:
     """Verfeinert Untertitel-Timestamps durch lokale Whisper-Transkription.
 

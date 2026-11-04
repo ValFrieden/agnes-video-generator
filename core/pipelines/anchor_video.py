@@ -404,7 +404,8 @@ class AnchorPipeline(MultiScenePipeline):
     # ------------------------------------------------------------------
 
     async def _composite_final(self) -> str:
-        """循环单段视频 + 叠加音频 + 字幕（post_stitch）；model 模式返回 clip。"""
+        """循环单段视频 + 叠加音频 + 字幕（post_stitch）；model 模式返回 clip；lipsync 模式驱动人脸。"""
+        import shutil
         audio_source = self._state.audio_source or "post_stitch"
         clip_path = self._state.scenes[0].video_file
 
@@ -427,6 +428,78 @@ class AnchorPipeline(MultiScenePipeline):
             and bool(self._state.combined_subtitle)
         )
 
+        # ── 模式 1：LivePortrait / EchoMimic Lip-Sync ──
+        if audio_source == "lipsync":
+            from core.api.lipsync_provider import create_lipsync_provider
+            anchor_img = getattr(self._state, "anchor_image_path", "")
+            if anchor_img and os.path.exists(anchor_img) and audio_path and os.path.exists(audio_path):
+                try:
+                    await self._emit("concatenate", "running", "LivePortrait: генерация мимики и лип-синка...", _PROGRESS_CONCAT_START)
+                    lipsync_raw = os.path.join(self.working_dir, "lipsync_raw.mp4")
+                    provider = create_lipsync_provider()
+                    await provider.generate_lipsync(
+                        image_path=anchor_img,
+                        audio_path=audio_path,
+                        output_path=lipsync_raw,
+                    )
+                    # Наложение субтитров через Remotion или FFmpeg
+                    if has_subtitle:
+                        from core.audio.subtitle.remotion_renderer import RemotionSubtitleRenderer
+                        if RemotionSubtitleRenderer.is_available():
+                            await RemotionSubtitleRenderer.render_and_overlay(
+                                base_video_path=lipsync_raw,
+                                srt_path=self._state.combined_subtitle,
+                                output_path=output_path,
+                                video_width=self._state.video_width,
+                                video_height=self._state.video_height,
+                            )
+                            logger.info("[Anchor] composite: LipSync + Remotion video → %s", output_path)
+                            return output_path
+                        else:
+                            # Фолбэк на стандартную сборку субтитров с полученным lipsync видео
+                            clip_path = lipsync_raw
+                    else:
+                        shutil.copy2(lipsync_raw, output_path)
+                        logger.info("[Anchor] composite: LipSync video → %s", output_path)
+                        return output_path
+                except Exception as e:
+                    logger.warning("[Anchor] LipSync generation failed or unavailable: %s. Falling back to post_stitch loop.", e)
+
+        # ── 模式 2：Remotion Subtitles 优先 на post_stitch ──
+        if has_subtitle:
+            from core.audio.subtitle.remotion_renderer import RemotionSubtitleRenderer
+            if RemotionSubtitleRenderer.is_available():
+                try:
+                    await self._emit("concatenate", "running", "Remotion: рендеринг анимированных субтитров...", _PROGRESS_CONCAT_START)
+                    tmp_no_subs = os.path.join(self.working_dir, "_anchor_no_subs.mp4")
+                    await asyncio.to_thread(
+                        VideoConcatenator.composite_anchor_video,
+                        clip_path=clip_path,
+                        audio_path=audio_path,
+                        srt_path=None,
+                        output_path=tmp_no_subs,
+                        audio_duration=audio_duration,
+                        video_width=self._state.video_width,
+                        video_height=self._state.video_height,
+                    )
+                    await RemotionSubtitleRenderer.render_and_overlay(
+                        base_video_path=tmp_no_subs,
+                        srt_path=self._state.combined_subtitle,
+                        output_path=output_path,
+                        video_width=self._state.video_width,
+                        video_height=self._state.video_height,
+                    )
+                    if os.path.exists(tmp_no_subs):
+                        try:
+                            os.remove(tmp_no_subs)
+                        except OSError:
+                            pass
+                    logger.info("[Anchor] composite: Remotion subtitles video → %s", output_path)
+                    return output_path
+                except Exception as e:
+                    logger.warning("[Anchor] Remotion subtitles failed (%s), falling back to standard composite", e)
+
+        # ── 模式 3：Стандартный MoviePy / FFmpeg композитинг ──
         await self._emit("concatenate", "running", self._t("progress.anchor.concat_running"), _PROGRESS_CONCAT_START)
 
         await asyncio.to_thread(

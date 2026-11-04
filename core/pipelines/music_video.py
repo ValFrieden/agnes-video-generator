@@ -15,6 +15,8 @@ from typing import List, Optional
 
 from core.api.image_providers import create_image_provider
 from core.api.video_providers import create_video_provider
+from core.api.suno_music import SunoMusicAPI, compose_music_prompt
+from core.audio.audio_trimmer import trim_audio_segment
 from core.audio.beat_detector import analyze_audio_track
 from core.compositor.concatenator import VideoConcatenator
 from core.config import DEFAULT_TEXT_MODEL
@@ -76,6 +78,49 @@ class MusicVideoPipeline(MultiScenePipeline):
 
         bpm = state.bpm or 120
         target_scenes = max(2, state.scene_count or 6)
+
+        # ── 1. Генерация трека через Suno AI (если запрошено или нет локального файла) ──
+        should_generate = state.generate_music or (not os.path.isfile(audio_path) and bool(state.music_prompt))
+        if should_generate and not os.path.isfile(audio_path):
+            suno = SunoMusicAPI()
+            if suno.is_configured():
+                logger.info(f"[MusicVideo] Generating soundtrack via Suno AI ({state.suno_model})...")
+                p_text = state.music_prompt or state.song_title or "Cinematic Music Video Soundtrack"
+                st_text = state.music_style or compose_music_prompt(genre=state.visual_style, bpm=bpm)
+                try:
+                    res = await suno.generate_music(
+                        prompt=p_text,
+                        style=st_text,
+                        title=state.song_title or "AI Music Video",
+                        instrumental=state.instrumental,
+                        model=state.suno_model or "V6",
+                    )
+                    tid = res.get("taskId")
+                    if tid:
+                        logger.info(f"[MusicVideo] Suno task dispatched: {tid}. Polling track...")
+                        await suno.poll_and_download(tid, dest_path=audio_path)
+                        state.audio_file = audio_path
+                        logger.info(f"[MusicVideo] Track generated & saved to {audio_path}")
+                except Exception as exc:
+                    logger.warning(f"[MusicVideo] Suno generation failed: {exc}, fallback to synthesized grid.")
+            else:
+                logger.warning("[MusicVideo] Suno API Key not configured, continuing with existing/fallback audio.")
+
+        # ── 2. Обрезка аудиофрагмента (Audio Trimming), если заданы таймкоды ──
+        if os.path.isfile(audio_path) and state.trim_end_sec > state.trim_start_sec:
+            trimmed_path = os.path.join(self.working_dir, "audio_trimmed.mp3")
+            try:
+                trim_audio_segment(
+                    input_path=audio_path,
+                    output_path=trimmed_path,
+                    start_sec=state.trim_start_sec,
+                    end_sec=state.trim_end_sec,
+                )
+                audio_path = trimmed_path
+                state.audio_file = trimmed_path
+                logger.info(f"[MusicVideo] Audio trimmed: [{state.trim_start_sec}s - {state.trim_end_sec}s]")
+            except Exception as e:
+                logger.warning(f"[MusicVideo] Trimming failed: {e}, using original audio.")
 
         logger.info(f"[MusicVideo] Analyzing audio track '{audio_path}' with BPM {bpm}...")
         segments = analyze_audio_track(audio_path, bpm=bpm, target_scenes=target_scenes)

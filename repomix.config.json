@@ -1,0 +1,54 @@
+{
+  "$schema": "https://repomix.com/schemas/config.json",
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "parsableStyle": true,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "removeComments": false,
+    "removeEmptyLines": true,
+    "topFilesLength": 15,
+    "showLineNumbers": false,
+    "copyToClipboard": false
+  },
+  "include": [
+    "core/**",
+    "models/**",
+    "web/**",
+    "utils/**",
+    "scripts/**",
+    "frontend/src/**",
+    "server.py",
+    "requirements.txt",
+    "AGENTS.md",
+    "docs/public/**",
+    "docs/dev/**"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "workspace/**",
+      "temp/**",
+      "static/**",
+      "resource/fonts/**",
+      "node_modules/**",
+      "frontend/node_modules/**",
+      ".venv/**",
+      "venv/**",
+      "error_logs/**",
+      "**/*.mp4",
+      "**/*.png",
+      "**/*.jpg",
+      "**/*.jpeg",
+      "**/*.ttc",
+      "**/*.ttf",
+      "**/*.pyc",
+      "**/__pycache__/**"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  }
+}

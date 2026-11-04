@@ -24,7 +24,10 @@ build/
 static/generated/
 
 # 前端依赖与本地构建缓存（构建产物 static/assets/ 需提交进仓库）
+node_modules/
+**/node_modules/
 frontend/node_modules/
+remotion_subtitles/node_modules/
 frontend/.vite/
 
 # IDE 本地数据
