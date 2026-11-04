@@ -8,6 +8,9 @@ import { useConfig } from '@/composables/useConfig'
 import { useTaskSubmit } from '@/composables/useTaskSubmit'
 import { useDraft } from '@/composables/useDraft'
 import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
+import DropzoneCard from '@/components/shared/DropzoneCard.vue'
+import InfoTooltip from '@/components/shared/InfoTooltip.vue'
+import CameraMovementPicker from '@/components/presets/CameraMovementPicker.vue'
 
 const { trackEvent } = useGa()
 const { saveModels } = useConfig()
@@ -41,6 +44,8 @@ const video = reactive({
   refName: '',
   endImage: null as File | null,
   endName: '',
+  cameraMovement: '',
+  draftMode: false,
 })
 
 // Image form
@@ -186,6 +191,8 @@ async function submitSimple() {
         form.append('video_width', String(res.width))
         form.append('video_height', String(res.height))
       }
+      if (video.cameraMovement) form.append('camera_movement', video.cameraMovement)
+      form.append('draft_mode', String(video.draftMode))
       if (video.seed) form.append('seed', video.seed)
       // 2.5 系列不支持负面提示词，不提交
       if (!isV25.value && video.negative) form.append('negative_prompt', video.negative)
@@ -233,17 +240,36 @@ async function submitImage() {
 <template>
   <div>
     <div class="flex items-center gap-2 mb-4 text-xs text-muted">
-      <span class="text-muted">💡</span>
+      <svg class="w-3.5 h-3.5 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
       <a href="https://video.lichuanyang.top/guides/prompt-examples-simple" target="_blank" rel="noopener" class="hover:text-accent transition-colors">{{ t('exampleLinkSimple') }}</a>
     </div>
 
-    <!-- Sub-mode selector -->
-    <div class="glass-card rounded-xl p-3 mb-4 flex items-center gap-3">
-      <label class="text-sm text-muted whitespace-nowrap">{{ t('subModeLabel') }}</label>
-      <select v-model="subMode" class="flex-1 glass-input rounded-lg px-3 py-2 text-sm text-ink">
-        <option value="video">{{ t('subModeVideo') }}</option>
-        <option value="image">{{ t('subModeImage') }}</option>
-      </select>
+    <!-- Sub-mode selector (Clean Studio Segmented Control) -->
+    <div class="glass-card rounded-xl p-1 mb-4 flex items-center justify-center gap-1.5">
+      <button
+        type="button"
+        class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
+        :class="subMode === 'video' ? 'bg-paper-3 text-ink border border-rule' : 'text-muted hover:text-ink'"
+        @click="subMode = 'video'"
+      >
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+        </svg>
+        <span>{{ t('subModeVideo').replace(/^[^\w\s\u4e00-\u9fa5]+/, '').trim() }}</span>
+      </button>
+      <button
+        type="button"
+        class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
+        :class="subMode === 'image' ? 'bg-paper-3 text-ink border border-rule' : 'text-muted hover:text-ink'"
+        @click="subMode = 'image'"
+      >
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span>{{ t('subModeImage').replace(/^[^\w\s\u4e00-\u9fa5]+/, '').trim() }}</span>
+      </button>
     </div>
 
     <!-- Video sub-form -->
@@ -255,7 +281,7 @@ async function submitImage() {
         <div class="mb-4 rounded-xl bg-paper-3/50 p-3">
           <label class="block text-sm text-muted mb-1.5">{{ t('vmModelSelect') }}</label>
           <select :value="appState.models.video" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink" @change="onVideoModelChange">
-            <option v-for="m in appState.modelListCache.video" :key="m" :value="m">{{ m }}{{ vmCaps.isAdapted(m) ? '' : ' ⚠' }}</option>
+            <option v-for="m in appState.modelListCache.video" :key="m" :value="m">{{ m }}{{ vmCaps.isAdapted(m) ? '' : ' [!]' }}</option>
           </select>
           <!-- v7.0 U8：当前版本未适配的模型显式提示（不再静默按 v2.0 协议提交） -->
           <p v-if="!vmCaps.isAdapted(currentVideoModel)" class="text-xs text-amber-400 mt-1.5">{{ t('vmUnadaptedHint') }}</p>
@@ -283,6 +309,15 @@ async function submitImage() {
         <div class="mb-4">
           <label class="block text-sm text-muted mb-1.5">{{ t('promptLabel') }} (prompt) <span class="text-red-400">*</span></label>
           <textarea v-model="video.prompt" rows="3" :placeholder="t('promptPlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm resize-y text-ink placeholder-muted"></textarea>
+        </div>
+
+        <!-- 20 Cinematic Camera Movements (SYNTX AI) -->
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-sm text-muted font-medium">Кинематографическое движение камеры (SYNTX)</label>
+            <InfoTooltip text="20 операторских пресетов (Dolly In, Orbital Pan, Snorricam, Vertigo, Crane): задает физику и кинематографическую траекторию камеры." />
+          </div>
+          <CameraMovementPicker v-model="video.cameraMovement" />
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -324,29 +359,27 @@ async function submitImage() {
         <!-- v7.0 U3：2.5 系列竖屏（9:16）上游画面旋转缺陷提示（零风险：先提示不自动修） -->
         <p v-if="isV25 && video.ratio === '9:16'" class="text-xs text-amber-400 mb-4">{{ t('vmPortraitRotateHint') }}</p>
 
-        <!-- Reference Image -->
+        <!-- Reference Image with Dropzone -->
         <div v-if="needsRefImage" class="mb-4">
-          <label class="block text-sm text-muted mb-1.5">{{ t('refImageSimple') }}</label>
-          <div class="flex items-center gap-4">
-            <label class="cursor-pointer px-4 py-2.5 glass-input rounded-lg text-sm transition inline-block hover:border-blue-500/30">
-              <span>{{ t('chooseImage') }}</span>
-              <input type="file" accept="image/*" class="hidden" @change="onRefImageChange($event, 'video')" />
-            </label>
-            <span class="text-sm text-muted">{{ video.refName || t('notSelected') }}</span>
-          </div>
+          <label class="block text-sm text-muted font-medium mb-1.5">{{ t('refImageSimple') }}</label>
+          <DropzoneCard
+            v-model="video.refImage"
+            :title="t('refImageSimple')"
+            badge="Стартовый кадр / Референс"
+            @change="(f) => video.refName = f ? f.name : ''"
+          />
           <p v-if="vmCaps.maxRefImages(currentVideoModel)" class="text-xs text-muted mt-1">{{ t('vmRefImagesHint') }} ≤ {{ vmCaps.maxRefImages(currentVideoModel) }}</p>
         </div>
 
-        <!-- End Frame -->
+        <!-- End Frame with Dropzone -->
         <div v-if="needsEndFrame" class="mb-4">
-          <label class="block text-sm text-muted mb-1.5">{{ t('endFrameImage') }}</label>
-          <div class="flex items-center gap-4">
-            <label class="cursor-pointer px-4 py-2.5 glass-input rounded-lg text-sm transition inline-block hover:border-blue-500/30">
-              <span>{{ t('chooseImage') }}</span>
-              <input type="file" accept="image/*" class="hidden" @change="onEndImageChange" />
-            </label>
-            <span class="text-sm text-muted">{{ video.endName || t('notSelected') }}</span>
-          </div>
+          <label class="block text-sm text-muted font-medium mb-1.5">{{ t('endFrameImage') }}</label>
+          <DropzoneCard
+            v-model="video.endImage"
+            :title="t('endFrameImage')"
+            badge="Финальный кадр (End Frame)"
+            @change="(f) => video.endName = f ? f.name : ''"
+          />
         </div>
 
         <!-- Advanced -->
@@ -413,15 +446,14 @@ async function submitImage() {
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm text-muted mb-1.5">{{ t('refImageSimple') }}</label>
-          <div class="flex items-center gap-4">
-            <label class="cursor-pointer px-4 py-2.5 glass-input rounded-lg text-sm transition inline-block hover:border-blue-500/30">
-              <span>{{ t('chooseImage') }}</span>
-              <input type="file" accept="image/*" class="hidden" @change="onRefImageChange($event, 'image')" />
-            </label>
-            <span class="text-sm text-muted">{{ image.refName || t('notSelected') }}</span>
-          </div>
-          <p class="text-xs text-muted mt-1">{{ t('refImageHint') }}</p>
+          <label class="block text-sm text-muted font-medium mb-1.5">{{ t('refImageSimple') }}</label>
+          <DropzoneCard
+            v-model="image.refImage"
+            :title="t('refImageSimple')"
+            :hint="t('refImageHint')"
+            badge="Референс для генерации"
+            @change="(f) => image.refName = f ? f.name : ''"
+          />
         </div>
 
         <div class="border-t border-rule/40 pt-4 mt-4">

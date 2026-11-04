@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { t, currentLang } from '@/i18n'
 import { appState } from '@/store'
 import * as api from '@/api'
+import { ensureApiKeyConfigured } from '@/composables/useTaskSubmit'
 import { useVoice } from '@/composables/useVoice'
 import { useToast } from '@/composables/useToast'
+import { useDraft } from '@/composables/useDraft'
+import { useNavigation } from '@/composables/useNavigation'
+import AspectPicker from '@/components/shared/AspectPicker.vue'
+import NeuStepper from '@/components/shared/NeuStepper.vue'
+import NeuSwitch from '@/components/shared/NeuSwitch.vue'
 
 const { voiceSelections, voiceIndex, voiceName, voiceDescription, openVoicePicker, initVoiceSelector } = useVoice()
 const { showToast } = useToast()
+const { goProgress } = useNavigation()
 
 const emit = defineEmits<{ (e: 'go-list'): void }>()
 
@@ -43,6 +50,31 @@ onMounted(async () => {
   }
 })
 
+// Logikcheck Befund 8: Ein-Klick-Eingabe lokal sichern — Reload setzt sonst
+// alles auf leer zurück (der Reiter liegt nur im Komponentenstatus).
+const draft = useDraft('simple')
+;(() => {
+  const d = draft.load()
+  if (!d) return
+  if (typeof d.idea === 'string') idea.value = d.idea
+  if (typeof d.sceneCount === 'number') sceneCount.value = d.sceneCount
+  if (typeof d.audioEnabled === 'boolean') audioEnabled.value = d.audioEnabled
+  if (typeof d.subtitleEnabled === 'boolean') subtitleEnabled.value = d.subtitleEnabled
+  if (typeof d.resolution === 'string') resolution.value = d.resolution
+})()
+watch([idea, sceneCount, audioEnabled, subtitleEnabled, resolution], () => {
+  draft.save({
+    idea: idea.value, sceneCount: sceneCount.value, audioEnabled: audioEnabled.value,
+    subtitleEnabled: subtitleEnabled.value, resolution: resolution.value,
+  })
+})
+
+// Logikcheck Befund 3: geänderte Eingabe macht die bestätigte Vorschau ungültig
+// (sie wurde aus dem alten Text erzeugt) — freigeben statt veralten lassen.
+watch([idea, sceneCount], () => {
+  previewData.value = null
+})
+
 async function generatePreview() {
   if (!idea.value.trim()) {
     showToast(t('enterIdea'), 3500)
@@ -69,6 +101,11 @@ async function generate() {
     showToast(t('enterIdea'), 3500)
     return
   }
+  // Logikcheck Befund 10：缺 API Key 时提前拦截（与 useTaskSubmit 行为一致）
+  if (!(await ensureApiKeyConfigured())) {
+    showToast(t('apiKeyMissingHint'), 4500)
+    return
+  }
   generating.value = true
   try {
     const fd = new FormData()
@@ -84,10 +121,22 @@ async function generate() {
     fd.append('video_width', String(w))
     fd.append('video_height', String(h))
     fd.append('execution_mode', 'auto')
+    // Logikcheck Befund 3: bestätigte Vorschau mitgeben — das Backend säiert sie
+    // als fertige Schritt-Artefakte ein, das Video nutzt genau die gezeigten
+    // Szenen statt sie neu (und anders) zu generieren.
+    if (previewData.value?.story && Array.isArray(previewData.value?.scenes)) {
+      fd.append('preview_json', JSON.stringify({
+        story: previewData.value.story,
+        scenes: previewData.value.scenes,
+        narration: previewData.value.narration || '',
+      }))
+    }
 
     const d = await api.submitCreative(fd)
     if (!d.ok) throw new Error(d.detail || t('failCreate'))
+    draft.clear()
     showToast(t('simpleGenerated'), 5000, 'success')
+    goProgress(d.task_id, 'simple')
     emit('go-list')
   } catch (e: any) {
     showToast(t('failCreate') + ': ' + (e?.message || ''), 4500)
@@ -113,14 +162,8 @@ async function generate() {
         ></textarea>
       </div>
       <div class="mb-4">
-        <label class="block text-xs text-muted mb-1">{{ t('sceneCount') }}</label>
-        <input
-          v-model.number="sceneCount"
-          type="number"
-          min="1"
-          max="30"
-          class="w-24 glass-input rounded-lg px-3 py-2 text-sm text-ink"
-        />
+        <label class="block text-xs text-muted font-medium mb-1.5">{{ t('sceneCount') }}</label>
+        <NeuStepper v-model="sceneCount" :min="1" :max="30" />
       </div>
     </div>
 
@@ -147,32 +190,31 @@ async function generate() {
 
       <!-- 设置面板 -->
       <h3 class="text-sm font-medium text-accent mb-3">{{ t('simpleSetting') }}</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <label class="block text-sm text-muted mb-1.5">{{ t('voiceRole') }}</label>
-          <button
-            class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink text-left hover:border-accent/40 transition"
-            @click="pickVoice"
-          >
-            {{ voiceName(VOICE_KEY) || voiceDescription(VOICE_KEY) || currentVoiceId }}
-          </button>
-        </div>
-        <div>
-          <label class="block text-sm text-muted mb-1.5">{{ t('resolution') }}</label>
-          <select v-model="resolution" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
-            <option v-for="r in resolutions" :key="r.value" :value="r.value">{{ t(r.label) }}</option>
-          </select>
-        </div>
+      <div class="mb-4">
+        <label class="block text-sm text-muted font-medium mb-2">{{ t('resolution') }}</label>
+        <AspectPicker v-model="resolution" />
       </div>
-      <div class="flex gap-6 mb-4">
-        <label class="flex items-center gap-2 text-sm text-muted cursor-pointer">
-          <input v-model="audioEnabled" type="checkbox" class="rounded bg-paper-2 border-rule text-accent" />
-          <span>{{ t('enableNarration') }}</span>
-        </label>
-        <label class="flex items-center gap-2 text-sm text-muted cursor-pointer">
-          <input v-model="subtitleEnabled" type="checkbox" class="rounded bg-paper-2 border-rule text-accent" />
-          <span>{{ t('enableSubtitle') }}</span>
-        </label>
+
+      <div class="mb-4">
+        <label class="block text-sm text-muted mb-1.5">{{ t('voiceRole') }}</label>
+        <button
+          class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink text-left hover:border-accent/40 transition flex items-center justify-between"
+          @click="pickVoice"
+        >
+          <span>{{ voiceName(VOICE_KEY) || voiceDescription(VOICE_KEY) || currentVoiceId }}</span>
+          <span class="text-xs text-muted">🔄 {{ t('chooseVoice') || 'Выбрать' }}</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+        <div class="p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+          <span class="text-xs text-ink-2 font-medium">{{ t('enableNarration') }}</span>
+          <NeuSwitch v-model="audioEnabled" />
+        </div>
+        <div class="p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+          <span class="text-xs text-ink-2 font-medium">{{ t('enableSubtitle') }}</span>
+          <NeuSwitch v-model="subtitleEnabled" />
+        </div>
       </div>
     </div>
 

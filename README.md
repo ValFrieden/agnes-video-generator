@@ -158,6 +158,7 @@ Full walkthrough: [Getting Started → Configure API Key](docs/public/getting-st
 
 - **[Features](docs/public/features.md)** — Creation modes, the completely free AI model chain, AI narration & smart subtitles, flexible creative controls, production-grade reliability, and the multilingual Web UI.
 - **[Getting Started](docs/public/getting-started.md)** — Install and deploy in 4 ways: Manual (`start.sh`), Docker, npm (`npx free-short-video`), or AI-Agent assisted.
+- **[Beginner's Guide (中文)](docs/public/beginner_guide.md)** — A hands-on zero-to-first-video walkthrough (in Chinese).
 - **[Usage Guide](docs/public/usage.md)** — Configure your API key, pick a video mode, resume from checkpoints, the three chaining modes, and logs & output layout.
 - **[Architecture](docs/public/architecture.md)** — Project structure and tech stack.
 - **[API Reference](docs/public/api.md)** — Full REST endpoint list (progress via polling, no WebSocket).

@@ -48,6 +48,7 @@ class _StubTaskManager:
     """打桩 TaskManager：只记录 state，不落盘。"""
 
     all_updates: list = []
+    created: list = []
 
     def __init__(self, task_id, dir_name=None):
         self.task_id = task_id
@@ -55,6 +56,7 @@ class _StubTaskManager:
 
     def create(self, state):
         self.state = state
+        _StubTaskManager.created.append(state)
 
     def update_state(self, **kwargs):
         """记录状态更新（创建端点现在会同步落盘 queued）。"""
@@ -86,6 +88,7 @@ def task_env(monkeypatch, tmp_path):
     monkeypatch.setattr(task_creation_routes.app_state, "launch_background_task", fake_launch)
     monkeypatch.setattr(task_creation_routes, "TaskManager", _StubTaskManager)
     _StubTaskManager.all_updates = []
+    _StubTaskManager.created = []
     return launched
 
 
@@ -336,8 +339,11 @@ class TestTaskCreationValidation:
         body = resp.json()
         assert body["ok"] is True and len(body["task_id"]) == 12
         assert len(task_env) == 1, "应启动一个后台任务"
-        # v6.1：创建后立即落盘 queued（前端打开详情页即可识别「排队中」并轮询）
-        assert _StubTaskManager.all_updates and _StubTaskManager.all_updates[-1]["status"].value == "queued"
+        # v6.1：创建后立即落盘 queued（前端打开详情页即可识别「排队中」并轮询）。
+        # Logikcheck Befund 8：queued 现在随 create() 一次性落盘，
+        # 不再经过额外的 update_state 调用。
+        assert _StubTaskManager.created, "create() 应被调用并持久化状态"
+        assert _StubTaskManager.created[-1].status.value == "queued"
 
     def test_creative_invalid_scene_count_422(self, client, task_env):
         resp = client.post(

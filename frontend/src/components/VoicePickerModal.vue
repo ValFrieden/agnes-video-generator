@@ -34,7 +34,9 @@ const selectedVoiceName = computed(() => {
     <div class="vp-modal" role="dialog" aria-modal="true">
       <div class="vp-header">
         <h3>{{ t('selectVoice') }}</h3>
-        <button class="vp-close" @click="closeVoicePicker">✕</button>
+        <button class="vp-close" :aria-label="t('cancel')" @click="closeVoicePicker">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
       <div class="vp-search">
         <input

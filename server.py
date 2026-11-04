@@ -29,12 +29,13 @@ from fastapi.staticfiles import StaticFiles
 from core.audio.voices import load_voice_catalog
 from web import app_state  # noqa: F401 兼容 re-export：旧代码 from server import app_state
 from web.app_state import init_runtime_state
-from web.middleware import LangContextMiddleware
+from web.middleware import LangContextMiddleware, OriginGuardMiddleware
 from web.routes import (
     config_routes,
     gallery_routes,
     health_routes,
     image_routes,
+    knowledge_routes,
     preset_routes,
     preview_routes,
     task_creation_routes,
@@ -146,6 +147,10 @@ app = FastAPI(
 # 异步 Pipeline 通过 ``BaseTaskState.ui_language`` 拿语言快照，不依赖此上下文。
 app.add_middleware(LangContextMiddleware)
 
+# Logikcheck Befund 5：写方法 Origin↔Host 一致性校验（防跨站伪造写请求）+
+# 可选 AGNES_ALLOWED_HOSTS 白名单（缓解 DNS rebinding）。curl/脚本无 Origin，不受影响。
+app.add_middleware(OriginGuardMiddleware)
+
 
 # Phase 2（PR #33 吸收）：可配置 CORS 白名单——取代原 PR 硬编码的 :8787。
 # 空（默认）→ 不启用中间件（攻击面不变）；设置 AGNES_CORS_ORIGINS 后仅允许
@@ -183,6 +188,10 @@ elif _cors_settings.agnes_cors_origins:
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+graphify_dir = os.path.join(os.path.dirname(__file__), "graphify-out")
+if os.path.exists(graphify_dir):
+    app.mount("/graphify-out", StaticFiles(directory=graphify_dir), name="graphify-out")
 
 
 def _serve_static_file(filename: str, media_type: str):
@@ -222,6 +231,8 @@ app.include_router(task_routes.router)
 app.include_router(gallery_routes.router)
 app.include_router(task_creation_routes.router)
 app.include_router(preview_routes.router)
+app.include_router(knowledge_routes.router)
+
 
 
 # ═══════════════════════════════════════════════════

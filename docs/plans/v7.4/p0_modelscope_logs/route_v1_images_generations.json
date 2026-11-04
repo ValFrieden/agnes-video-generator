@@ -1,0 +1,20 @@
+HTTP 401
+
+Date: Sat, 10 Oct 2026 13:19:41 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 159
+Connection: close
+Set-Cookie: acw_tc=0a0a130e17916383819185611e0b7cbdf558e240d9c1c304f98a65d4fa2240;path=/;HttpOnly;Max-Age=1800
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: OPTION,HEAD,GET,POST
+Access-Control-Allow-Headers: DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
+Access-Control-Max-Age: 1728000
+
+{
+  "errors": {
+    "message": "Authentication failed, please make sure that a valid ModelScope token is supplied."
+  },
+  "request_id": "0c9c13ca-a81e-4afb-a434-8b1cbf706017"
+}

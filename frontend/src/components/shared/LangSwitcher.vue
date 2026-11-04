@@ -32,8 +32,8 @@ const groups: { id: string; items: string[] }[] = [
   { id: 'langGroupEurope', items: ['en', 'de', 'fr', 'nl', 'es', 'pt', 'it', 'ru'] },
 ]
 
-// 触发按钮只显示旗帜
-const currentFlag = computed(() => (labelOf[currentLang.value] || '🌐').split(' ')[0])
+// 触发按钮显示语言代码 (如 EN, ZH, DE)
+const currentLangCode = computed(() => currentLang.value.toUpperCase())
 
 function pick(code: string) {
   switchLang(code)
@@ -75,7 +75,7 @@ onBeforeUnmount(() => {
         <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
         <path stroke-linecap="round" stroke-width="1.8" d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"></path>
       </svg>
-      <span aria-hidden="true">{{ currentFlag }}</span>
+      <span aria-hidden="true" class="text-xs uppercase font-mono font-medium">{{ currentLangCode }}</span>
       <svg
         class="w-3 h-3 shrink-0 transition-transform"
         :class="{ 'rotate-180': open }"
@@ -103,7 +103,7 @@ onBeforeUnmount(() => {
           @click="pick(code)"
         >
           <span class="lang-name">{{ labelOf[code] }}</span>
-          <span v-if="code === currentLang" class="lang-check" aria-hidden="true">✓</span>
+          <svg v-if="code === currentLang" class="w-3.5 h-3.5 text-accent lang-check shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
         </button>
       </div>
     </div>

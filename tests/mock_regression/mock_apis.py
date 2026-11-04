@@ -87,13 +87,17 @@ class MockAgnesVideoAPI:
         mime = mimetypes.guess_type(path)[0] or "image/png"
         return f"data:{mime};base64,{b64}"
 
-    async def _resolve_image_ref(self, ref: str) -> str:
-        """与真实 API 相同的引用解析（本地路径直接返回）。"""
+    async def resolve_image_ref(self, ref: str) -> str:
+        """与真实 API 公开契约一致（v7.1 Provider 契约，本地路径直接返回）。"""
         if ref.startswith(("http://", "https://", "data:")):
             return ref
         if os.path.exists(ref):
             return ref
         return ref
+
+    # 向后兼容别名：外部调用点已统一切到公开名 resolve_image_ref
+    async def _resolve_image_ref(self, ref: str) -> str:
+        return await self.resolve_image_ref(ref)
 
     def _get_frame_config(self, duration=None, width=1152, height=768):
         return (121, 24)  # 5s default

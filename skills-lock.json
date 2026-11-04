@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "character-design-sheet": {
+      "source": "101-skills/superpowers",
+      "sourceType": "github",
+      "skillPath": "guides/design/character-design-sheet/SKILL.md",
+      "computedHash": "11293fe9e75da7a9c15ea4d4bebe24eb95c35ebe586f3959aa16e65c528884a6"
+    },
+    "playwright-cli": {
+      "source": "microsoft/playwright-cli",
+      "sourceType": "github",
+      "skillPath": "skills/playwright-cli/SKILL.md",
+      "computedHash": "d4983e06b5daae441e48604b4b813a0c38784f3d87ea58f8391d2b5ffeb803fd"
+    },
+    "script-writer": {
+      "source": "ailabs-393/ai-labs-claude-skills",
+      "sourceType": "github",
+      "skillPath": "packages/skills/script-writer/SKILL.md",
+      "computedHash": "ce5a1bfe17aa583451676436485eb655e677a87da0d164b903f83e1e1ad68803"
+    },
+    "storyboard-manager": {
+      "source": "ailabs-393/ai-labs-claude-skills",
+      "sourceType": "github",
+      "skillPath": "packages/skills/storyboard-manager/SKILL.md",
+      "computedHash": "8f53650036fdadceaf0472d849494d216893e6e787f1e2eb1f426b2185c363b7"
+    }
+  }
+}

@@ -235,8 +235,13 @@ try:
         )
 
         # ── 服务地址 ──
-        host: str = "0.0.0.0"
+        # Logikcheck Befund 5：默认只监听本机回环（本地工具定位）。容器 / 公网部署
+        # 需显式设置 HOST=0.0.0.0（Dockerfile 已内置该默认值）。
+        host: str = "127.0.0.1"
         port: int = 8765
+        # 可选 Host 白名单（逗号分隔）：设置后 Host 不在列表内的请求一律 403，
+        # 用于缓解 DNS rebinding；默认空 = 不限制。
+        agnes_allowed_hosts: str = ""
 
         # ── 限速（None = 由 rate_limiter 按 Key 数动态计算）──
         agnes_rate_limit: int | None = None
@@ -259,6 +264,30 @@ try:
         # v7.0 U3：2.5 系列竖屏（9:16）上游躺倒缺陷的探测式校正开关。
         # 默认关闭——待真实竖屏任务验证后再定默认值（计划 §三建议路径）。
         agnes_fix_v25_portrait_rotation: bool = False
+        # v7.1.2 多场景首末帧链式生成（知识库 v7 调研落地）：
+        # 开启后通用多场景视频生成改为串行——上一场景成片的最后一帧经
+        # extract_last_frame 提取，作为下一场景的首帧参考（i2v/ti2vid），
+        # 消除场景间视觉跳变。代价：场景不再并发，总耗时 ≈ 各场景之和。
+        # 默认关闭（维护模式保守默认）；关键帧模式自带 i2i 视觉链，勿叠加。
+        agnes_scene_frame_chaining: bool = False
+
+        # ── v7.1 阶段 2 / v7.2 R8：视频 Provider 抽象（core/api/video_providers.py）──
+        # agnes_video_provider: "agnes"（默认，内置免费协议）| "fal"（fal.ai，需
+        #   FAL_KEY 环境变量 + pip install fal-client）。
+        # fal_video_model: fal endpoint id（默认 MiniMax H3 Max I2V：5–15s、
+        #   480P/768P、约 $0.05–0.08/s、支持 seed 与尾帧）；文生视频端点由其派生
+        #   （/image-to-video → /text-to-video）。
+        # agnes_video_budget_usd: 付费 Provider 的单次任务成本上限（USD，按已提交
+        #   片段累计估算）；0 = 不限额（默认）。超限在提交前明确报错中止。
+        agnes_video_provider: str = "agnes"
+        fal_video_model: str = "minimax/h3-max/image-to-video"
+        agnes_video_budget_usd: float = 0.0
+
+        # ── Bild-Provider-Abstraktion（core/api/image_providers.py）──
+        # Provider 按「所选图片模型 ID 前缀」自动路由（pollinations/* 免费、
+        # fal-ai/* 付费、其余走 Agnes）。agnes_image_budget_usd: 付费图片
+        # Provider 单次任务成本上限（USD，按已提交图片累计估算）；0 = 不限额。
+        agnes_image_budget_usd: float = 0.0
 
         # ── CORS（PR #33 吸收 Phase 2：可配置跨源白名单）──
         # 供独立本地伴侣工具（如 agnes-simple-ui）从浏览器跨源调用本服务 API。
@@ -288,8 +317,9 @@ except ImportError:  # pragma: no cover - pydantic-settings 为必备依赖，�
         """pydantic-settings 缺失时的降级视图（读 os.environ）。"""
 
         def __init__(self):
-            self.host = os.environ.get("HOST", "0.0.0.0")
+            self.host = os.environ.get("HOST", "127.0.0.1")
             self.port = int(os.environ.get("PORT", "8765"))
+            self.agnes_allowed_hosts = os.environ.get("AGNES_ALLOWED_HOSTS", "")
             self.agnes_rate_limit = _env_int("AGNES_RATE_LIMIT")
             self.agnes_video_rate_limit = _env_int("AGNES_VIDEO_RATE_LIMIT")
             self.agnes_rate_burst = _env_int("AGNES_RATE_BURST")
@@ -307,6 +337,21 @@ except ImportError:  # pragma: no cover - pydantic-settings 为必备依赖，�
             self.agnes_fix_v25_portrait_rotation = os.environ.get(
                 "AGNES_FIX_V25_PORTRAIT_ROTATION", "0"
             ).strip().lower() in ("1", "true", "on")
+            self.agnes_scene_frame_chaining = os.environ.get(
+                "AGNES_SCENE_FRAME_CHAINING", "0"
+            ).strip().lower() in ("1", "true", "on")
+            # v7.1 阶段 2 / v7.2 R8：视频 Provider 抽象（与 pydantic-settings 分支字段一致）
+            self.agnes_video_provider = os.environ.get("AGNES_VIDEO_PROVIDER", "agnes")
+            self.fal_video_model = os.environ.get(
+                "FAL_VIDEO_MODEL", "minimax/h3-max/image-to-video"
+            )
+            self.agnes_video_budget_usd = float(
+                os.environ.get("AGNES_VIDEO_BUDGET_USD", "0") or 0
+            )
+            # Bild-Provider-Abstraktion（与 pydantic-settings 分支字段一致）
+            self.agnes_image_budget_usd = float(
+                os.environ.get("AGNES_IMAGE_BUDGET_USD", "0") or 0
+            )
             self.agnes_cors_origins = os.environ.get("AGNES_CORS_ORIGINS", "")
             _cors_enabled = os.environ.get("AGNES_CORS_ENABLED", "").strip().lower()
             if _cors_enabled in ("0", "false", "off"):
@@ -1235,12 +1280,160 @@ VIDEO_MODEL_CAPABILITIES = {
             "en": "Free new model (limited time). Fixed 720P, 4–12s, up to 5 ref images; no negative prompt or ref video. Aspect ratio preserved; absolute pixels normalized by upstream (e.g. 3:4 renders at 834x1112).",
         },
     },
+    # ── fal.ai 托管模型（付费；需 FAL_KEY + pip install fal-client）──
+    # 在 UI 选模型即切换 Provider（模型 ID 前缀路由），无需改 AGNES_VIDEO_PROVIDER。
+    "minimax/h3-max/image-to-video": {
+        "label": "MiniMax H3 Max (fal)",
+        "price": "paid",
+        "price_text": {
+            "zh": "付费：480P $0.05/s · 768P $0.08/s（fal.ai，需 FAL_KEY）",
+            "en": "Paid: 480P $0.05/s · 768P $0.08/s (fal.ai, needs FAL_KEY)",
+        },
+        "modes": [
+            {"id": "t2v", "label": {"zh": "文生视频", "en": "Text to video"}},
+            {"id": "i2v", "label": {"zh": "图生视频（1 张参考图）", "en": "Image to video (1 ref)"}},
+            {"id": "keyframes", "label": {"zh": "首尾帧（First→Last）", "en": "First→Last frame"}},
+        ],
+        "durations": list(range(5, 16)),
+        "resolution": {
+            "type": "pixels",
+            "options": [
+                {"value": "768x1152", "label": {"zh": "竖屏 768x1152", "en": "Portrait 768x1152"}},
+                {"value": "1280x720", "label": {"zh": "横屏 1280x720", "en": "Landscape 1280x720"}},
+                {"value": "1024x1024", "label": {"zh": "方形 1024x1024", "en": "Square 1024x1024"}},
+            ],
+        },
+        "supports_negative": False,
+        "max_ref_images": 1,
+        "supports_ref_video": False,
+        "desc": {
+            "zh": "fal 后训练 MiniMax H3 Max：5–15 秒、480P/768P、支持 seed 与尾帧；输出画幅跟随首帧（文生视频近似 16:9）。屏幕编剧 prompt 直传不扩写。",
+            "en": "fal post-trained MiniMax H3 Max: 5–15s, 480P/768P, seed + end-frame supported; output aspect follows the first frame (t2v ≈ 16:9). Screenwriter prompts passed through unexpanded.",
+        },
+    },
+    "fal-ai/kling-video/v2.5-turbo/pro/image-to-video": {
+        "label": "Kling 2.5 Turbo Pro (fal)",
+        "price": "paid",
+        "price_text": {
+            "zh": "付费：约 $0.07/s（1080p，fal.ai，需 FAL_KEY）",
+            "en": "Paid: ~$0.07/s (1080p, fal.ai, needs FAL_KEY)",
+        },
+        "modes": [
+            {"id": "t2v", "label": {"zh": "文生视频", "en": "Text to video"}},
+            {"id": "i2v", "label": {"zh": "图生视频（1 张参考图）", "en": "Image to video (1 ref)"}},
+        ],
+        "durations": [5, 10],
+        "resolution": {
+            "type": "pixels",
+            "options": [
+                {"value": "768x1152", "label": {"zh": "竖屏 768x1152（9:16）", "en": "Portrait 768x1152 (9:16)"}},
+                {"value": "1280x720", "label": {"zh": "横屏 1280x720（16:9）", "en": "Landscape 1280x720 (16:9)"}},
+                {"value": "1024x1024", "label": {"zh": "方形 1024x1024（1:1）", "en": "Square 1024x1024 (1:1)"}},
+            ],
+        },
+        "supports_negative": True,
+        "max_ref_images": 1,
+        "supports_ref_video": False,
+        "desc": {
+            "zh": "快手 Kling 2.5 Turbo Pro（fal 托管）：5/10 秒、1080p、支持负面提示词；画面比例仅 16:9 / 9:16 / 1:1，非标准像素档自动就近吸附。运动一致性以 cfg_scale 0.5 提交。",
+            "en": "Kling 2.5 Turbo Pro (hosted on fal): 5/10s, 1080p, negative prompt supported; aspect limited to 16:9 / 9:16 / 1:1, non-standard pixels snapped to nearest. Submitted with cfg_scale 0.5 for motion consistency.",
+        },
+    },
 }
 
 
 def get_video_model_capabilities() -> dict:
     """返回全部视频模型能力元数据（含未知模型的兜底默认）。"""
     return dict(VIDEO_MODEL_CAPABILITIES)
+
+
+# ═══════════════════════════════════════════════════
+# 多 Provider 模型注册表（image_providers / video_providers）
+# ═══════════════════════════════════════════════════
+
+# 外部 Provider 的精选模型 ID：并入 /api/models 下拉列表（免费 + 付费并排，
+# 前端按 IMAGE_MODEL_CAPABILITIES 标注价格）。Provider 按 ID 前缀路由。
+PROVIDER_IMAGE_MODELS = [
+    "pollinations/flux",            # 免费（匿名限速 ~1 req/15s，可配 POLLINATIONS_API_KEY 提额去水印）
+    "pollinations/zimage",          # 免费
+    "pollinations/klein",           # 免费
+    "fal-ai/flux/dev",              # 付费（FAL_KEY）
+    "fal-ai/nano-banana/edit",      # 付费（FAL_KEY；i2i 编辑，支持参考图）
+]
+
+PROVIDER_VIDEO_MODELS = [
+    "minimax/h3-max/image-to-video",                     # 付费（FAL_KEY）
+    "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",  # 付费（FAL_KEY）
+]
+
+# 图片模型能力元数据：结构与 VIDEO_MODEL_CAPABILITIES 对齐（供前端价格标注）。
+IMAGE_MODEL_CAPABILITIES = {
+    DEFAULT_IMAGE_MODEL: {
+        "label": "Image 2.5 Flash",
+        "price": "free",
+        "price_text": {"zh": "免费", "en": "Free"},
+        "supports_ref_images": True,
+        "desc": {
+            "zh": "Agnes 内置免费模型，t2i 与 i2i（参考图）同模型。",
+            "en": "Built-in free Agnes model; t2i and i2i (reference images) in one model.",
+        },
+    },
+    "pollinations/flux": {
+        "label": "Pollinations Flux",
+        "price": "free",
+        "price_text": {"zh": "免费（匿名 ~1 张/15 秒；POLLINATIONS_API_KEY 可提额去水印）", "en": "Free (anonymous ~1 img/15s; POLLINATIONS_API_KEY raises limits & removes watermark)"},
+        "supports_ref_images": False,
+        "desc": {
+            "zh": "Pollinations.ai 免费文生图（Flux）。仅 t2i：参考图会被忽略（需要参考图一致性的任务请选 Agnes 或 nano-banana）。",
+            "en": "Pollinations.ai free text-to-image (Flux). t2i only: reference images are ignored (pick Agnes or nano-banana when reference consistency matters).",
+        },
+    },
+    "pollinations/zimage": {
+        "label": "Pollinations Z-Image",
+        "price": "free",
+        "price_text": {"zh": "免费（匿名限速同 Flux）", "en": "Free (same anonymous rate limits as Flux)"},
+        "supports_ref_images": False,
+        "desc": {
+            "zh": "Pollinations 免费模型 zimage，仅 t2i（参考图被忽略）。",
+            "en": "Pollinations free model zimage, t2i only (reference images ignored).",
+        },
+    },
+    "pollinations/klein": {
+        "label": "Pollinations Klein",
+        "price": "free",
+        "price_text": {"zh": "免费（匿名限速同 Flux）", "en": "Free (same anonymous rate limits as Flux)"},
+        "supports_ref_images": False,
+        "desc": {
+            "zh": "Pollinations 免费模型 klein（快速档），仅 t2i（参考图被忽略）。",
+            "en": "Pollinations free model klein (fast tier), t2i only (reference images ignored).",
+        },
+    },
+    "fal-ai/flux/dev": {
+        "label": "FLUX.1 dev (fal)",
+        "price": "paid",
+        "price_text": {"zh": "付费：约 $0.025/张（fal.ai，需 FAL_KEY）", "en": "Paid: ~$0.025/image (fal.ai, needs FAL_KEY)"},
+        "supports_ref_images": False,
+        "desc": {
+            "zh": "fal 托管 FLUX.1 dev：画质明显高于免费档，仅 t2i（参考图被忽略）。",
+            "en": "FLUX.1 dev hosted on fal: clearly higher fidelity than free tiers, t2i only (reference images ignored).",
+        },
+    },
+    "fal-ai/nano-banana/edit": {
+        "label": "Nano Banana Edit (fal)",
+        "price": "paid",
+        "price_text": {"zh": "付费：约 $0.039/张（fal.ai，需 FAL_KEY）", "en": "Paid: ~$0.039/image (fal.ai, needs FAL_KEY)"},
+        "supports_ref_images": True,
+        "desc": {
+            "zh": "fal 托管 Nano Banana 编辑模型：支持参考图（i2i），适合尾帧/关键帧一致性生成与 AI 修改。",
+            "en": "Nano Banana edit model hosted on fal: reference images (i2i) supported — good for end-frame/keyframe consistency and AI-modify.",
+        },
+    },
+}
+
+
+def get_image_model_capabilities() -> dict:
+    """返回全部图片模型能力元数据（结构与 get_video_model_capabilities 对齐）。"""
+    return dict(IMAGE_MODEL_CAPABILITIES)
 
 
 # ═══════════════════════════════════════════════════

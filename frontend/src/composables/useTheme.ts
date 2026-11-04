@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { currentLang } from '@/i18n'
+import { t } from '@/i18n'
 
 const THEME_MODES = ['system', 'light', 'dark'] as const
 type ThemeMode = (typeof THEME_MODES)[number]
@@ -10,9 +10,10 @@ const THEME_ICON_PATHS: Record<ThemeMode, string> = {
   dark: 'M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z',
 }
 
-const THEME_LABELS: Record<string, Record<ThemeMode, string>> = {
-  zh: { system: '主题：跟随系统', light: '主题：亮色', dark: '主题：暗色' },
-  en: { system: 'Theme: System', light: 'Theme: Light', dark: 'Theme: Dark' },
+const THEME_LABEL_KEYS: Record<ThemeMode, string> = {
+  system: 'themeSystem',
+  light: 'themeLight',
+  dark: 'themeDark',
 }
 
 const storedMode = ref<ThemeMode>('system')
@@ -50,10 +51,7 @@ function themeApply(mode: ThemeMode) {
 
 const themeIcon = computed(() => THEME_ICON_PATHS[storedMode.value])
 
-const themeLabel = computed(() => {
-  const table = THEME_LABELS[currentLang.value] || THEME_LABELS.zh
-  return table[storedMode.value]
-})
+const themeLabel = computed(() => t(THEME_LABEL_KEYS[storedMode.value]))
 
 function cycleTheme() {
   const idx = THEME_MODES.indexOf(storedMode.value)

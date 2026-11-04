@@ -1,0 +1,19 @@
+seq01|5|Static locked camera, no camera movement. The still painting gently comes alive: a single lightning flash flickers, diagonal rain streaks fall, the traveler stands perfectly still
+seq02|15|Static locked camera, no camera movement. The still painting gently comes alive: the lantern flame pulses softly in a slow heartbeat rhythm, low fog drifts across the field, everything else perfectly still
+seq03|10|Static locked camera, no camera movement. The still painting gently comes alive: cold rain falls steadily, the lantern glow pulses gently, the statue silhouettes stand perfectly still
+seq04|10|Static locked camera, no camera movement. The still painting gently comes alive: a lightning flash lights up the road, rain falls, the traveler stands perfectly still
+seq05|10|Static locked camera, no camera movement. The still painting gently comes alive: fog crawls slowly, a faint glint runs along the knife blade, everything else perfectly still
+seq06|15|Static locked camera, no camera movement. The still painting gently comes alive: embers shimmer dimly in the ash field, smoke drifts low, the horizon very slowly brightens
+seq07|5|Static locked camera, no camera movement. The still painting gently comes alive: the tiny lantern flame pulses gently in the darkness, nothing else moves
+seq08|15|Static locked camera, no camera movement. The still painting gently comes alive: snow falls slowly, the distant lighthouse light twinkles, the traveler stands perfectly still
+seq09|15|Static locked camera, no camera movement. The still painting gently comes alive: the snowstorm blows softly, the leaning column of lighthouse light breathes faintly, the traveler stands still
+seq10|10|Static locked camera, no camera movement. The still painting gently comes alive: the dawn edge grows warmer, snow sparkles, the coat hem stirs almost imperceptibly
+seq11|15|Static locked camera, no camera movement. The still painting gently comes alive: rain drops slide slowly down the lantern glass, the fire reflection trembles inside them
+seq12a|10|Static locked camera, no camera movement. The still painting gently comes alive: golden fog drifts slowly, the lighthouse light pulses, the calm sea glitters faintly
+seq12b|10|Static locked camera, no camera movement. The still painting gently comes alive: golden fog keeps drifting, the lighthouse light breathes in a slow heartbeat rhythm
+seq13|15|Static locked camera, no camera movement. The still painting gently comes alive: the dark sea waves shimmer with faint lights, the lighthouse glows steadily, the traveler stands perfectly still on the pier
+seq14|10|Static locked camera, no camera movement. The still painting gently comes alive: two small lights pulse in counter-rhythm in the darkness, nothing else moves
+seq15a|15|Static locked camera, no camera movement. The still painting gently comes alive: warm dawn light grows in slow waves over the empty field, sand drifts stir faintly
+seq15b|15|Static locked camera, no camera movement. The still painting gently comes alive: the warm dawn light keeps rising, the field brightens slowly
+seq16|10|Static locked camera, no camera movement. The still painting gently comes alive: the first sun ray warms and brightens, the coat hem breathes, everything else perfectly still
+seq17|10|Static locked camera, no camera movement. The still painting gently comes alive: the lighthouse lamp glow merges softly with the rising sun, light haze drifts, the pulse slowly fades

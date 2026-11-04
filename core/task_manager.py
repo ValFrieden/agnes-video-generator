@@ -213,6 +213,10 @@ class TaskManager:
                         "creative_name": data.get("creative_name", ""),
                         "status": data.get("status", "pending"),
                         "chaining_mode": data.get("chaining_mode", "none"),
+                        # P2 项目概览：创建/更新时间来自已加载的 state，不额外读盘。
+                        # 旧任务缺字段时为空串，前端按「未知日期」处理而不是塞当前时间。
+                        "created_at": data.get("created_at", ""),
+                        "updated_at": data.get("updated_at", ""),
                     })
                 except Exception as e:
                     logger.debug(f"[TaskManager] Failed to load task listing for {name}: {e}")

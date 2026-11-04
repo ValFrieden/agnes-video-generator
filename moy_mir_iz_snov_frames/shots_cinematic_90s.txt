@@ -1,0 +1,49 @@
+# SHOTLIST & PROMPTS: «Мой мир из снов моих мечтаний» (Cinematic 90s)
+# BPM: 133 | Durations: 7.22s per shot (11 shots total)
+
+=== SCENE 01 [00:00 - 00:07.2] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm Panavision anamorphic lens, Kodak Vision 500T film grain, wide shot, [CHARACTER_ANCHOR: A 40-year-old handsome man named Valeri with short textured dark-brown hair, light neat designer stubble, warm expressive hazel-gray eyes, a small distinct mole on cheek, wearing a vintage 1990s distressed brown leather jacket with relaxed collar over an olive-green button-up shirt and dark indigo classic denim trousers, NO glasses, mouth closed], walking down a nocturnal rain-slicked city street with cozy 90s shopfronts and vintage cars parked, holding an antique 1990s brass dream prism locket in his hand, slow smooth tracking shot forward, atmospheric amber sodium streetlight reflections on wet pavement, deep cyan shadows, nostalgic poetic mood, masterpiece, 16:9, ample headroom
+
+=== SCENE 02 [00:07.2 - 00:14.4] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm lens, vintage film grain, medium shot, [CHARACTER_ANCHOR: A 40-year-old handsome man named Valeri with short textured dark-brown hair, light neat designer stubble, warm expressive hazel-gray eyes, small mole on cheek, vintage distressed brown leather jacket over olive-green shirt, NO glasses, mouth gently closed], pausing near the warm glowing glass window of an old 1990s cafe, looking down at an antique brass dream prism locket resting in his open palm, slow cinematic push-in camera, soft warm bokeh of cafe interior lights, subtle amber rim light on his hair, longing thoughtful expression, 16:9
+
+=== SCENE 03 [00:14.4 - 00:21.6] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm film still, medium shot over the shoulder, [CHARACTER_ANCHOR: A 40-year-old handsome man named Valeri in distressed brown leather jacket and olive-green shirt, NO glasses, mouth closed] discovers [HEROINE_ANCHOR: A graceful 32-year-old woman named Elena with wavy chestnut hair, radiant porcelain skin, large expressive emerald-green eyes, wearing a vintage 1990s flowing emerald-lavender silk slip dress and sheer iridescent shawl, mouth closed, serene smile] standing under a vintage streetlight at a classic 1990s tram station, smooth arc camera pan, golden dust particles floating in the night air, instant romantic connection, nostalgic 90s romance cinema, 16:9
+
+=== SCENE 04 [00:21.6 - 00:28.9] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm anamorphic, two-shot medium framing, [CHARACTER_ANCHOR: Valeri in brown leather jacket and olive-green shirt, NO glasses, mouth closed] and [HEROINE_ANCHOR: Elena in flowing emerald-lavender silk slip dress with iridescent shawl, mouth closed, gentle loving gaze] stepping closer together on the quiet city sidewalk, soft night breeze rippling the silky fabric of her dress, warm golden backlight creating luminous halos around their hair, intimate cinematic depth of field, vintage Kodak color tones, 16:9, ample breathing room on both sides
+
+=== SCENE 05 [00:28.9 - 00:36.1] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm Panavision lens, close-up transitioning into wide shot, delicate female hand of [HEROINE_ANCHOR: Elena] gently touching an antique brass dream prism locket held by [CHARACTER_ANCHOR: Valeri, NO glasses, mouth closed], radiating a cinematic wave of ethereal golden and emerald dream light across the night street, dynamic pull-back camera, reality dissolving into a fairy-tale atmosphere, shimmering caustic refractions, retro 1990s magical realism, 16:9
+
+=== SCENE 06 [00:36.1 - 00:43.3] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm film, dynamic wide shot, [CHARACTER_ANCHOR: Valeri in brown leather jacket and olive-green shirt, NO glasses, mouth closed] walking hand-in-hand with [HEROINE_ANCHOR: Elena in flowing emerald-lavender silk dress, mouth closed, joyful expression] down a vibrant nocturnal avenue transformed into a dreamscape, glowing vintage neon signs, golden light trails dancing like fireflies, camera smoothly tracking forward with musical energy, fast rhythm, retro synthwave warmth, high cinematic quality, 16:9
+
+=== SCENE 07 [00:43.3 - 00:50.5] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm film grain, medium full shot, [HEROINE_ANCHOR: Elena in flowing emerald-lavender silk slip dress with sheer translucent shawl floating in motion, mouth closed, graceful joyful smile] twirling gracefully in a slow romantic dance on an open promenade, watched lovingly by [CHARACTER_ANCHOR: Valeri in distressed brown leather jacket, NO glasses, mouth closed, warm smile], 360-degree circular dolly camera move, swirling golden sparkles of light around them, romantic 90s cinema masterpiece, 16:9
+
+=== SCENE 08 [00:50.5 - 00:57.7] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm vintage lens, medium shot, [CHARACTER_ANCHOR: Valeri with short textured dark-brown hair, light stubble, warm expressive hazel-gray eyes, wearing brown leather jacket over olive-green shirt, NO glasses, mouth closed, deeply moved affectionate expression] gazing at Elena, golden sunset light illuminating his face, horizontal anamorphic amber lens flares, emotional high point, timeless 1990s film romance, rich film grain, 16:9
+
+=== SCENE 09 [00:57.7 - 01:05.0] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm macro close-up slowly tilting up, intertwined hands of [CHARACTER_ANCHOR: Valeri] and [HEROINE_ANCHOR: Elena] holding an antique brass dream prism locket, the faceted crystal glowing with a warm inner golden fire, projecting radiant caustic light beams across their clothes and gentle faces, mouth closed, emotional transcendence, symbolic anchor object, 16:9
+
+=== SCENE 10 [01:05.0 - 01:12.2] ===
+DUR: 7.22
+Cinematic 1990s film aesthetic, 35mm wide shot, slow crane up camera movement, [CHARACTER_ANCHOR: Valeri, NO glasses, mouth closed] and [HEROINE_ANCHOR: Elena, mouth closed] standing side by side on a scenic city rooftop overlook at dawn, watching the golden morning sun rise above the 1990s city skyline, gentle morning mist glowing peach and gold, epic emotional culmination, perfect harmony, 16:9, ample headroom
+
+=== SCENE 11 [01:12.2 - 01:20.0] ===
+DUR: 7.84
+Cinematic 1990s film aesthetic, 35mm film still, extreme wide shot with foreground macro focus, an antique brass dream prism locket resting peacefully on a weathered stone ledge catching the bright golden morning sunbeam, in the soft-focus background [CHARACTER_ANCHOR: Valeri, NO glasses] and [HEROINE_ANCHOR: Elena] walk away together hand-in-hand into the warm golden light, slow gentle camera drift backward into soft filmic fade, peaceful eternal resolution, 16:9
+
+=== NEGATIVE PROMPT (ALL SHOTS) ===
+glasses, spectacles, eyewear, sunglasses, open mouth, talking, singing, visible teeth, lip-sync, warped face, extra fingers, deformed hands, duplicate locket, cartoonish, 3d render CGI, plastic skin, oversaturated modern digital video, modern smartphones, modern cars, text watermark, low quality, blurry

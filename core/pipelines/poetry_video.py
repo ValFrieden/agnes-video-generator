@@ -15,7 +15,10 @@ import re
 import shutil
 from typing import List, Optional
 
-from core.api.agnes_video import AgnesVideoAPI
+from core.api.agnes_image import AgnesImageAPI  # noqa: F401  (mock 补丁符号，见 conftest)
+from core.api.image_providers import create_image_provider
+from core.api.agnes_video import AgnesVideoAPI  # noqa: F401  (mock 补丁符号，见 conftest)
+from core.api.video_providers import create_video_provider
 from core.audio.subtitle import SubtitleGenerator
 from core.audio.tts import SilentTTSEngine
 from core.compositor.concatenator import VideoConcatenator
@@ -76,12 +79,18 @@ class PoetryVideoPipeline(MultiScenePipeline):
         task_id: str,
         dir_name: Optional[str] = None,
         chat_model: str = DEFAULT_TEXT_MODEL,
+        image_model: str = "agnes-image-2.5-flash",
         video_model: str = "agnes-video-v2.0",
         progress_callback: Optional[callable] = None,
         shutdown_event: Optional = None,
     ):
         super().__init__(api_key, task_id, dir_name, progress_callback, shutdown_event)
-        self.video_api = AgnesVideoAPI(api_key=api_key, model=video_model)
+        # v7.1 阶段 2：经 Provider 工厂构建（AGNES_VIDEO_PROVIDER=agnes|fal）
+        self.video_api = create_video_provider(
+            api_key=api_key, default_model=video_model, shutdown_event=self.shutdown_event,
+        )
+        # v7.1 关键帧模式（I2V-first）：关键帧静图生成用
+        self.image_api = create_image_provider(api_key=api_key, model=image_model)
         self.screenwriter = Screenwriter(api_key=api_key, model=chat_model)
         self._state: Optional[PoetryVideoTask] = None
 
@@ -247,11 +256,14 @@ class PoetryVideoPipeline(MultiScenePipeline):
         pass
 
     # v6.0 P3：诗词无参考图 → references 检查点不可暂停
+    # v7.1：关键帧模式关闭时 keyframes 检查点不触发（步骤不执行）
     def _get_pausable_steps(self) -> set:
         from core.pipelines import _STEP_TO_CHECKPOINT
 
         steps = set(_STEP_TO_CHECKPOINT.keys())
         steps.discard("step_reference_images")
+        if not self._keyframes_enabled():
+            steps.discard("step_keyframes")
         return steps
 
     # ------------------------------------------------------------------

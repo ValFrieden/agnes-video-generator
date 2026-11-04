@@ -76,6 +76,27 @@ class PipelineShutdown(Exception):
     pass
 
 
+class _LinkedStopEvent:
+    """Verknüpft den Stopp EINER Aufgabe mit dem globalen Shutdown-Signal.
+
+    Logikcheck Befund 7: Die Video-Anbieter bekamen bisher nur das globale
+    ``shutdown_event``, ``BasePipeline.stop()`` setzt aber das Ereignis der
+    einzelnen Aufgabe. Ein Stopp erreichte den Anbieter deshalb nie, er pollte
+    bis zu ``agnes_video_poll_timeout`` (1800 s) weiter. Die Anbieter und der
+    Rate-Limiter benutzen vom Ereignis nur ``is_set()``, mehr bietet diese
+    Klasse bewusst nicht an.
+    """
+
+    def __init__(self, task_event: asyncio.Event, global_event: Optional[asyncio.Event] = None):
+        self._task_event = task_event
+        self._global_event = global_event
+
+    def is_set(self) -> bool:
+        if self._task_event.is_set():
+            return True
+        return self._global_event is not None and self._global_event.is_set()
+
+
 class CheckpointPause(Exception):
     """手动模式检查点暂停（v6.0）。
 
@@ -105,6 +126,9 @@ CHECKPOINT_CHARACTER_REF = "character_ref"
 CHECKPOINT_END_FRAME_PROMPTS = "end_frame_prompts"
 CHECKPOINT_END_FRAME_GEN = "end_frame_gen"
 
+# v7.1 关键帧模式（I2V-first）：关键帧生成后、动画前暂停审查
+CHECKPOINT_KEYFRAMES = "keyframes"
+
 # 手动模式下全部可选暂停点（creative 用细粒度集合，其余任务类型用粗粒度）
 ALL_CHECKPOINTS = [
     CHECKPOINT_IMAGE_ANALYSIS,
@@ -115,6 +139,7 @@ ALL_CHECKPOINTS = [
     CHECKPOINT_END_FRAME_GEN,
     CHECKPOINT_SCENES,
     CHECKPOINT_REFERENCES,
+    CHECKPOINT_KEYFRAMES,
     CHECKPOINT_VIDEOS,
     CHECKPOINT_AUDIO,
     CHECKPOINT_SUBTITLE,
@@ -131,6 +156,7 @@ _STEP_TO_CHECKPOINT = {
     "step_end_frame_prompts": CHECKPOINT_END_FRAME_PROMPTS,
     "step_end_frame_generation": CHECKPOINT_END_FRAME_GEN,
     "step_reference_images": CHECKPOINT_REFERENCES,
+    "step_keyframes": CHECKPOINT_KEYFRAMES,
     "step_video_generation": CHECKPOINT_VIDEOS,
     "step_audio": CHECKPOINT_AUDIO,
     "step_subtitle": CHECKPOINT_SUBTITLE,
@@ -149,6 +175,7 @@ _PAUSE_PROGRESS_BY_STEP = {
     "step_character_ref": 0.12,
     "step_end_frame_prompts": 0.12,
     "step_end_frame_generation": 0.15,
+    "step_keyframes": 0.40,
     "step_video_generation": 0.80,
     "step_audio": 0.86,
     "step_subtitle": 0.90,
@@ -201,8 +228,10 @@ class BasePipeline(ABC):
         self.dir_name = dir_name or task_id
         self.task_manager = TaskManager(task_id, dir_name=self.dir_name)
         self.progress_callback = progress_callback
-        self.shutdown_event = shutdown_event
         self._stop_event = asyncio.Event()
+        # Logikcheck Befund 7: Unterklassen reichen DIESES Ereignis an ihre Video-Anbieter
+        # weiter. Es meldet den Stopp der Aufgabe UND das globale Shutdown-Signal.
+        self.shutdown_event = _LinkedStopEvent(self._stop_event, shutdown_event)
         self._state: Optional[BaseTaskState] = None
         # Batch 3（S4）：screenwriter 统一初始化，子类（creative/manuscript/anchor/poetry）
         # 在自身 __init__ 中赋真实实例；仅 LLM 样式生成使用，None 表示不可用。
@@ -289,6 +318,20 @@ class BasePipeline(ABC):
     def stop(self):
         """请求流水线在下一个检查点停止。"""
         self._stop_event.set()
+
+    def _mark_interrupted(self) -> None:
+        """Persistiert „unterbrochen, fortsetzbar“ (PENDING) vor dem letzten ``_emit``.
+
+        Logikcheck Befund 7: Der Zustand im Speicher stand auf RUNNING. Jeder spätere
+        ``_emit`` schreibt das ganze Modell und überschrieb damit das PENDING, das
+        ``stop_task`` geschrieben hatte. Die Liste zeigte „läuft“ ohne laufende Pipeline.
+        """
+        if self._state is not None:
+            self._state.status = StepStatus.PENDING
+        try:
+            self.task_manager.update_state(status=StepStatus.PENDING)
+        except Exception as e:
+            logger.debug(f"[Pipeline] Failed to persist interrupted status: {e}")
 
     def _get_pausable_steps(self) -> set[str]:
         """当前任务实际可暂停的步骤（v6.0 P3）。
@@ -971,7 +1014,7 @@ from core.pipelines.multi_scene import MultiScenePipeline
 from core.pipelines.simple_video import SimpleVideoPipeline
 from core.pipelines.creative_video import CreativeVideoPipeline
 from core.pipelines.manuscript_video import ManuscriptVideoPipeline
-from core.pipelines.anchor_video import AnchorPipeline
+from core.pipelines.anchor_video import AnchorPipeline, AnchorVideoPipeline
 from core.pipelines.poetry_video import PoetryVideoPipeline
 
 __all__ = [
@@ -982,5 +1025,6 @@ __all__ = [
     "CreativeVideoPipeline",
     "ManuscriptVideoPipeline",
     "AnchorPipeline",
+    "AnchorVideoPipeline",
     "PoetryVideoPipeline",
 ]

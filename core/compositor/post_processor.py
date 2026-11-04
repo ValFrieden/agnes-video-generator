@@ -150,3 +150,16 @@ def post_process_video(input_path: str, output_path: Optional[str] = None) -> st
             except OSError:
                 pass
         return input_path
+
+
+async def post_process_video_async(input_path: str, output_path: Optional[str] = None) -> str:
+    """Async-Wrapper um post_process_video — führt die Stille-Entfernung
+    in einem ThreadPool aus, damit der FastAPI-Haupt-Thread / Event-Loop nicht blockiert."""
+    if not is_post_processing_enabled():
+        return input_path
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: post_process_video(input_path, output_path),
+    )
+

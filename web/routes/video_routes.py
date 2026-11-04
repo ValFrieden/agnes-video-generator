@@ -13,8 +13,8 @@ import tempfile
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from core.api.agnes_image import AgnesImageAPI
 from core.api.chat_providers import get_or_build_text_chat_client
+from core.api.image_providers import create_image_provider
 from core.artifacts import (
     apply_cascade_plan,
     build_checkpoint_manifest,
@@ -26,7 +26,7 @@ from core.artifacts import (
 from core.async_io import read_text, write_bytes
 from core.config import api_key_missing_msg, get_api_key, get_working_dir
 from core.dependency_graph import get_dependency_graph
-from core.i18n_backend import translate
+from core.i18n_backend import get_current_lang, translate
 from core.path_security import UnsafePathError, safe_join
 from core.task_manager import TaskManager
 from models.task import StepStatus
@@ -37,6 +37,9 @@ from web.log_safe import safe_log
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["video", "artifacts"])
+
+# Logikcheck Befund 6：产物回填上传的体积上限（与任务创建上传一致）
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 # 产物类别 → MIME 类型映射
 _ARTIFACT_MEDIA_TYPES = {
@@ -50,7 +53,7 @@ _ARTIFACT_MEDIA_TYPES = {
 
 
 @router.get("/api/video/{task_id}")
-async def serve_video(task_id: str):
+async def serve_video(task_id: str, download: bool = False):
     dir_name = helpers.find_dir_name(task_id)
     try:
         task_dir = safe_join(get_working_dir(), dir_name)
@@ -59,6 +62,10 @@ async def serve_video(task_id: str):
     video_path = os.path.join(task_dir, "final_video.mp4")
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video not found")
+    # Logikcheck Befund 4：download=1 时以附件形式下发（Content-Disposition: attachment），
+    # 前端结果区的「下载视频」链接直接复用本端点。
+    if download:
+        return FileResponse(video_path, media_type="video/mp4", filename=f"{task_id}.mp4")
     return FileResponse(video_path, media_type="video/mp4")
 
 
@@ -208,47 +215,50 @@ async def preview_artifact_cascade(task_id: str, artifact_id: str):
 @router.delete("/api/tasks/{task_id}/artifacts/{artifact_id}")
 async def delete_task_artifact(task_id: str, artifact_id: str):
     """删除指定中间产物（含级联删除后续产物 + 状态回退）。"""
-    # 运行中任务保护（已停止的 pipeline 允许删除产物）
-    if task_id in app_state.active_pipelines:
-        pipeline = app_state.active_pipelines[task_id]
-        if not pipeline._stop_event.is_set():
-            raise HTTPException(status_code=409, detail="Task is running, please stop it first")
+    # Logikcheck Befund 7：状态读改写全程持有任务锁，与 resume/stop/create 串行化，
+    # 避免与运行中的 pipeline 或并发的审批操作互相覆盖状态文件。
+    async with app_state.get_pipeline_lock(task_id):
+        # 运行中任务保护（已停止的 pipeline 允许删除产物）
+        if task_id in app_state.active_pipelines:
+            pipeline = app_state.active_pipelines[task_id]
+            if not pipeline._stop_event.is_set():
+                raise HTTPException(status_code=409, detail="Task is running, please stop it first")
 
-    dir_name = helpers.find_dir_name(task_id)
-    tm = TaskManager(task_id, dir_name=dir_name)
-    state = tm.load()
-    if not state:
-        raise HTTPException(status_code=404, detail="Task not found")
+        dir_name = helpers.find_dir_name(task_id)
+        tm = TaskManager(task_id, dir_name=dir_name)
+        state = tm.load()
+        if not state:
+            raise HTTPException(status_code=404, detail="Task not found")
 
-    artifact = resolve_artifact(artifact_id, state, tm.task_dir)
-    if not artifact:
-        raise HTTPException(status_code=404, detail="Artifact not found")
+        artifact = resolve_artifact(artifact_id, state, tm.task_dir)
+        if not artifact:
+            raise HTTPException(status_code=404, detail="Artifact not found")
 
-    plan = get_cascade_plan(artifact_id, state, tm.task_dir)
-    if not plan:
-        raise HTTPException(status_code=400, detail="Cannot compute cascade plan")
+        plan = get_cascade_plan(artifact_id, state, tm.task_dir)
+        if not plan:
+            raise HTTPException(status_code=400, detail="Cannot compute cascade plan")
 
-    # 1. 删除文件
-    deleted_files = []
-    real_task_dir = os.path.realpath(tm.task_dir)
-    for f in plan.files_to_delete:
-        abs_path = os.path.join(tm.task_dir, f)
-        real_abs_path = os.path.realpath(abs_path)
-        # 路径穿越防护
-        if not real_abs_path.startswith(real_task_dir + os.sep):
-            continue
-        if os.path.exists(abs_path) and os.path.isfile(abs_path):
-            try:
-                os.remove(abs_path)
-                deleted_files.append(f)
-            except OSError as e:
-                logger.warning(f"[Artifacts] Failed to delete {f}: {e}")
+        # 1. 删除文件
+        deleted_files = []
+        real_task_dir = os.path.realpath(tm.task_dir)
+        for f in plan.files_to_delete:
+            abs_path = os.path.join(tm.task_dir, f)
+            real_abs_path = os.path.realpath(abs_path)
+            # 路径穿越防护
+            if not real_abs_path.startswith(real_task_dir + os.sep):
+                continue
+            if os.path.exists(abs_path) and os.path.isfile(abs_path):
+                try:
+                    os.remove(abs_path)
+                    deleted_files.append(f)
+                except OSError as e:
+                    logger.warning(f"[Artifacts] Failed to delete {f}: {e}")
 
-    # 2. 应用级联计划到 state
-    update_kwargs = apply_cascade_plan(state, plan)
+        # 2. 应用级联计划到 state
+        update_kwargs = apply_cascade_plan(state, plan)
 
-    # 3. 持久化
-    tm.update_state(**update_kwargs)
+        # 3. 持久化
+        tm.update_state(**update_kwargs)
 
     logger.info(
         "[Artifacts] Deleted %d files for task %s, artifact=%s, reset_steps=%s",
@@ -293,11 +303,31 @@ async def delete_task(task_id: str):
         real_root = os.path.realpath(get_working_dir())
         real_task_dir = os.path.realpath(os.path.join(get_working_dir(), dir_name))
         if real_task_dir != real_root and real_task_dir.startswith(real_root + os.sep):
+            # Logikcheck Befund 8: find_dir_name fällt bei unbekannter ID auf die ID
+            # selbst zurück. Ohne diese Prüfung löschte DELETE /api/tasks/uploads den
+            # gemeinsamen uploads/-Ordner. Gelöscht wird nur, was eine Aufgabe ist:
+            # eine task_state.json trägt (auch eine unlesbare) oder in der Liste steht.
+            if not (
+                os.path.isfile(os.path.join(real_task_dir, "task_state.json"))
+                or _task_exists(task_id)
+            ):
+                raise HTTPException(status_code=404, detail="Task not found")
             if os.path.exists(real_task_dir):
                 shutil.rmtree(real_task_dir, ignore_errors=True)
-                removed_dir = True
-                logger.info("[Delete] Task %s directory removed: %s",
-                            safe_log(task_id), real_task_dir)
+                # Logikcheck Befund 8: Unter Windows vor dem Setzen von removed_dir verifizieren,
+                # dass das Verzeichnis tatsächlich entfernt wurde (Dateisperren können rmtree lautlos blockieren).
+                if os.path.exists(real_task_dir):
+                    import time
+                    time.sleep(0.05)
+                    shutil.rmtree(real_task_dir, ignore_errors=True)
+                if not os.path.exists(real_task_dir):
+                    removed_dir = True
+                    logger.info("[Delete] Task %s directory removed: %s",
+                                safe_log(task_id), real_task_dir)
+                else:
+                    removed_dir = False
+                    logger.warning("[Delete] Task %s directory still exists on disk after rmtree (possibly file locked by OS): %s",
+                                   safe_log(task_id), real_task_dir)
         else:
             logger.warning("[Delete] Unsafe task dir for %s, skipped: %s",
                            safe_log(task_id), safe_log(dir_name))
@@ -313,6 +343,26 @@ async def delete_task(task_id: str):
         clear_task_upstream_errors(task_id)
     except Exception:
         pass
+
+    # Logikcheck Befund 8（Sammelliste）：任务删除后清理共享 uploads/ 中以该任务
+    # id 为前缀的上传文件，以及画廊缩略图缓存，避免孤儿文件长期堆积。
+    try:
+        _upload_dir = helpers.get_upload_dir()
+        if os.path.isdir(_upload_dir):
+            for name in os.listdir(_upload_dir):
+                if name.startswith(f"{task_id}_"):
+                    try:
+                        os.remove(os.path.join(_upload_dir, name))
+                    except OSError as e:
+                        logger.warning("[Delete] Failed to remove upload %s: %s", name, e)
+    except OSError as e:
+        logger.warning("[Delete] Failed to scan uploads dir: %s", e)
+    try:
+        from core.gallery_cache import invalidate_thumb
+
+        invalidate_thumb(task_id)
+    except Exception as e:
+        logger.warning("[Delete] Gallery cache invalidation failed: %s", e)
 
     if not removed_dir and not _task_exists(task_id):
         # 任务目录不存在且任务已不在列表中：视为不存在
@@ -422,7 +472,9 @@ async def preview_checkpoint_impact(
         raise HTTPException(status_code=422, detail=translate("checkpoint.artifact_ids_not_array"))
 
     graph = get_dependency_graph(state.task_type)
-    plan = graph.compute_impact(state, modified, params)
+    # Logikcheck Befund 10: Vorschau des „Bestätigen und fortsetzen“. Geänderte Ergebnisse
+    # bleiben erhalten und dürfen im Dialog nicht als „wird gelöscht“ erscheinen.
+    plan = graph.compute_impact(state, modified, params, keep_modified=True)
     return {"ok": True, "checkpoint": checkpoint, **plan.to_dict()}
 
 
@@ -437,44 +489,55 @@ async def upload_task_artifact(
     仅允许在任务暂停（PENDING + current_checkpoint）或未运行时回填；
     写入前校验路径穿越 + 覆盖后落盘 manifest / checkpoint。
     """
-    # 运行中保护
-    if task_id in app_state.active_pipelines:
-        pipeline = app_state.active_pipelines[task_id]
-        if not pipeline._stop_event.is_set():
-            raise HTTPException(status_code=409, detail="Task is running, please stop/pause it first")
+    # Logikcheck Befund 7：与 delete_task_artifact 相同，状态读改写持有任务锁。
+    async with app_state.get_pipeline_lock(task_id):
+        # 运行中保护
+        if task_id in app_state.active_pipelines:
+            pipeline = app_state.active_pipelines[task_id]
+            if not pipeline._stop_event.is_set():
+                raise HTTPException(status_code=409, detail="Task is running, please stop/pause it first")
 
-    dir_name = helpers.find_dir_name(task_id)
-    tm = TaskManager(task_id, dir_name=dir_name)
-    state = tm.load()
-    if not state:
-        raise HTTPException(status_code=404, detail="Task not found")
+        dir_name = helpers.find_dir_name(task_id)
+        tm = TaskManager(task_id, dir_name=dir_name)
+        state = tm.load()
+        if not state:
+            raise HTTPException(status_code=404, detail="Task not found")
 
-    artifact = resolve_artifact(artifact_id, state, tm.task_dir)
-    if not artifact or not artifact.file_relpath:
-        raise HTTPException(status_code=404, detail="Artifact not found")
-    if not artifact.deletable:
-        raise HTTPException(status_code=400, detail="Artifact is not editable")
+        artifact = resolve_artifact(artifact_id, state, tm.task_dir)
+        if not artifact or not artifact.file_relpath:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        if not artifact.deletable:
+            raise HTTPException(status_code=400, detail="Artifact is not editable")
 
-    # 路径穿越防护
-    real_task_dir = os.path.realpath(tm.task_dir)
-    abs_path = os.path.join(tm.task_dir, artifact.file_relpath)
-    real_abs_path = os.path.realpath(abs_path)
-    if not real_abs_path.startswith(real_task_dir + os.sep):
-        raise HTTPException(status_code=403, detail="Access denied")
+        # 路径穿越防护
+        real_task_dir = os.path.realpath(tm.task_dir)
+        abs_path = os.path.join(tm.task_dir, artifact.file_relpath)
+        real_abs_path = os.path.realpath(abs_path)
+        if not real_abs_path.startswith(real_task_dir + os.sep):
+            raise HTTPException(status_code=403, detail="Access denied")
 
-    os.makedirs(os.path.dirname(real_abs_path), exist_ok=True)
-    content = await file.read()
-    await write_bytes(real_abs_path, content)
+        # Logikcheck Befund 6：回填上传同样按上限封顶读取
+        content = await file.read(_MAX_UPLOAD_BYTES + 1)
+        if len(content) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=translate(
+                    "validation.upload_too_large", get_current_lang(),
+                    max_mb=_MAX_UPLOAD_BYTES // (1024 * 1024),
+                ),
+            )
+        os.makedirs(os.path.dirname(real_abs_path), exist_ok=True)
+        await write_bytes(real_abs_path, content)
 
-    # 标记脏：记录回填产物 id（手动模式）
-    mc = getattr(state, "manual_config", None)
-    if mc is not None:
-        if artifact_id not in mc.modified_artifacts:
-            mc.modified_artifacts.append(artifact_id)
-        tm.update_state(manual_config=mc)
+        # 标记脏：记录回填产物 id（手动模式）
+        mc = getattr(state, "manual_config", None)
+        if mc is not None:
+            if artifact_id not in mc.modified_artifacts:
+                mc.modified_artifacts.append(artifact_id)
+            tm.update_state(manual_config=mc)
 
-    # 刷新清单
-    write_checkpoint_manifest(state, tm.task_dir)
+        # 刷新清单
+        write_checkpoint_manifest(state, tm.task_dir)
 
     logger.info("[Artifacts] Uploaded %s for task %s (%d bytes)",
                 safe_log(artifact_id), safe_log(task_id), len(content))
@@ -491,7 +554,22 @@ async def approve_checkpoint(task_id: str, checkpoint: str,
     - 不传 ``confirmed``（或 false）：仅计算影响计划返回，不落盘（等价 impact 预计算）。
     - ``confirmed=true``：落盘删除受影响产物 + 重置步骤 + 标记检查点已确认，
       然后走现有 resume 恢复执行。
+
+    Logikcheck Befund 10：``modified_artifact_ids`` 是用户提供的内容（上传/回填）。
+    它们**保留**文件与步骤，只有下游重跑；否则步骤被重置、文件被删，流水线会重新
+    生成并覆盖用户的输入。
     """
+    return await _approve_checkpoint(
+        task_id, checkpoint, modified_artifact_ids, param_updates, confirmed,
+        keep_modified=True,
+    )
+
+
+async def _approve_checkpoint(task_id: str, checkpoint: str,
+                              modified_artifact_ids: str, param_updates: str,
+                              confirmed: bool, *, keep_modified: bool):
+    """``approve_checkpoint`` 的实现。``regen`` 以 ``keep_modified=False`` 复用：
+    它把检查点自身的产物当作「已修改」传入，目的正是删除并重新生成它们。"""
     dir_name = helpers.find_dir_name(task_id)
     tm = TaskManager(task_id, dir_name=dir_name)
     state = tm.load()
@@ -505,7 +583,7 @@ async def approve_checkpoint(task_id: str, checkpoint: str,
         raise HTTPException(status_code=422, detail=translate("checkpoint.json_required"))
 
     graph = get_dependency_graph(state.task_type)
-    plan = graph.compute_impact(state, modified, params)
+    plan = graph.compute_impact(state, modified, params, keep_modified=keep_modified)
 
     if not confirmed:
         # 仅预计算返回，不落盘（前端可据此展示"修改前提示"弹窗）
@@ -534,16 +612,23 @@ async def approve_checkpoint(task_id: str, checkpoint: str,
             setattr(state, step_field, StepStatus.PENDING)
             update_kwargs[step_field] = StepStatus.PENDING
 
-    # 3. 标记检查点已确认 + 清空 current_checkpoint
+    # 3. 标记检查点（approve 标记确认；regen 则必须保持未确认以允许重新暂停审查）
     mc = getattr(state, "manual_config", None)
     if mc is not None:
-        if checkpoint not in mc.approved_checkpoints:
-            mc.approved_checkpoints.append(checkpoint)
+        if keep_modified:
+            if checkpoint not in mc.approved_checkpoints:
+                mc.approved_checkpoints.append(checkpoint)
+            if modified:
+                for m in modified:
+                    if m not in mc.modified_artifacts:
+                        mc.modified_artifacts.append(m)
+        else:
+            # Regen: 重新生成当前检查点，绝不能提前标记为 approved，也不能作为用户修改加入 modified_artifacts
+            if checkpoint in mc.approved_checkpoints:
+                mc.approved_checkpoints.remove(checkpoint)
+            if modified:
+                mc.modified_artifacts = [m for m in mc.modified_artifacts if m not in modified]
         mc.current_checkpoint = ""
-        if modified:
-            for m in modified:
-                if m not in mc.modified_artifacts:
-                    mc.modified_artifacts.append(m)
         update_kwargs["manual_config"] = mc
     update_kwargs["status"] = StepStatus.PENDING
     state.status = StepStatus.PENDING
@@ -586,11 +671,10 @@ async def regen_checkpoint(task_id: str, checkpoint: str):
 
     # 该检查点全部产物 id
     modified = [a["artifact_id"] for a in groups[checkpoint]["artifacts"]]
-    return await approve_checkpoint(
-        task_id, checkpoint,
-        modified_artifact_ids=json.dumps(modified),
-        param_updates="",
-        confirmed=True,
+    # Befund 10: keep_modified=False — „neu generieren“ soll die Ergebnisse des Prüfpunkts
+    # gerade löschen und zurücksetzen, nicht behalten.
+    return await _approve_checkpoint(
+        task_id, checkpoint, json.dumps(modified), "", True, keep_modified=False,
     )
 
 
@@ -731,7 +815,13 @@ async def ai_modify_artifact(
                 f"用户希望修改这幅图：{user_request}\n请输出修改要求本身。",
                 [real_abs_path],
             )
-            image_api = AgnesImageAPI(api_key=api_key)
+            # v7.3 多 Provider：AI 修改按 UI 所选图片模型路由；参考图（i2i）仅在
+            # Provider 支持时生效（t2i-only 模型会带警告忽略，见 image_providers）
+            from core.config import get_selected_models
+
+            image_api = create_image_provider(
+                api_key=api_key, model=get_selected_models()["image"],
+            )
             output = await image_api.generate_single_image(
                 prompt=edit_prompt.strip(),
                 reference_image_paths=[real_abs_path],

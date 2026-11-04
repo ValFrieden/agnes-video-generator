@@ -12,7 +12,6 @@ error_logs
 .workbuddy
 scripts
 AGENTS.md
-PRD_REFACTOR.md
 README_ZH.md
 pytest.ini
 requirements-dev.txt

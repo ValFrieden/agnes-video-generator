@@ -30,6 +30,17 @@ const SUBMIT_APIS: Record<string, (fd: FormData) => Promise<any>> = {
   poetry: (fd) => api.submitPoetry(fd),
 }
 
+// Logikcheck Befund 10：提交前检查 API Key，缺 Key 时直接提示，而不是让任务
+// 创建后失败。查询失败时放行（交给后端校验兜底），避免误拦正常用户。
+export async function ensureApiKeyConfigured(): Promise<boolean> {
+  try {
+    const d = await api.getConfigKeys()
+    return (d?.key_count || 0) > 0
+  } catch {
+    return true
+  }
+}
+
 /**
  * 3.1：任务提交统一执行器。
  * 收敛各表单重复的「校验 → 提交 → 埋点 → 跳转/失败提示 → 恢复按钮」样板。
@@ -53,6 +64,11 @@ export function useTaskSubmit() {
       form = opts.buildForm()
     } catch (e: any) {
       showToast(e?.message || t('failCreate'), 3500)
+      return null
+    }
+    // Logikcheck Befund 10：缺 API Key 时提前拦截并引导到配置区
+    if (!(await ensureApiKeyConfigured())) {
+      showToast(t('apiKeyMissingHint'), 4500)
       return null
     }
     submitting.value = true

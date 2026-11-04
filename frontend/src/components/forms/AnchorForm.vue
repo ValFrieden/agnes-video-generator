@@ -4,8 +4,11 @@ import { t } from '@/i18n'
 import { appState } from '@/store'
 import { useVoice } from '@/composables/useVoice'
 import { useTaskSubmit, collectAudioSubtitleFields } from '@/composables/useTaskSubmit'
+import { useDraft } from '@/composables/useDraft'
 import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import SubtitleConfig from '@/components/shared/SubtitleConfig.vue'
+import AspectPicker from '@/components/shared/AspectPicker.vue'
+import DropzoneCard from '@/components/shared/DropzoneCard.vue'
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -22,6 +25,21 @@ const form = reactive({
 })
 
 const charCount = computed(() => form.script.length)
+
+// Logikcheck Befund 6: Entwurf wie im Kreativformular lokal sichern —
+// Datei-Felder (refImage) sind nicht JSON-serialisierbar und bleiben ausgenommen.
+const draft = useDraft('anchor')
+;(() => {
+  const d = draft.load()
+  if (!d) return
+  if (typeof d.prompt === 'string') form.prompt = d.prompt
+  if (typeof d.script === 'string') form.script = d.script
+  if (typeof d.resolution === 'string') form.resolution = d.resolution
+  if (d.audioSource === 'post_stitch' || d.audioSource === 'model') form.audioSource = d.audioSource
+})()
+draft.autoSave(form, (v) => ({
+  prompt: v.prompt, script: v.script, resolution: v.resolution, audioSource: v.audioSource,
+}))
 
 function parseResolution(val: string) {
   const [w, h] = val.split('x').map(Number)
@@ -69,6 +87,8 @@ async function submitAnchor() {
       return fd
     },
     extraEvent: ev,
+    // Erfolgreich abgeschickt → Entwurf nicht wiederherstellen
+    onSuccess: () => draft.clear(),
   })
 }
 </script>
@@ -76,7 +96,9 @@ async function submitAnchor() {
 <template>
   <div>
     <div class="flex items-center gap-2 mb-4 text-xs text-muted">
-      <span class="text-muted">💡</span>
+      <svg class="w-3.5 h-3.5 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
       <a href="https://video.lichuanyang.top/guides/prompt-examples-anchor" target="_blank" rel="noopener" class="hover:text-accent transition-colors">{{ t('exampleLinkAnchor') }}</a>
     </div>
 
@@ -88,16 +110,15 @@ async function submitAnchor() {
         <textarea v-model="form.prompt" rows="3" :placeholder="t('anchorPromptPlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm resize-y text-ink placeholder-muted"></textarea>
       </div>
 
-      <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('anchorRefImage') }}</label>
-        <div class="flex items-center gap-4">
-          <label class="cursor-pointer px-4 py-2.5 glass-input rounded-lg text-sm transition inline-block hover:border-blue-500/30">
-            <span>{{ t('chooseImage') }}</span>
-            <input type="file" accept="image/*" class="hidden" @change="onRefImageChange" />
-          </label>
-          <span class="text-sm text-muted">{{ form.refName || t('notSelected') }}</span>
-        </div>
-        <p class="text-xs text-muted mt-1">{{ t('anchorRefImageHint') }}</p>
+      <div class="mb-5">
+        <label class="block text-sm text-muted font-medium mb-1.5">{{ t('anchorRefImage') }}</label>
+        <DropzoneCard
+          v-model="form.refImage"
+          :title="t('anchorRefImage')"
+          :hint="t('anchorRefImageHint')"
+          badge="Портрет диктора 🎙️"
+          @change="(f) => form.refName = f ? f.name : ''"
+        />
       </div>
 
       <div class="mb-4">
@@ -107,12 +128,8 @@ async function submitAnchor() {
       </div>
 
       <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('resolution') }}</label>
-        <select v-model="form.resolution" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
-          <option value="768x1344">{{ t('resPortraitHD') }}</option>
-          <option value="1280x720">{{ t('resLandscape') }}</option>
-          <option value="1024x1024">{{ t('resSquare') }}</option>
-        </select>
+        <label class="block text-sm text-muted font-medium mb-2">{{ t('resolution') }}</label>
+        <AspectPicker v-model="form.resolution" />
       </div>
     </div>
 

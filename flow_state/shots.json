@@ -1,0 +1,1334 @@
+{
+  "shots": {
+    "S01": {
+      "id": "S01",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-27T21:02:49",
+          "credits": 60
+        }
+      ],
+      "note": "3 Veo-Clips verworfen (Phasen/Streckung); final: ffmpeg-Morphing aus wide_01 + toon_aligned",
+      "frames": [
+        "masha_frames/wide_16x9/wide_01.jpg",
+        "masha_frames/morph/toon_aligned.jpg"
+      ],
+      "updated_at": "2026-10-27T21:02:49",
+      "credits": 60,
+      "clip": "masha_frames/morph/morph_s01.mp4"
+    },
+    "S02": {
+      "id": "S02",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-27T21:02:49",
+          "credits": 20
+        }
+      ],
+      "frames": [
+        "masha_frames/s02/s02_keyframe.jpg"
+      ],
+      "updated_at": "2026-10-27T21:02:49",
+      "credits": 20,
+      "clip": "masha_frames/clips/clip_02.mp4"
+    },
+    "S03": {
+      "id": "S03",
+      "status": "DOWNLOADED",
+      "version": 3,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-27T22:00:19"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-27T22:00:32",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-27T22:01:07"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-27T22:02:42"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 2,
+          "reason": "v1 Clip fehlerhaft: Fluegel nach aussen, Fenster schliesst sich; neuer Keyframe v3",
+          "at": "2026-10-27T22:04:33"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 2,
+          "at": "2026-10-27T22:04:50"
+        },
+        {
+          "status": "APPROVED",
+          "version": 2,
+          "at": "2026-10-27T22:05:08",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 2,
+          "at": "2026-10-27T22:06:15"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-27T22:06:20"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-27T22:07:41"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 3,
+          "reason": "v2 Clip: Flow nahm alten Keyframe gleichen Namens; neuer Dateiname v3",
+          "at": "2026-10-27T22:08:04"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 3,
+          "at": "2026-10-27T22:08:34"
+        },
+        {
+          "status": "APPROVED",
+          "version": 3,
+          "at": "2026-10-27T22:08:45",
+          "credits": 20
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 3,
+          "at": "2026-10-27T22:11:27"
+        }
+      ],
+      "prompt_hash": "174d182d06fb",
+      "frames": [
+        "masha_frames/s03/s03_keyframe_v3.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_03.mp4",
+      "updated_at": "2026-10-27T22:11:27",
+      "credits": 20
+    },
+    "S04": {
+      "id": "S04",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-27T22:14:09"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-27T22:14:21",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-27T22:15:35"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-27T22:15:40"
+        }
+      ],
+      "prompt_hash": "74c4854bfcb5",
+      "frames": [
+        "masha_frames/s04/s04_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_04.mp4",
+      "updated_at": "2026-10-27T22:15:40",
+      "credits": 20
+    },
+    "S05": {
+      "id": "S05",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-27T22:17:57"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-27T22:18:09",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-27T22:19:24"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-27T22:19:30"
+        }
+      ],
+      "prompt_hash": "f09101881863",
+      "frames": [
+        "masha_frames/s05/s05_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_05.mp4",
+      "updated_at": "2026-10-27T22:19:30",
+      "credits": 20
+    },
+    "S06": {
+      "id": "S06",
+      "status": "DOWNLOADED",
+      "version": 2,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-27T22:21:59"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-27T22:22:09",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-27T22:23:16"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-27T22:23:21"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 2,
+          "reason": "v1: Kopfzucken, welliges Haar, nicht wie Blatt; neu per Omni mit Blatt, ruhiger Kopf",
+          "at": "2026-10-30T15:47:27"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 2,
+          "at": "2026-10-30T15:48:05"
+        },
+        {
+          "status": "APPROVED",
+          "version": 2,
+          "at": "2026-10-30T15:48:19",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 2,
+          "at": "2026-10-30T16:01:10"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-30T16:01:10"
+        }
+      ],
+      "prompt_hash": "21640ab8951d",
+      "frames": [
+        "masha_frames/s06/s06_keyframe_v2.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_06.mp4",
+      "updated_at": "2026-10-30T16:01:10",
+      "credits": 12
+    },
+    "S07": {
+      "id": "S07",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-27T22:25:58"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-27T22:26:08",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-27T22:27:31"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-27T22:27:36"
+        }
+      ],
+      "prompt_hash": "8b9c49b48156",
+      "frames": [
+        "masha_frames/s07/s07_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_07.mp4",
+      "updated_at": "2026-10-27T22:27:36",
+      "credits": 20
+    },
+    "S08": {
+      "id": "S08",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-28T08:28:09"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-28T08:28:18",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-28T08:29:29"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-28T08:29:34"
+        }
+      ],
+      "prompt_hash": "9f237abdc792",
+      "frames": [
+        "masha_frames/s08/s08_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_08.mp4",
+      "updated_at": "2026-10-28T08:29:34",
+      "credits": 20
+    },
+    "S09": {
+      "id": "S09",
+      "status": "DOWNLOADED",
+      "version": 2,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-28T08:32:08"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-28T08:32:19",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-28T08:33:34"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-28T08:33:39"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 2,
+          "reason": "v1: Band wechselt Hand/Kopf, nicht konsistent; neuer Prompt",
+          "at": "2026-10-28T08:34:25"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 2,
+          "at": "2026-10-28T08:34:42"
+        },
+        {
+          "status": "APPROVED",
+          "version": 2,
+          "at": "2026-10-28T08:34:51",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 2,
+          "at": "2026-10-28T08:36:06"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-28T08:36:54"
+        }
+      ],
+      "prompt_hash": "434d6b8dbbc3",
+      "frames": [
+        "masha_frames/s09/s09_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_09.mp4",
+      "updated_at": "2026-10-28T08:36:54",
+      "credits": 20
+    },
+    "S10": {
+      "id": "S10",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-28T08:41:01"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-28T08:41:10",
+          "credits": 20
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-28T08:43:30"
+        }
+      ],
+      "prompt_hash": "e75d5b179cb0",
+      "frames": [
+        "masha_frames/s10/s10_keyframe_v2.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_10.mp4",
+      "updated_at": "2026-10-28T08:43:30",
+      "credits": 20
+    },
+    "S11": {
+      "id": "S11",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-28T08:47:49"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-28T08:47:59",
+          "credits": 20
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-28T08:50:16"
+        }
+      ],
+      "prompt_hash": "0d73f95bc332",
+      "frames": [
+        "masha_frames/s11/s11_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_11.mp4",
+      "updated_at": "2026-10-28T08:50:16",
+      "credits": 20
+    },
+    "S12": {
+      "id": "S12",
+      "status": "DOWNLOADED",
+      "version": 6,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-28T08:53:54"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-28T08:54:05",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-28T08:55:07"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-28T08:55:13"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 2,
+          "reason": "v1: Zaehchen faellt zu Boden, Kleidung wechselt zu Kleid",
+          "at": "2026-10-28T08:57:49"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 2,
+          "at": "2026-10-28T08:58:06"
+        },
+        {
+          "status": "APPROVED",
+          "version": 2,
+          "at": "2026-10-28T08:58:15",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 2,
+          "at": "2026-10-28T08:59:58"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-28T09:00:03"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 3,
+          "reason": "v2: Hose/Jeans weicht ab, Charakterkarte fehlte beim Video; Regel 7",
+          "at": "2026-10-28T09:02:46"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 3,
+          "at": "2026-10-28T09:03:09"
+        },
+        {
+          "status": "APPROVED",
+          "version": 3,
+          "at": "2026-10-28T09:07:23",
+          "credits": 15
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 3,
+          "at": "2026-10-28T09:08:29"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 4,
+          "reason": "v3: R2V, Maedchen geht zur Kamera statt dem Zaehchen zu folgen",
+          "at": "2026-10-28T09:09:40"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 4,
+          "at": "2026-10-28T09:11:11"
+        },
+        {
+          "status": "APPROVED",
+          "version": 4,
+          "at": "2026-10-28T09:11:11",
+          "credits": 10
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 4,
+          "at": "2026-10-28T09:12:17"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 5,
+          "reason": "v4: Maedchen drehte sich weg; neuer Keyframe v3 im Profil, Vollbild",
+          "at": "2026-10-28T09:16:45"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 5,
+          "at": "2026-10-28T09:17:28"
+        },
+        {
+          "status": "APPROVED",
+          "version": 5,
+          "at": "2026-10-28T09:17:28",
+          "credits": 10
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 5,
+          "at": "2026-10-28T09:18:26"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 6,
+          "reason": "v5: Zaehchen wurde zu Kugel mit Gesicht; Props-Referenz Sonnenfleck",
+          "at": "2026-10-28T09:21:13"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 6,
+          "at": "2026-10-28T09:21:55"
+        },
+        {
+          "status": "APPROVED",
+          "version": 6,
+          "at": "2026-10-28T09:21:55",
+          "credits": 10
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 6,
+          "at": "2026-10-28T09:23:01"
+        }
+      ],
+      "prompt_hash": "4fe2239ab77a",
+      "frames": [
+        "masha_frames/s12/s12_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_12.mp4",
+      "updated_at": "2026-10-28T09:23:01",
+      "credits": 10
+    },
+    "S13": {
+      "id": "S13",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T10:24:57"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T10:25:06",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T10:25:52"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T10:26:07"
+        }
+      ],
+      "prompt_hash": "0cef1c0d393a",
+      "frames": [
+        "masha_frames/s13/s13_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_13.mp4",
+      "updated_at": "2026-10-30T10:26:07",
+      "credits": 12
+    },
+    "S14": {
+      "id": "S14",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T10:31:40"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T10:31:48",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T10:32:43"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T10:32:57"
+        }
+      ],
+      "prompt_hash": "db152159403b",
+      "frames": [
+        "masha_frames/s14/s14_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_14.mp4",
+      "updated_at": "2026-10-30T10:32:57",
+      "credits": 12
+    },
+    "S15": {
+      "id": "S15",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T10:36:29"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T10:36:37",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T10:37:56"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T10:38:01"
+        }
+      ],
+      "prompt_hash": "2c6282c0f960",
+      "frames": [
+        "masha_frames/s15/s15_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_15.mp4",
+      "updated_at": "2026-10-30T10:38:01",
+      "credits": 20
+    },
+    "S16": {
+      "id": "S16",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T11:00:25"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T11:00:32",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T11:01:35"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T11:01:40"
+        }
+      ],
+      "prompt_hash": "d31effa6840f",
+      "frames": [
+        "masha_frames/s16/s16_keyframe_v2.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_16.mp4",
+      "updated_at": "2026-10-30T11:01:40",
+      "credits": 20
+    },
+    "S17": {
+      "id": "S17",
+      "status": "DOWNLOADED",
+      "version": 4,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T11:11:57"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T11:12:09",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T11:13:28"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T11:13:33"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 2,
+          "reason": "v1: Traenen und Kopfnicken, Text verlangte happy tears; v2 ruhig, ohne Traenen und Nicken",
+          "at": "2026-10-30T11:15:02"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 2,
+          "at": "2026-10-30T11:15:55"
+        },
+        {
+          "status": "APPROVED",
+          "version": 2,
+          "at": "2026-10-30T11:16:04",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 2,
+          "at": "2026-10-30T11:17:19"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-30T11:19:39"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 3,
+          "reason": "v2: Flow Fehlgeschlagen (Queue, hohe Last), kein neuer Clip, Credits erstattet; v3 gleicher ruhiger Text",
+          "at": "2026-10-30T11:24:10"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 3,
+          "at": "2026-10-30T11:24:28"
+        },
+        {
+          "status": "APPROVED",
+          "version": 3,
+          "at": "2026-10-30T11:24:35",
+          "credits": 20
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 4,
+          "reason": "v3 hing in Flow-Queue, neuer Clip: offenes Lachen (Omni)",
+          "at": "2026-10-30T15:33:34"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 4,
+          "at": "2026-10-30T15:34:28"
+        },
+        {
+          "status": "APPROVED",
+          "version": 4,
+          "at": "2026-10-30T15:34:44",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 4,
+          "at": "2026-10-30T15:35:39"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 4,
+          "at": "2026-10-30T15:35:44"
+        }
+      ],
+      "prompt_hash": "c5407d5802cb",
+      "frames": [
+        "masha_frames/s17/s17_keyframe_v2.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_17.mp4",
+      "updated_at": "2026-10-30T15:35:44",
+      "credits": 12
+    },
+    "S18": {
+      "id": "S18",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T11:46:14"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T11:46:33",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T11:47:48"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T11:47:53"
+        }
+      ],
+      "prompt_hash": "1c4df4a45b8e",
+      "frames": [
+        "masha_frames/s18/s18_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_18.mp4",
+      "updated_at": "2026-10-30T11:47:53",
+      "credits": 20
+    },
+    "S19": {
+      "id": "S19",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T12:01:49"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T12:02:05",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T12:14:31"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T12:14:31"
+        }
+      ],
+      "prompt_hash": "4d04b1ec6744",
+      "frames": [
+        "masha_frames/s19/s19_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_19.mp4",
+      "updated_at": "2026-10-30T12:14:31",
+      "credits": 12
+    },
+    "S20": {
+      "id": "S20",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T12:17:32"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T12:17:44",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T12:18:39"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T12:18:43"
+        }
+      ],
+      "prompt_hash": "35a57adf8430",
+      "frames": [
+        "masha_frames/s20/s20_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_20.mp4",
+      "updated_at": "2026-10-30T12:18:43",
+      "credits": 12
+    },
+    "S21": {
+      "id": "S21",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T13:11:04"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T13:11:16",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T13:12:30"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T13:12:35"
+        }
+      ],
+      "prompt_hash": "951d19bb3742",
+      "frames": [
+        "masha_frames/s21/s21_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_21.mp4",
+      "updated_at": "2026-10-30T13:12:35",
+      "credits": 20
+    },
+    "S22": {
+      "id": "S22",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T13:45:23"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T13:45:39",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T13:47:02"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T13:47:07"
+        }
+      ],
+      "prompt_hash": "e2701f7a1ead",
+      "frames": [
+        "masha_frames/s22/s22_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_22.mp4",
+      "updated_at": "2026-10-30T13:47:07",
+      "credits": 12
+    },
+    "S23": {
+      "id": "S23",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T13:53:39"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T13:55:18",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T14:01:35"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T14:01:35"
+        }
+      ],
+      "prompt_hash": "a863003e519e",
+      "frames": [
+        "masha_frames/s23/s23_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_23.mp4",
+      "updated_at": "2026-10-30T14:01:35",
+      "credits": 12
+    },
+    "S24": {
+      "id": "S24",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T14:07:09"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T14:07:21",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T14:12:58"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T14:12:58"
+        }
+      ],
+      "prompt_hash": "af819be4f11b",
+      "frames": [
+        "masha_frames/s24/s24_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_24.mp4",
+      "updated_at": "2026-10-30T14:12:58",
+      "credits": 12
+    },
+    "S25": {
+      "id": "S25",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T14:18:32"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T14:18:43",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T14:23:40"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T14:23:40"
+        }
+      ],
+      "prompt_hash": "7a5208b2b3d4",
+      "frames": [
+        "masha_frames/s25/s25_keyframe_v1.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_25.mp4",
+      "updated_at": "2026-10-30T14:23:40",
+      "credits": 12
+    },
+    "S26": {
+      "id": "S26",
+      "status": "PLANNED",
+      "version": 3,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T14:33:51"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T14:34:09",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T14:37:20"
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T14:41:19"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T14:41:19"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 2,
+          "reason": "v1 verworfen: Teleport der Maria nach 6 s; v2 neues Konzept: Nahaufnahme am Fluss, Kamera faehrt zurueck, Fee schenkt etwas",
+          "at": "2026-10-30T14:45:27"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-30T14:50:28"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 3,
+          "reason": "verworfen 30.10.: Wald/Natur passt nicht zu S27 (Autor); S27 uebernimmt die Fee-Szene",
+          "at": "2026-10-30T14:56:02"
+        }
+      ],
+      "prompt_hash": "d7152d0e9559",
+      "frames": [
+        "masha_frames/s26/s26_keyframe_v3.jpg"
+      ],
+      "clip": "masha_frames/clips/clip_26b.mp4",
+      "updated_at": "2026-10-30T14:56:02",
+      "credits": 12
+    },
+    "S26B": {
+      "id": "S26B",
+      "status": "PLANNED",
+      "version": 3,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T14:42:11"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T14:42:23",
+          "credits": 20
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T14:43:34"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T14:43:38"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 2,
+          "reason": "v1 Veo I2V: Mascha falsch gezeichnet (Kleid, Bob), kein Charakterblatt moeglich; v2 Omni mit Mascha-Blatt",
+          "at": "2026-10-30T14:44:05"
+        },
+        {
+          "status": "REQUESTED",
+          "version": 2,
+          "at": "2026-10-30T14:44:31"
+        },
+        {
+          "status": "APPROVED",
+          "version": 2,
+          "at": "2026-10-30T14:44:41",
+          "credits": 12
+        },
+        {
+          "status": "APPROVED",
+          "version": 2,
+          "at": "2026-10-30T14:50:28",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 2,
+          "at": "2026-10-30T14:50:28"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 2,
+          "at": "2026-10-30T14:50:28"
+        },
+        {
+          "status": "NEW_VERSION",
+          "version": 3,
+          "reason": "verworfen 30.10.: Wald/Natur passt nicht zu S27 (Autor); S27 uebernimmt die Fee-Szene",
+          "at": "2026-10-30T14:56:02"
+        }
+      ],
+      "prompt_hash": "06b514f29d12",
+      "frames": [
+        "masha_frames/s26b/s26_last_frame.png"
+      ],
+      "clip": "masha_frames/clips/clip_26b.mp4",
+      "updated_at": "2026-10-30T14:56:02",
+      "credits": 12
+    },
+    "S27": {
+      "id": "S27",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T14:53:20"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T14:53:29",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T14:59:10"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T14:59:10"
+        }
+      ],
+      "prompt_hash": "3439410cfb7b",
+      "frames": [
+        "masha_frames/s27/s26_last_frame.png"
+      ],
+      "clip": "masha_frames\\clips\\clip_27.mp4",
+      "updated_at": "2026-10-30T14:59:10",
+      "credits": 12
+    },
+    "S28": {
+      "id": "S28",
+      "status": "DOWNLOADED",
+      "version": 1,
+      "history": [
+        {
+          "status": "REQUESTED",
+          "version": 1,
+          "at": "2026-10-30T15:12:06"
+        },
+        {
+          "status": "APPROVED",
+          "version": 1,
+          "at": "2026-10-30T15:12:18",
+          "credits": 12
+        },
+        {
+          "status": "RENDERED",
+          "version": 1,
+          "at": "2026-10-30T15:16:59"
+        },
+        {
+          "status": "DOWNLOADED",
+          "version": 1,
+          "at": "2026-10-30T15:16:59"
+        }
+      ],
+      "prompt_hash": "5b0855183d96",
+      "frames": [
+        "masha_frames/s28/s28_keyframe_v3.jpg"
+      ],
+      "clip": "masha_frames\\clips\\clip_28.mp4",
+      "updated_at": "2026-10-30T15:16:59",
+      "credits": 12
+    }
+  }
+}

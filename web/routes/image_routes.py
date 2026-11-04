@@ -10,9 +10,9 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from core.api.agnes_image import AgnesImageAPI
+from core.api.image_providers import create_image_provider
 from core.async_io import write_bytes
-from core.config import api_key_missing_msg, get_api_key
+from core.config import api_key_missing_msg, get_api_key, get_selected_models
 from core.i18n_backend import get_current_lang, translate
 from core.path_security import safe_join
 from core.task_manager import TaskManager
@@ -32,6 +32,9 @@ _VALID_SIZES = {
 
 # 参考图上传允许的扩展名白名单（拒绝任意后缀，杜绝路径穿越/异常文件）
 _ALLOWED_UPLOAD_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+
+# Logikcheck Befund 6：上传体积上限（与 task_creation_routes 一致）
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
 @router.post("/api/image/generate")
@@ -78,7 +81,8 @@ async def generate_image(
     tm = TaskManager(task_id, dir_name=dir_name)
     tm.create(state)
 
-    image_api = AgnesImageAPI(api_key=api_key)
+    # v7.3 多 Provider：按 UI 所选图片模型路由（pollinations 免费 / fal 付费 / Agnes 默认）
+    image_api = create_image_provider(api_key=api_key, model=get_selected_models()["image"])
 
     ref_paths = []
     if reference_image and reference_image.filename:
@@ -86,10 +90,20 @@ async def generate_image(
         ext = (os.path.splitext(reference_image.filename)[1] or ".png").lower()
         if ext not in _ALLOWED_UPLOAD_EXTS:
             ext = ".png"
+        # Logikcheck Befund 6：按上限封顶读取，超限抛 413，避免无界占用内存
+        data = await reference_image.read(_MAX_UPLOAD_BYTES + 1)
+        if len(data) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=translate(
+                    "validation.upload_too_large", get_current_lang(),
+                    max_mb=_MAX_UPLOAD_BYTES // (1024 * 1024),
+                ),
+            )
         upload_dir = helpers.get_upload_dir()
         os.makedirs(upload_dir, exist_ok=True)
         ref_path = safe_join(upload_dir, f"img_ref_{uuid.uuid4().hex[:8]}{ext}")
-        await write_bytes(ref_path, await reference_image.read())
+        await write_bytes(ref_path, data)
         ref_paths.append(ref_path)
 
     try:

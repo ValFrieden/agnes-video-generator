@@ -79,9 +79,24 @@ def create_pipeline_for_type(
             task_id=task_id,
             dir_name=dir_name,
             chat_model=text_model,
+            image_model=image_model,
             video_model=video_model,
             shutdown_event=shutdown_event,
         )
+    elif task_type == TaskType.MUSIC_VIDEO:
+        from core.pipelines.music_video import MusicVideoPipeline
+        return MusicVideoPipeline(
+            api_key=api_key,
+            task_id=task_id,
+            dir_name=dir_name,
+            chat_model=text_model,
+            image_model=image_model,
+            video_model=video_model,
+        )
+    elif task_type == TaskType.IMAGE:
+        # Logikcheck Befund 1：图片任务是同步生成的，不存在流水线；
+        # resume 入口已显式拒绝，这里兜底防止误启 CreativeVideoPipeline。
+        raise ValueError("Simple image tasks are generated synchronously and have no pipeline")
     else:
         # CREATIVE（默认）
         return CreativeVideoPipeline(
@@ -142,6 +157,28 @@ async def run_pipeline(pipeline: BasePipeline, state: BaseTaskState):
         logger.info(f"[Pipeline] Task {pipeline.task_id} stopped by user")
     except Exception as e:
         logger.error(f"[Pipeline] Task {pipeline.task_id} failed: {e}", exc_info=True)
+        # Logikcheck Befund 8：run() 进入即抛（如 task_manager.create 在 try 块之外
+        # 失败）时，任务会永远停留在 queued/pending 且无任何落盘提示。这里
+        # best-effort 落盘 FAILED，让任务在列表中可见、可被清理或重建。
+        try:
+            state.status = StepStatus.FAILED
+            TaskManager(
+                pipeline.task_id, dir_name=getattr(pipeline, "dir_name", "") or pipeline.task_id,
+            ).update_state(
+                status=StepStatus.FAILED,
+                current_step="init",
+                current_status="failed",
+                current_message=translate(
+                    "task.start_failed",
+                    getattr(state, "ui_language", "") or "zh",
+                    reason=str(e),
+                ),
+            )
+        except Exception:
+            logger.warning(
+                "[Pipeline] Task %s: failed to persist FAILED state after run() entry error",
+                pipeline.task_id,
+            )
     finally:
         _refresh_task_manifests(state, pipeline)  # 最终产物清单
         # 身份比对：仅当字典里仍是当前 pipeline 时才删除。
@@ -175,8 +212,10 @@ async def run_pipeline_with_concurrency(
         f"current={semaphore.current}/{semaphore.max_weight})"
     )
 
-    # 标记排队状态
-    task_manager.update_state(status=StepStatus.QUEUED)
+    # 标记排队状态：创建端点已在落盘时写入 QUEUED（Logikcheck Befund 8：消除重复
+    # 写盘），此处仅补齐 resume 等未经落盘排队的入口。
+    if state.status != StepStatus.QUEUED:
+        task_manager.update_state(status=StepStatus.QUEUED)
 
     # 排队时持久化进度消息（前端轮询可读取）
     task_manager.update_state(
@@ -220,6 +259,12 @@ async def run_pipeline_with_concurrency(
         # 检查是否在排队期间被 stop
         if getattr(pipeline, '_stop_event', None) and pipeline._stop_event.is_set():
             logger.info(f"[Concurrency] Task {task_id} was stopped while queued, skipping")
+            # Logikcheck Befund 4: auch bei diesem Frühausstieg aus active_pipelines
+            # aufräumen — das einzige bisherige Aufräumen lag im übersprungenen
+            # run_pipeline-finally, die gestoppte Aufgabe blieb dadurch als „aktiv"
+            # hängen. Identitätsvergleich wie dort (kein Ersatz-Pipeline löschen).
+            if app_state.active_pipelines.get(task_id) is pipeline:
+                del app_state.active_pipelines[task_id]
             return
 
         # 启动 pipeline

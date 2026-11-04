@@ -40,8 +40,39 @@ CHARACTER_PATH = "/character"
 # VERIFIED: ProseMirror existiert innerhalb von flow-rich-text-editor.
 PROMPT_EDITOR = ".ProseMirror"
 PROMPT_BOX_FALLBACK = '.ProseMirror, [contenteditable="true"]'
-# VERIFIED
-ATTACH_MEDIA_BUTTON = '[aria-label="Bildelemente zum Prompt-Feld hinzufügen"]'
+# VERIFIED. Die Selektoren der Anhängen-Strecke tragen bewusst nur ASCII-Präfixe
+# (kein „ü“): Umlaute gingen beim Schreiben von Skripten schon verloren und
+# ließen den Selektor still ins Leere laufen.
+ATTACH_MEDIA_BUTTON = (
+    'button[aria-label^="Bildelemente zum Prompt-Feld hinzuf"], '
+    'button[aria-label^="Add media"]'
+)
+# VERIFIED: Eintrag im Asset-Menü; die Datei-Schaltfläche mit gleichem
+# aria-label im Fuß ist unsichtbar und darf nicht getroffen werden.
+ASSET_ITEM = "button:visible"
+ASSET_TYPE_PATTERN = "Bild|Image"
+# VERIFIED: „Uploads“ in der Seitenleiste (mat-mdc-list-item) passt auch auf
+# „Upload“ und lag im DOM vor dem Menü-Button: .first öffnete nie einen Dateidialog.
+ASSET_UPLOAD_BUTTON = (
+    'button.sidebar-upload-btn:visible, '
+    'button:has-text("Medien hoch"):not(.mat-mdc-list-item), '
+    'button:has-text("Upload"):not(.mat-mdc-list-item)'
+)
+# VERIFIED: erscheint nur, wenn Flow den Klick auf das Asset nicht schon selbst
+# als Anhängen wertet. Immer klicken würde den Chip doppelt anhängen.
+ADD_TO_PROMPT_BUTTON = 'button:has-text("Zum Prompt hinzuf"), button:has-text("Add to prompt")'
+# VERIFIED: Referenz-Chip im Prompt-Feld = Schaltfläche „Bildelement“ mit dem
+# Innentext „cancel“. Miniaturen im Chatverlauf heißen auch „Bildelement“,
+# haben aber keinen „cancel“.
+CHIP_REMOVE_BUTTON = (
+    'button[aria-label^="Bildelement"]:has-text("cancel"), '
+    'button[aria-label^="Image element"]:has-text("cancel")'
+)
+CHIP_COUNT_JS = (
+    "() => Array.from(document.querySelectorAll('button')).filter(b => b.offsetParent "
+    "&& /^(Bildelement|Image element)/.test(b.getAttribute('aria-label') || '') "
+    "&& (b.innerText || '').includes('cancel')).length"
+)
 SUBMIT_BUTTON = (
     '[aria-label="Generierung starten"], [aria-label="Generate"], '
     'button:has-text("arrow_forward")'
@@ -70,25 +101,31 @@ COST_REJECT_LABELS = ("Ablehnen", "Decline", "Reject")
 COST_ALWAYS_APPROVE_LABELS = ("Immer genehmigen", "Always approve")
 
 # ── Charakterseite ──────────────────────────────────────────────────────────
-# VERIFIED
 CHARACTER_PAGE = "flow-character-page"
 CHARACTER_HEADER = "flow-character-header"
+CHARACTER_NEW_BUTTON = (
+    'button:has-text("Neuer Charakter"), button:has-text("Charakter hinzufügen"), '
+    'button:has-text("Charakter erstellen"), button:has-text("New Character"), '
+    'button:has-text("Create Character"), button:has-text("Add character"), '
+    'button:has-text("Nouveau personnage"), button[aria-label*="Charakter"], '
+    'button[aria-label*="Character"]'
+)
 CHARACTER_DESCRIPTION = (
     'div[role="textbox"][aria-label="Charakter beschreiben…"], '
     'div[role="textbox"][aria-label*="Charakter beschreib"], '
-    'div[role="textbox"][aria-label*="Describe"]'
+    'div[role="textbox"][aria-label*="Describe"], '
+    'textarea[placeholder*="Charakter"], textarea[placeholder*="character"]'
 )
 CHARACTER_UPLOAD_BUTTON = (
-    'button:has-text("Hochladen"), button:has-text("Upload")'
+    'button:has-text("Hochladen"), button:has-text("Upload"), '
+    'button:has-text("Importer"), button[aria-label*="Upload"], '
+    'button[aria-label*="Hochladen"]'
 )
 CHARACTER_FROM_PROJECT_BUTTON = (
     'button:has-text("Aus Projekt hinzufügen"), button:has-text("Add from project")'
 )
 CHARACTER_FOOTER = "flow-create-character-footer"
 
-# UNVERIFIED: Namensfeld und „Fertig“ erscheinen erst, wenn ein Referenzbild
-# vorliegt. In einem leeren Projekt gibt es noch kein input-Element, deshalb
-# werden mehrere Kandidaten versucht und das Ergebnis über die Liste geprüft.
 CHARACTER_NAME_INPUT = (
     'input[aria-label*="Name"], input[placeholder*="Name"], '
     'input[aria-label="Bearbeitbarer Text"], '
@@ -96,16 +133,20 @@ CHARACTER_NAME_INPUT = (
 )
 CHARACTER_DONE_BUTTON = (
     'button:has-text("Fertig"), button:has-text("Done"), '
-    'button:has-text("Speichern"), button:has-text("Save")'
+    'button:has-text("Speichern"), button:has-text("Save"), '
+    'button:has-text("Erstellen"), button:has-text("Create"), '
+    'button:has-text("Terminer")'
 )
-# UNVERIFIED: Karten vorhandener Charaktere (Projekt war leer).
 CHARACTER_CARD = (
-    "flow-character-card, flow-character-tile, [class*='character-card']"
+    "flow-character-card, flow-character-tile, [class*='character-card'], "
+    "[data-testid*='character'], flow-card"
+)
+CHARACTER_MENTION_OPTION = (
+    '[role="option"], [role="menuitem"], flow-mention-option, mat-option, '
+    '.mention-option, .flow-mention-item, [class*="mention-item"]'
 )
 
 # ── Szenen-Montage (über das Kachelmenü eines Clips) ────────────────────────
-# UNVERIFIED: Das Projekt enthielt keine Clips, daher war das Menü nicht
-# auslesbar. Wortlaut aus Googles Hilfe (Clip → Mehr → „Zu Szene hinzufügen“).
 VIDEO_TILE = "flow-video-tile"
 VIDEO_TILE_CONTAINER = "flow-grid-tile-container:has(flow-video-tile)"
 TILE_MORE_BUTTON = (
@@ -118,8 +159,47 @@ ADD_TO_SCENE_ITEM = (
 SCENE_DOWNLOAD_BUTTON = (
     '[aria-label*="herunterladen"], [aria-label*="Download"]'
 )
+SCENE_LIST_CONTAINER = (
+    'flow-scenes-view, [class*="scenes-view"], flow-scene-card, flow-scene-tile'
+)
 
 # ── Download einer Videokachel ──────────────────────────────────────────────
 DOWNLOAD_MEDIA_BUTTON = (
     'button[aria-label*="Medien herunterladen"], button[aria-label*="Download"]'
+)
+
+# ── Konto und Guthaben ──────────────────────────────────────────────────────
+# VERIFIED: der Avatar ist ein Link (A) mit aria-label „Google-Konto: <Name> …“;
+# nach dem Klick steht „<N> Google Flow-Guthabenpunkte“ im Seitentext.
+ACCOUNT_LINK = 'a[aria-label^="Google-Konto"], a[aria-label^="Google Account"]'
+CREDITS_REGEX = r"([\d.,]+)\s+(?:Google Flow-Guthabenpunkte|Google Flow credits)"
+
+# ── Bilder aus dem Canvas ───────────────────────────────────────────────────
+# VERIFIED: neu generierte Bilder erscheinen als <img alt="Option 1"> mit
+# naturalWidth >= 1000; die Kacheln hochgeladener Bilder haben ein anderes alt.
+GENERATED_IMAGE_JS = (
+    "() => [...new Set(Array.from(document.querySelectorAll('img'))"
+    ".filter(i => i.naturalWidth >= 1000 && i.alt === 'Option 1')"
+    ".map(i => i.currentSrc))]"
+)
+
+# ── Absenden ────────────────────────────────────────────────────────────────
+# VERIFIED (27.10.2026): „Generierung starten“ gibt es in der Seite MEHRFACH
+# (je eine Schaltfläche pro Chat-Nachricht). querySelector nahm die erste, nicht
+# die des Eingabefelds: der Prompt wurde nie gesendet, der Code meldete trotzdem
+# Erfolg. Richtig ist die LETZTE sichtbare, aktive.
+SUBMIT_REAL_CLICK = 'button.generate-icon-button:visible:enabled'
+SUBMIT_CLICK_JS = """(() => {
+    const sel = 'button[aria-label*="Generierung starten"], button[aria-label*="Generate"], button.generate-icon-button';
+    const live = Array.from(document.querySelectorAll(sel)).filter(b => b.offsetParent && !b.disabled);
+    const btn = live[live.length - 1];
+    if (btn) { btn.click(); return true; }
+    const fwd = Array.from(document.querySelectorAll('button')).filter(b => b.offsetParent && !b.disabled)
+        .reverse().find(b => (b.innerText || '').includes('arrow_forward'));
+    if (fwd) { fwd.click(); return true; }
+    return false;
+})()"""
+PROMPT_TEXT_JS = (
+    "() => { const e = document.querySelector('.ProseMirror'); "
+    "return e ? (e.innerText || '').trim() : ''; }"
 )

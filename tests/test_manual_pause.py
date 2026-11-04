@@ -180,6 +180,12 @@ class TestBuildManualConfig:
         assert mc.enabled is True
         assert mc.pause_points == ALL_CHECKPOINTS
 
+    def test_manual_explicit_empty_list(self):
+        from web.routes.task_creation_routes import _build_manual_config
+        mc = _build_manual_config("manual", "[]")
+        assert mc.enabled is True
+        assert mc.pause_points == []
+
     def test_manual_subset(self):
         from web.routes.task_creation_routes import _build_manual_config
         mc = _build_manual_config("manual", '["scenes", "videos"]')

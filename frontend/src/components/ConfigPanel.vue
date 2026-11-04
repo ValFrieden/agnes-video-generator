@@ -377,23 +377,25 @@ initCollapse()
       @click="toggleConfigPanel('apikey')"
     >
       <div class="flex items-center gap-3">
-        <span class="text-sm">🔌</span>
+        <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         <span class="text-sm text-muted">
           <span class="text-ink-2 font-medium">{{ t('providerManageTitle') }}</span>
           <span class="text-muted mx-2">·</span>
-          <span class="text-muted">{{ manageProviders.length }}</span>
+          <span class="text-muted tabular-nums">{{ manageProviders.length }}</span>
         </span>
       </div>
-      <span class="text-muted text-xs">▶</span>
+      <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
     </div>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('providerManageTitle') }}</h2>
         <div class="flex items-center gap-3">
-          <button class="text-xs text-accent hover:text-ink transition whitespace-nowrap" @click="openAddProvider()">
+          <button class="text-xs text-accent hover:text-ink transition whitespace-nowrap cursor-pointer" @click="openAddProvider()">
             {{ t('providerAddBtn') }}
           </button>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded" @click="toggleConfigPanel('apikey')">▲</button>
+          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('apikey')">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+          </button>
         </div>
       </div>
       <p class="text-xs text-muted mb-4">{{ t('providerManageHint') }}</p>
@@ -460,11 +462,11 @@ initCollapse()
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <p class="text-sm text-ink font-medium truncate">{{ p.display_name || p.provider }}</p>
-              <span v-if="p.builtin" class="text-[10px] px-1.5 py-0.5 rounded bg-green-900 text-green-300">{{ t('providerBuiltin') }}</span>
+              <span v-if="p.builtin" class="badge-success">{{ t('providerBuiltin') }}</span>
               <span class="text-[10px] px-1.5 py-0.5 rounded bg-paper-3 text-muted">{{ providerApiLabel(p) }}</span>
               <span
                 v-if="p.provider === (appState.models.text_provider || 'agnes')"
-                class="text-[10px] px-2 py-0.5 rounded-full bg-blue-900 text-blue-300"
+                class="badge-info"
               >{{ t('providerInUse') }}</span>
             </div>
             <p class="text-xs text-muted font-mono truncate mt-0.5">
@@ -477,12 +479,12 @@ initCollapse()
           </div>
           <div class="flex items-center gap-2 ml-3">
             <button
-              class="px-3 py-1 bg-blue-600/80 hover:bg-blue-500 rounded-lg text-xs font-medium transition"
+              class="px-3 py-1 bg-blue-600/80 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition"
               @click="openEditProvider(p)"
             >{{ t('providerEditLabel') }}</button>
             <button
               v-if="!p.builtin"
-              class="px-3 py-1 bg-red-600/80 hover:bg-red-500 rounded-lg text-xs font-medium transition"
+              class="btn-danger text-xs px-3 py-1 font-medium"
               @click="onDeleteProvider(p.provider)"
             >{{ t('delete') }}</button>
             <span v-else class="text-muted/50" :title="t('providerBuiltinHint')">•</span>
@@ -507,17 +509,19 @@ initCollapse()
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-ink">{{ modalTitle }}</h3>
           <button
-            class="text-muted hover:text-ink-2 transition text-xl leading-none"
+            class="text-muted hover:text-ink-2 transition p-1"
             :aria-label="t('cancel')"
             @click="showProviderModal = false"
-          >✕</button>
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
 
         <!-- ══ 编辑 agnes：供应商只读 + 域名 + API Key + per-key 域名映射 ══ -->
         <template v-if="editingProvider === 'agnes'">
           <div class="flex items-center gap-2 mb-5">
             <span class="text-sm font-semibold text-ink-2">Agnes</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-900 text-green-300">{{ t('providerBuiltin') }}</span>
+            <span class="badge-success">{{ t('providerBuiltin') }}</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded bg-paper-3 text-muted">{{ t('providerEditReadonly') }}</span>
           </div>
 
@@ -536,8 +540,8 @@ initCollapse()
             </div>
             <div class="flex items-center gap-3 mt-3">
               <button class="px-4 py-2 bg-accent text-accent-ink hover:bg-accent/90 rounded-lg text-sm font-medium transition" @click="saveDomain">{{ t('save') }}</button>
-              <span v-if="domainSaveStatus === 'ok'" class="text-xs text-green-400">{{ t('domainSaved') }}</span>
-              <span v-if="domainSaveStatus === 'error'" class="text-xs text-red-400">{{ domainErrorMsg }}</span>
+              <span v-if="domainSaveStatus === 'ok'" class="text-xs text-success">{{ t('domainSaved') }}</span>
+              <span v-if="domainSaveStatus === 'error'" class="text-xs text-danger">{{ domainErrorMsg }}</span>
             </div>
           </div>
 
@@ -552,37 +556,39 @@ initCollapse()
                 class="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted resize-y"
               ></textarea>
               <button class="px-5 py-2.5 bg-accent text-accent-ink hover:bg-accent/90 rounded-lg text-sm font-medium transition whitespace-nowrap" @click="onSaveApiKey">{{ hasApiKey ? t('addKey') : t('save') }}</button>
-              <button v-if="apiKeyStatus !== 'none'" class="px-5 py-2.5 bg-red-600/80 hover:bg-red-500 rounded-lg text-sm font-medium transition whitespace-nowrap" @click="clearApiKey">{{ t('clear') }}</button>
+              <button v-if="apiKeyStatus !== 'none'" class="btn-danger text-sm px-5 py-2.5 font-medium whitespace-nowrap" @click="clearApiKey">{{ t('clear') }}</button>
             </div>
             <div v-if="keyCount > 0" class="mt-2 flex items-center gap-2 flex-wrap">
-              <span class="text-xs px-2 py-0.5 rounded-full bg-green-900 text-green-300">{{ t('keyCountLabel') }}: {{ keyCount }} <span class="opacity-70">({{ keySource }})</span></span>
-              <span v-if="keyCount > 1" class="text-xs px-2 py-0.5 rounded-full bg-blue-900 text-blue-300" :title="t('multiKeyHint')">{{ t('multiKeyActive') }}</span>
+              <span class="badge-success">{{ t('keyCountLabel') }}: {{ keyCount }} <span class="opacity-70">({{ keySource }})</span></span>
+              <span v-if="keyCount > 1" class="badge-info" :title="t('multiKeyHint')">{{ t('multiKeyActive') }}</span>
             </div>
             <!-- Key 列表 + per-key 域名映射 + 自动探测 -->
             <div v-if="keyList.length > 0" class="mt-3 space-y-1.5">
               <div v-for="(item, idx) in keyList" :key="item.id + idx" class="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-paper-3/70 text-xs flex-wrap">
                 <code class="flex-1 font-mono text-ink-2 truncate min-w-[8rem]">{{ item.mask }}</code>
-                <span class="px-1.5 py-0.5 rounded text-[10px] uppercase" :class="item.source === 'env' ? 'bg-amber-900/60 text-amber-300' : 'bg-paper-3 text-muted'">{{ item.source === 'env' ? t('keySrcEnv') : t('keySrcConfig') }}</span>
-                <span v-if="item.domain && keyDomainUrl(item.domain)" class="px-1.5 py-0.5 rounded text-[10px] font-mono" :class="item.domain === 'cn' ? 'bg-green-900/60 text-green-300' : 'bg-blue-900/60 text-blue-300'">{{ keyDomainUrl(item.domain) }}</span>
+                <span :class="item.source === 'env' ? 'badge-warning uppercase' : 'px-1.5 py-0.5 rounded text-[10px] uppercase bg-paper-3 text-muted'">{{ item.source === 'env' ? t('keySrcEnv') : t('keySrcConfig') }}</span>
+                <span v-if="item.domain && keyDomainUrl(item.domain)" class="font-mono" :class="item.domain === 'cn' ? 'badge-success' : 'badge-info'">{{ keyDomainUrl(item.domain) }}</span>
                 <span v-else-if="item.source === 'env'" class="px-1.5 py-0.5 rounded text-[10px] font-mono text-muted bg-paper-3" :title="t('keySrcEnvHint')">{{ t('keyDomainEnvFollow') }}（{{ displayDomain() }}）</span>
-                <span v-else class="px-1.5 py-0.5 rounded text-[10px] text-amber-300/80 bg-amber-900/30" :title="t('keyDomainNotSetHint')">{{ t('keyDomainNotSet') }}</span>
+                <span v-else class="badge-warning" :title="t('keyDomainNotSetHint')">{{ t('keyDomainNotSet') }}</span>
                 <label v-if="item.persistable" :for="'key-domain-select-' + item.id" class="sr-only">{{ t('keyDomainSelectTitle') }}</label>
                 <select :id="'key-domain-select-' + item.id" v-if="item.persistable" :value="item.domain || ''" class="glass-input rounded px-1.5 py-0.5 text-[10px] text-ink cursor-pointer" :title="t('keyDomainSelectTitle')" :aria-label="t('keyDomainSelectTitle')" @change="onKeyDomainChange(item, ($event.target as HTMLSelectElement).value)">
                   <option value="">{{ t('keyDomainAuto') }}（{{ displayDomain() }}）</option>
                   <option v-for="d in DOMAIN_ENTRIES" :key="d.key" :value="d.key">{{ d.url }}</option>
                 </select>
-                <button v-if="item.source !== 'env'" class="text-red-300 hover:text-red-200 transition" :title="t('removeKeyBtn')" @click="removeKey(item.id)">✕</button>
+                <button v-if="item.source !== 'env'" class="text-danger hover:opacity-80 transition flex items-center justify-center p-0.5" :title="t('removeKeyBtn')" @click="removeKey(item.id)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
                 <span v-else class="text-muted/50" :title="t('keySrcEnvHint')">•</span>
               </div>
               <div class="flex items-center gap-2 pt-1">
-                <button class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition" :disabled="detectingKeys" @click="detectKeyDomains()">{{ detectingKeys ? t('detectKeysRunning') : t('detectKeysBtn') }}</button>
+                <button class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition" :disabled="detectingKeys" @click="detectKeyDomains()">{{ detectingKeys ? t('detectKeysRunning') : t('detectKeysBtn') }}</button>
                 <span class="text-xs text-muted">{{ t('detectKeysHint') }}</span>
               </div>
             </div>
             <div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-3 text-xs">
-              <a href="https://platform.agnes-ai.com" target="_blank" rel="noopener" class="text-accent hover:text-ink transition-colors">🚀 {{ t('apiKeyGetLink') }}</a>
-              <a href="https://video.lichuanyang.top/guides/api-key" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">📖 {{ t('apiKeyGuideLink') }}</a>
-              <a href="https://video.lichuanyang.top/demo" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">⚡ {{ t('apiKeyDemoLink') }}</a>
+              <a href="https://platform.agnes-ai.com" target="_blank" rel="noopener" class="text-accent hover:text-ink transition-colors">{{ t('apiKeyGetLink') }}</a>
+              <a href="https://video.lichuanyang.top/guides/api-key" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">{{ t('apiKeyGuideLink') }}</a>
+              <a href="https://video.lichuanyang.top/demo" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">{{ t('apiKeyDemoLink') }}</a>
             </div>
           </div>
 
@@ -616,7 +622,7 @@ initCollapse()
             </div>
             <div class="flex items-end">
               <button
-                class="px-4 py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition whitespace-nowrap"
+                class="px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition whitespace-nowrap"
                 :disabled="providerTestBusy"
                 @click="onFetchProviderModels"
               >{{ providerTestBusy ? t('providerFetching') : t('providerFetchModels') }}</button>
@@ -632,19 +638,21 @@ initCollapse()
             <div v-if="modelItems.length > 0" class="space-y-1.5 mb-2">
               <div v-for="(m, idx) in modelItems" :key="m + idx" class="flex items-center gap-2 glass-input rounded-lg px-3 py-1.5">
                 <span class="flex-1 min-w-0 font-mono text-xs text-ink truncate">{{ m }}</span>
-                <button class="text-red-300 hover:text-red-200 transition text-xs" :aria-label="t('delete')" @click="removeModelItem(idx)">✕</button>
+                <button class="text-danger hover:opacity-80 transition p-1" :aria-label="t('delete')" @click="removeModelItem(idx)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
             </div>
             <div class="flex gap-2">
               <input v-model="modelInput" class="flex-1 glass-input rounded-lg px-3 py-2 text-sm text-ink placeholder-muted font-mono" :placeholder="t('modelInputPlaceholder')" @keyup.enter.prevent="onAddModel()" />
-              <button class="px-3 py-2 bg-blue-600/80 hover:bg-blue-500 rounded-lg text-sm font-medium transition whitespace-nowrap" @click="onAddModel()">{{ t('modelAdd') }}</button>
+              <button class="px-3 py-2 bg-blue-600/80 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition whitespace-nowrap" @click="onAddModel()">{{ t('modelAdd') }}</button>
             </div>
             <p class="text-[10px] text-muted mt-1">{{ t('modelInputHint') }}</p>
           </div>
 
           <div class="flex items-center gap-3 justify-end mt-6">
-            <span v-if="providerSaveStatus === 'ok'" class="self-center text-xs text-green-400">{{ t('providerSaved') }}</span>
-            <span v-if="providerSaveStatus === 'error'" class="self-center text-xs text-red-400">{{ providerErrorMsg }}</span>
+            <span v-if="providerSaveStatus === 'ok'" class="self-center text-xs text-success">{{ t('providerSaved') }}</span>
+            <span v-if="providerSaveStatus === 'error'" class="self-center text-xs text-danger">{{ providerErrorMsg }}</span>
             <button class="px-4 py-2 rounded-lg text-sm text-ink-2 bg-paper-3 hover:bg-paper-2 border border-rule transition" @click="showProviderModal = false">{{ t('cancel') }}</button>
             <button class="px-5 py-2.5 bg-accent text-accent-ink hover:bg-accent/90 rounded-lg text-sm font-medium transition" @click="onSaveProvider">{{ t('save') }}</button>
           </div>
@@ -662,7 +670,7 @@ initCollapse()
       @click="toggleConfigPanel('model')"
     >
       <div class="flex items-center gap-3">
-        <span class="text-sm">🧠</span>
+        <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
         <span class="text-sm text-muted">
           <span class="text-ink-2 font-medium">{{ t('modelTitle') }}</span>
           <span class="text-muted mx-2">·</span>
@@ -672,14 +680,16 @@ initCollapse()
           <span v-else class="text-muted">—</span>
         </span>
       </div>
-      <span class="text-muted text-xs">▶</span>
+      <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
     </div>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('modelTitle') }}</h2>
         <div class="flex items-center gap-2">
           <span class="text-xs px-2 py-1 rounded-full bg-paper-2 text-muted">{{ t('modelSyncIdle') }}</span>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded" @click="toggleConfigPanel('model')">▲</button>
+          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('model')">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+          </button>
         </div>
       </div>
       <p class="text-xs text-muted mb-4">{{ t('modelHint') }}</p>
@@ -716,25 +726,25 @@ initCollapse()
           </select>
           <p v-if="textModelOptions.length === 0" class="text-xs text-muted mt-1.5">{{ t('providerNoModels') }}</p>
           <p v-if="betaHintVisible" class="text-xs text-accent mt-1.5">{{ t('modelBetaHint') }}</p>
-          <p v-if="isPaidModel(appState.models.text)" class="text-xs text-amber-400 mt-1.5">{{ t('modelPaidHint') }}</p>
+          <p v-if="isPaidModel(appState.models.text)" class="text-xs text-warning mt-1.5">{{ t('modelPaidHint') }}</p>
         </div>
         <div>
           <label class="block text-xs text-muted mb-1">{{ t('modelImageLabel') }}</label>
           <select v-model="appState.models.image" class="flex-1 glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
             <option v-for="m in appState.modelListCache.image" :key="m" :value="m">{{ modelDisplayLabel(m) }}</option>
           </select>
-          <p v-if="isPaidModel(appState.models.image)" class="text-xs text-amber-400 mt-1.5">{{ t('modelPaidHint') }}</p>
+          <p v-if="isPaidModel(appState.models.image)" class="text-xs text-warning mt-1.5">{{ t('modelPaidHint') }}</p>
         </div>
         <!-- v6.2：开放视频模型选择 + 三模型差异说明 -->
         <div>
           <label class="block text-xs text-muted mb-1">{{ t('modelVideoLabel') }} (v6.2)</label>
           <select v-model="appState.models.video" class="flex-1 glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
-            <option v-for="m in appState.modelListCache.video" :key="m" :value="m">{{ modelDisplayLabel(m) }}{{ vmCaps.isAdapted(m) ? '' : ' ⚠' }}</option>
+            <option v-for="m in appState.modelListCache.video" :key="m" :value="m">{{ modelDisplayLabel(m) }}{{ vmCaps.isAdapted(m) ? '' : ' [!]' }}</option>
           </select>
           <!-- v7.0 U8：上游有、本地能力表无的模型显式提示（避免「模型可见档位不能用」） -->
-          <p v-if="appState.models.video && !vmCaps.isAdapted(appState.models.video)" class="text-xs text-amber-400 mt-1.5">{{ t('vmUnadaptedHint') }}</p>
-          <p v-if="vmCaps.isPaidTag(appState.models.video)" class="text-xs text-amber-400 mt-1.5">{{ t('modelPaidHint') }}</p>
-          <p v-else-if="vmCaps.priceText(appState.models.video)" class="text-xs text-green-400 mt-1.5">{{ vmCaps.priceText(appState.models.video) }}</p>
+          <p v-if="appState.models.video && !vmCaps.isAdapted(appState.models.video)" class="text-xs text-warning mt-1.5">{{ t('vmUnadaptedHint') }}</p>
+          <p v-if="vmCaps.isPaidTag(appState.models.video)" class="text-xs text-warning mt-1.5">{{ t('modelPaidHint') }}</p>
+          <p v-else-if="vmCaps.priceText(appState.models.video)" class="text-xs text-success mt-1.5">{{ vmCaps.priceText(appState.models.video) }}</p>
 
           <!-- 三模型差异对比（选模型阶段详细说明） -->
           <div v-if="vmCaps.allCapabilities().length > 0" class="mt-3 rounded-lg bg-paper-3/60 p-3">
@@ -746,15 +756,15 @@ initCollapse()
                     <th class="text-left font-normal pr-3 py-0.5">{{ t('vmColCapability') }}</th>
                     <th v-for="item in vmCaps.allCapabilities()" :key="item.model" class="text-left font-normal px-2 py-0.5 whitespace-nowrap">
                       <span :class="item.model === appState.models.video ? 'text-accent' : ''">{{ item.caps.label }}</span>
-                      <span v-if="item.caps.price === 'paid'" class="text-amber-400"> {{ t('vmTagPaid') }}</span>
-                      <span v-else-if="item.caps.price === 'free'" class="text-green-400"> {{ t('vmTagFree') }}</span>
+                      <span v-if="item.caps.price === 'paid'" class="text-warning"> {{ t('vmTagPaid') }}</span>
+                      <span v-else-if="item.caps.price === 'free'" class="text-success"> {{ t('vmTagFree') }}</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody class="text-ink-2">
                   <tr>
                     <td class="text-muted pr-3 py-0.5">{{ t('vmColPrice') }}</td>
-                    <td v-for="item in vmCaps.allCapabilities()" :key="'p' + item.model" class="px-2 py-0.5" :class="item.caps.price === 'paid' ? 'text-amber-400' : 'text-green-400'">
+                    <td v-for="item in vmCaps.allCapabilities()" :key="'p' + item.model" class="px-2 py-0.5" :class="item.caps.price === 'paid' ? 'text-warning' : 'text-success'">
                       {{ vmCaps.priceText(item.model) }}
                     </td>
                   </tr>
@@ -802,8 +812,8 @@ initCollapse()
       </div>
       <div class="flex gap-3 mt-4">
         <button class="px-5 py-2.5 bg-accent text-accent-ink hover:bg-accent/90 rounded-lg text-sm font-medium transition" @click="saveModels">{{ t('save') }}</button>
-        <span v-if="modelSaveStatus === 'ok'" class="self-center text-xs text-green-400">{{ t('modelSaved') }}</span>
-        <span v-if="modelSaveStatus === 'error'" class="self-center text-xs text-red-400">{{ modelErrorMsg }}</span>
+        <span v-if="modelSaveStatus === 'ok'" class="self-center text-xs text-success">{{ t('modelSaved') }}</span>
+        <span v-if="modelSaveStatus === 'error'" class="self-center text-xs text-danger">{{ modelErrorMsg }}</span>
       </div>
     </div>
   </div>
@@ -818,31 +828,33 @@ initCollapse()
       @click="toggleConfigPanel('workspace')"
     >
       <div class="flex items-center gap-3">
-        <span class="text-sm">📁</span>
+        <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
         <span class="text-sm text-muted">
           <span class="text-ink-2 font-medium">{{ t('workspaceTitle') }}</span>
           <span class="text-muted mx-2">·</span>
-          <span :class="appState.activeWorkspace ? 'text-green-400' : 'text-muted'">
+          <span :class="appState.activeWorkspace ? 'text-success' : 'text-muted'">
             {{ appState.activeWorkspace ? (appState.workspaces.find((w) => w.path === appState.activeWorkspace)?.name || appState.activeWorkspace) : t('workspaceNone') }}
           </span>
         </span>
       </div>
-      <span class="text-muted text-xs">▶</span>
+      <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
     </div>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('workspaceTitle') }}</h2>
         <div class="flex items-center gap-2">
-          <span class="text-xs px-2 py-1 rounded-full" :class="appState.activeWorkspace ? 'bg-green-900 text-green-300' : 'bg-paper-2 text-muted'">
+          <span :class="appState.activeWorkspace ? 'badge-success' : 'text-xs px-2 py-1 rounded-full bg-paper-2 text-muted'">
             {{ appState.activeWorkspace ? t('workspaceActive') : t('workspaceNone') }}
           </span>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded" @click="toggleConfigPanel('workspace')">▲</button>
+          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('workspace')">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+          </button>
         </div>
       </div>
-      <div v-if="isRegression" class="mb-3 text-xs text-accent bg-accent/15/30 rounded-lg px-3 py-2">{{ t('workspaceRegressionHint') }}</div>
+      <div v-if="isRegression" class="mb-3 text-xs text-accent bg-accent/15 rounded-lg px-3 py-2">{{ t('workspaceRegressionHint') }}</div>
       <div v-if="appState.activeWorkspace" class="mb-3 glass-input rounded-lg px-4 py-2.5">
         <p class="text-xs text-muted mb-0.5">{{ t('workspaceCurrentActive') }}</p>
-        <p class="text-sm text-green-300 font-medium">{{ appState.workspaces.find((w) => w.path === appState.activeWorkspace)?.name || appState.activeWorkspace }}</p>
+        <p class="text-sm text-success font-medium">{{ appState.workspaces.find((w) => w.path === appState.activeWorkspace)?.name || appState.activeWorkspace }}</p>
         <p class="text-xs text-muted font-mono truncate">{{ appState.activeWorkspace }}</p>
       </div>
       <div class="flex gap-3 mb-4">
@@ -866,11 +878,11 @@ initCollapse()
             <p class="text-xs text-muted font-mono truncate">{{ ws.path }}</p>
           </div>
           <div class="flex gap-2 ml-3">
-            <span v-if="ws.path === appState.activeWorkspace" class="text-xs px-2 py-1 rounded-full bg-green-900 text-green-300">{{ t('workspaceActiveBadge') }}</span>
-            <button v-else class="px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg text-xs font-medium transition" @click="activateWorkspace(ws.path)">
+            <span v-if="ws.path === appState.activeWorkspace" class="badge-success">{{ t('workspaceActiveBadge') }}</span>
+            <button v-else class="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-medium transition" @click="activateWorkspace(ws.path)">
               {{ t('workspaceActivate') }}
             </button>
-            <button v-if="!ws.is_default" class="px-3 py-1 bg-red-600/80 hover:bg-red-500 rounded-lg text-xs font-medium transition" @click="removeWorkspaceEntry(ws.path)">
+            <button v-if="!ws.is_default" class="btn-danger text-xs px-3 py-1 font-medium" @click="removeWorkspaceEntry(ws.path)">
               {{ t('workspaceRemove') }}
             </button>
           </div>
@@ -890,25 +902,27 @@ initCollapse()
       @click="toggleConfigPanel('privacy')"
     >
       <div class="flex items-center gap-3">
-        <span class="text-sm">🔒</span>
+        <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
         <span class="text-sm text-muted">
           <span class="text-ink-2 font-medium">{{ t('privacyTitle') }}</span>
           <span class="text-muted mx-2">·</span>
-          <span :class="gaOptOut ? 'text-green-400' : 'text-muted'">
+          <span :class="gaOptOut ? 'text-success' : 'text-muted'">
             {{ gaOptOut ? t('gaStatOff') : t('gaStatOn') }}
           </span>
         </span>
       </div>
-      <span class="text-muted text-xs">▶</span>
+      <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
     </div>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('privacyTitle') }}</h2>
         <div class="flex items-center gap-2">
-          <span class="text-xs px-2 py-1 rounded-full" :class="gaOptOut ? 'bg-green-900 text-green-300' : 'bg-paper-2 text-muted'">
+          <span :class="gaOptOut ? 'badge-success' : 'text-xs px-2 py-1 rounded-full bg-paper-2 text-muted'">
             {{ gaOptOut ? t('gaStatOff') : t('gaStatOn') }}
           </span>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded" @click="toggleConfigPanel('privacy')">▲</button>
+          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('privacy')">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+          </button>
         </div>
       </div>
       <label class="flex items-start gap-3 cursor-pointer select-none">

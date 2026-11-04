@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional
 
 from core.api.agnes_video import VideoTaskCancelled, is_remote_video_failure
+from core.compositor.processor import VideoProcessor
 from core.pipelines import BasePipeline, CheckpointPause, PipelineShutdown
 from models.task import SceneTask, StepStatus
 from utils.network import (
@@ -43,7 +44,9 @@ class StepProgressLimits:
     build_start: float = 0.0      # Phase 1 分镜
     build_end: float = 0.15
     reference_end: float = 0.30   # Phase 2 参考图
+    keyframe_end: float = 0.40    # Phase 2.5 关键帧（v7.1，仅 generate_keyframes 时经过）
     video_end: float = 0.75       # Phase 3 视频生成
+    qc_end: float = 0.80          # Phase 3.5 VLM 质量闸（v7.2 R8，仅 qc_enabled 时经过）
     audio_end: float = 0.85       # Phase 4 配音
     subtitle_end: float = 0.90    # Phase 5 字幕
     composite_end: float = 0.98   # Phase 6 合成
@@ -78,6 +81,10 @@ class MultiScenePipeline(BasePipeline):
         - ``_get_scene_duration``         单场景视频时长
         - ``_get_audio_path``             音频文件输出路径
         - ``_set_subtitle_paths``         字幕路径写回 state
+
+    v7.1 关键帧模式：开启 ``state.generate_keyframes`` 的子类须在 ``__init__``
+    中设置 ``self.image_api``（``AgnesImageAPI`` 实例），供
+    ``_generate_scene_keyframes`` 生成关键帧静图使用。
     """
 
     # v5.0 Batch 3（S3，方案 A）：粗粒度步骤级 skip 默认开启；
@@ -111,12 +118,36 @@ class MultiScenePipeline(BasePipeline):
                 self._t("progress.multi_scene.reference_running"), self._t("progress.multi_scene.reference_done"),
             )
 
+            # Phase 2.5（v7.1 关键帧模式，I2V-first）：逐场景先生成关键帧静图。
+            # 关闭时不执行该步骤（step_keyframes 保持 PENDING，前端按
+            # state.generate_keyframes 过滤时间线，不显示该步骤）。
+            if self._keyframes_enabled():
+                await self._execute_step(
+                    "step_keyframes", self._generate_scene_keyframes,
+                    _PROGRESS.reference_end, _PROGRESS.keyframe_end,
+                    self._t("progress.multi_scene.keyframes_running"),
+                    self._t("progress.multi_scene.keyframes_done"),
+                )
+
             # Phase 3: 视频生成（通用，子类可覆写保留链式/循环逻辑）
+            # 收尾时为每个成片补一张 25/50/75% 接触单（铁律「单段确认」的人工可审依据）；
+            # 复用视频步骤的进度区间，不引入新步骤字段，失败一律 fail-open。
             await self._execute_step(
-                "step_video_generation", self._generate_videos,
-                _PROGRESS.reference_end, _PROGRESS.video_end,
+                "step_video_generation", self._generate_videos_with_contact_sheets,
+                _PROGRESS.keyframe_end, _PROGRESS.video_end,
                 self._t("progress.multi_scene.videos_running"), self._t("progress.multi_scene.videos_done"),
             )
+
+            # Phase 3.5（v7.2 R8 质量闸，opt-in）：逐场景免费 VLM 检查 + FAIL 自动
+            # 重生成一次。关闭时不执行（step_qc 保持 PENDING，前端按
+            # state.qc_enabled 过滤时间线，与 keyframes 步骤同模式）。
+            if self._qc_enabled():
+                await self._execute_step(
+                    "step_qc", self._run_scene_qc,
+                    _PROGRESS.video_end, _PROGRESS.qc_end,
+                    self._t("progress.multi_scene.qc_running"),
+                    self._t("progress.multi_scene.qc_done"),
+                )
 
             # Phase 4: 配音（通用，子类可覆写）
             sub_maker = await self._execute_step(
@@ -143,6 +174,10 @@ class MultiScenePipeline(BasePipeline):
             # 后处理：水印（继承自 BasePipeline；异步，避免阻塞事件循环）
             final_video = await self._apply_watermark(final_video)
 
+            # Post-Processing (AGNES_POST_PROCESS=1 aktiviert auto-editor Stille-Entfernung im ThreadPool)
+            from core.compositor.post_processor import post_process_video_async
+            final_video = await post_process_video_async(final_video)  # in-place, graceful degradation bei Fehler
+
             # 完成
             self._state.status = StepStatus.COMPLETED
             self._state.final_video_file = final_video
@@ -162,6 +197,7 @@ class MultiScenePipeline(BasePipeline):
             logger.info("[MultiScene] Task %s paused: %s", self.task_id, e.message)
             return ""
         except PipelineShutdown:
+            self._mark_interrupted()
             # v7.0（issue #64）：中断提示按任务落盘的 ui_language 双语化
             await self._emit(
                 "error", "failed", self._t("task.interrupted_resumable"),
@@ -260,13 +296,59 @@ class MultiScenePipeline(BasePipeline):
     # 通用步骤实现（操作 self._state.scenes，子类可整体覆写）
     # ==================================================================
 
+    async def _generate_videos_with_contact_sheets(self) -> None:
+        """视频生成 + 逐片段 25/50/75% 接触单（QC-Trio）。
+
+        接触单是铁律「单段确认流程」的可审依据：VLM 闸（``_run_scene_qc``，opt-in）
+        自动判定，接触单让人能一眼看到片段的开始/中段/结尾三帧。生成失败一律
+        fail-open——质检辅助物绝不能拖垮任务本身。
+        """
+        try:
+            await self._generate_videos()
+        finally:
+            self._write_all_contact_sheets()
+
+    def _write_all_contact_sheets(self) -> None:
+        """为所有已落盘的成片补接触单（已存在则跳过，纯新增文件）。"""
+        from core.quality.qc import build_contact_sheet
+
+        scenes = getattr(self._state, "scenes", None) or []
+        for idx, scene in enumerate(scenes):
+            video_path = getattr(scene, "video_file", None)
+            if not video_path or not os.path.isfile(video_path):
+                continue
+            target = os.path.join(os.path.dirname(video_path), "qa_trio.png")
+            if os.path.isfile(target):
+                continue
+            try:
+                made = build_contact_sheet(video_path, out_path=target)
+            except Exception as e:  # noqa: BLE001 — fail-open by design
+                logger.warning("[MultiScene] contact sheet failed for scene %d: %s", idx + 1, e)
+                continue
+            if made:
+                logger.info("[MultiScene] contact sheet (25/50/75%%) ready for scene %d: %s", idx + 1, made)
+
     async def _generate_videos(self) -> None:
         """通用视频生成：两阶段（批量提交 + 逐个等待）。
 
         每个场景从 SceneTask 对象获取 prompt / duration / ref_images（通过钩子）。
         子类（如链式/循环视频）可整体覆写本方法以保留其特有逻辑。
+
+        v7.1.2：``AGNES_SCENE_FRAME_CHAINING=1`` 时改走串行首末帧链
+        （``_generate_videos_chained``）；关键帧模式自带 i2i 视觉链，不叠加，
+        仍走本通用路径。
         """
+        if self._frame_chaining_enabled():
+            logger.info(
+                "[MultiScene] frame chaining enabled (AGNES_SCENE_FRAME_CHAINING): "
+                "using serial last→first frame generation"
+            )
+            return await self._generate_videos_chained()
+
         scenes = self._state.scenes
+
+        # v7.2 R8（P2）：成本估算 + 预算闸 —— 付费 Provider 在第一次提交前 fail-fast
+        await self._announce_video_cost(self._remaining_submit_indices(len(scenes)))
 
         # Phase 1: 批量提交
         pending: list = []
@@ -288,6 +370,7 @@ class MultiScenePipeline(BasePipeline):
 
             prompt = self._get_scene_video_prompt(scene, i)
             ref_images = self._get_scene_ref_images(scene, i)
+            await self._guard_scene_reference(scene, i, ref_images)
             duration = self._get_scene_duration(scene, i)
 
             video_id = await self.video_api.submit_video(
@@ -341,6 +424,419 @@ class MultiScenePipeline(BasePipeline):
                 self._t("progress.multi_scene.save_video", cur=j + 1, total=len(pending)),
                 0.40 + 0.35 * (j + 1) / max(len(pending), 1),
             )
+
+    # ==================================================================
+    # v7.2 R8（P2）：成本估算 + 预算闸（仅付费 Provider 生效，agnes 无估算器直接跳过）
+    # ==================================================================
+
+    def _remaining_submit_indices(self, total: int) -> List[int]:
+        """将被**新提交**的场景下标（已有成片或已排队 task.json 的不计费）。"""
+        out: List[int] = []
+        for i in range(total):
+            scene_dir = os.path.join(self.working_dir, f"scene_{i}")
+            if os.path.exists(os.path.join(scene_dir, "video.mp4")):
+                continue
+            if self._load_task_json(scene_dir):
+                continue
+            out.append(i)
+        return out
+
+    async def _announce_video_cost(self, submit_indices: List[int]) -> None:
+        """视频生成前估算剩余成本、落盘并做预算预检。
+
+        - ``video_api`` 无 ``estimate_clip_cost_usd``（agnes 免费）→ 直接返回；
+        - 付费 Provider：估算写 ``state.estimated_video_cost_usd``，并经结构化
+          进度消息（``progress.multi_scene.cost_estimate``）下发前端；
+        - ``AGNES_VIDEO_BUDGET_USD > 0`` 且估算超限 → 在产生任何费用**之前**
+          抛 RuntimeError（走 run() 的统一失败路径，消息含预算与金额）。
+        """
+        if not submit_indices:
+            return
+        estimator = getattr(self.video_api, "estimate_clip_cost_usd", None)
+        if not callable(estimator):
+            return
+        total = 0.0
+        try:
+            for i in submit_indices:
+                result = estimator(
+                    self._get_scene_duration(self._state.scenes[i], i),
+                    self._state.video_width,
+                    self._state.video_height,
+                )
+                # Mocks/async-Provider können eine Coroutine liefern
+                if asyncio.iscoroutine(result):
+                    result = await result
+                total += float(result or 0)
+        except Exception as e:
+            # Kostenschätzung ist Best-Effort: Fehler nie zum Task-Fehler machen
+            logger.warning("[MultiScene] cost estimate failed (ignored): %s", e)
+            return
+        if total <= 0:
+            return
+        self.task_manager.update_state(estimated_video_cost_usd=total)
+        from core.config import get_settings
+
+        budget = float(get_settings().agnes_video_budget_usd or 0.0)
+        if budget > 0 and total > budget:
+            raise RuntimeError(self._t(
+                "error.video.budget_exceeded",
+                cost=f"{total:.2f}", budget=f"{budget:.2f}",
+            ))
+        await self._emit(
+            "video_gen", "running",
+            self._t("progress.multi_scene.cost_estimate", cost=f"{total:.2f}"),
+            0.40,
+            message_key="progress.multi_scene.cost_estimate",
+            message_params={"cost": f"{total:.2f}"},
+        )
+
+    # ==================================================================
+    # v7.2 R8（Batch 2）：VLM 质量闸（opt-in，state.qc_enabled）
+    # 免费 Agnes-Vision 逐场景检查；FAIL 自动重生成一次，仍 FAIL 保留原片 +
+    # qc_report 标记人工复核。fail-open：QC 自身故障绝不拖垮任务。
+    # ==================================================================
+
+    # 每个片段的最大重生成轮数（1 = 首检 FAIL 后重生成一次，与实验闸一致）
+    _QC_MAX_REGEN_ROUNDS = 1
+
+    def _qc_enabled(self) -> bool:
+        """质量闸是否开启（state.qc_enabled，旧任务缺字段视为关闭）。"""
+        return bool(getattr(self._state, "qc_enabled", False))
+
+    def _get_qc_gate(self):
+        """构建 ClipQCGate（AgnesChatAPI 调用时导入 — mock 回归补丁点）。"""
+        from core.api.agnes_chat import AgnesChatAPI
+        from core.quality.qc import ClipQCGate
+
+        return ClipQCGate(AgnesChatAPI(api_key=self.api_key))
+
+    # ── 子类可覆写的钩子 ─────────────────────────────────────────
+
+    def _scene_clip_path(self, scene: SceneTask, index: int) -> str:
+        """场景成片路径（默认 ``scene_{i}/video.mp4``；稿件覆写为 para 目录）。"""
+        return os.path.join(self.working_dir, f"scene_{index}", "video.mp4")
+
+    def _qc_scene_dir(self, scene: SceneTask, index: int) -> str:
+        """该片段 task.json 所在目录（重生成前清空排队 id 用）。"""
+        return os.path.join(self.working_dir, f"scene_{index}")
+
+    def _qc_clip_prompt(self, scene: SceneTask, index: int) -> str:
+        """QC 判定依据的 prompt（默认与视频提交 prompt 同源）。"""
+        return self._get_scene_video_prompt(scene, index)
+
+    def _qc_regen_refs(self, scene: SceneTask, index: int) -> List[str]:
+        """重生成时的参考图（默认与通用提交路径同源）。"""
+        return self._get_scene_ref_images(scene, index)
+
+    def _qc_regen_duration(self, scene: SceneTask, index: int) -> int:
+        """重生成的片段时长（默认与通用提交路径同源）。"""
+        return self._get_scene_duration(scene, index)
+
+    # ── 主流程 ───────────────────────────────────────────────────
+
+    async def _run_scene_qc(self) -> None:
+        """逐场景 VLM 质量检查 + 有限自动重生成（Phase 3.5）。
+
+        - 检查所有已成片场景（``_scene_clip_path``）；
+        - 结论写 ``state.qc_report``（逐场景 passed/verdict）并落盘；
+        - FAIL 场景：清空排队 task.json → 原样重新提交（重生成计入付费
+          Provider 的预算闸）→ 等待落盘 → 复检；复检仍 FAIL 保留新片并标记；
+        - 原片在重生成功落盘前**始终保留**（重生成等待失败不丢已有产物）。
+        """
+        scenes = self._state.scenes
+        total = len(scenes)
+        gate = self._get_qc_gate()
+        fixed = 0
+        flagged = 0
+
+        for i, scene in enumerate(scenes):
+            self._check_shutdown()
+            clip_path = self._scene_clip_path(scene, i)
+            if not clip_path or not os.path.exists(clip_path):
+                continue
+
+            await self._emit(
+                "qc", "running",
+                self._t("progress.multi_scene.qc_scene", i=i + 1, total=total),
+                _PROGRESS.video_end + (_PROGRESS.qc_end - _PROGRESS.video_end)
+                * (i / max(total, 1)),
+            )
+
+            verdict = await gate.judge_clip(clip_path, self._qc_clip_prompt(scene, i))
+            self._record_qc_verdict(i, verdict)
+
+            if not verdict.passed:
+                logger.warning(
+                    "[MultiScene] qc: clip %d FAIL → regenerating (%s)",
+                    i, verdict.reason[:160],
+                )
+                regen_verdict = await self._qc_regenerate_clip(i, gate)
+                if not regen_verdict.passed:
+                    flagged += 1
+                    logger.warning(
+                        "[MultiScene] qc: clip %d still FAIL after regen "
+                        "(kept for manual review): %s",
+                        i, regen_verdict.reason[:160],
+                    )
+                else:
+                    fixed += 1
+
+        self.task_manager.update_state(qc_report=self._state.qc_report)
+        await self._emit(
+            "qc", "completed",
+            self._t(
+                "progress.multi_scene.qc_done",
+                total=total, fixed=fixed, flagged=flagged,
+            ),
+            _PROGRESS.qc_end,
+            message_key="progress.multi_scene.qc_done",
+            message_params={"total": total, "fixed": fixed, "flagged": flagged},
+        )
+
+    def _record_qc_verdict(self, index: int, verdict) -> None:
+        """单场景 QC 结论写 state + 落盘（供前端/诊断展示）。"""
+        self._state.qc_report[str(index)] = {
+            "passed": bool(verdict.passed),
+            "verdict": verdict.reason[:300],
+        }
+        self.task_manager.update_state(qc_report=self._state.qc_report)
+
+    async def _qc_regenerate_clip(self, index: int, gate):
+        """重生成 FAIL 片段并复检；任何失败都 fail-open（返回 PASS 型结论语义的
+        「无法处理」由调用方按仍 FAIL 处理——此处直接回传复检结论或 fail-open）。"""
+        scene = self._state.scenes[index]
+        scene_dir = self._qc_scene_dir(scene, index)
+        clip_path = self._scene_clip_path(scene, index)
+
+        task_file = os.path.join(scene_dir, "task.json")
+        if os.path.exists(task_file):
+            os.remove(task_file)
+
+        try:
+            video_id = await self.video_api.submit_video(
+                prompt=self._qc_clip_prompt(scene, index),
+                reference_image_paths=self._qc_regen_refs(scene, index),
+                duration=self._qc_regen_duration(scene, index),
+                width=self._state.video_width,
+                height=self._state.video_height,
+                progress_callback=self._submit_progress_callback("qc", _PROGRESS.video_end),
+            )
+            self._save_task_json(scene_dir, {"video_id": video_id})
+            video_output = await self._wait_for_video_with_retry(video_id, index)
+            await video_output.save(clip_path)
+        except VideoTaskCancelled:
+            raise
+        except Exception as e:
+            # 重生成失败：保留原片，结论按仍 FAIL 记录（人工复核）
+            logger.warning("[MultiScene] qc regen clip %d failed: %s", index, e)
+            from core.quality.qc import QCVerdict
+
+            fail = QCVerdict(passed=False, reason=f"regen failed (original kept): {e}")
+            self._record_qc_verdict(index, fail)
+            return fail
+
+        regen_verdict = await gate.judge_clip(
+            clip_path, self._qc_clip_prompt(scene, index),
+        )
+        self._record_qc_verdict(index, regen_verdict)
+        return regen_verdict
+
+    # ==================================================================
+    # v7.1.2 首末帧链式生成（AGNES_SCENE_FRAME_CHAINING=1，默认关闭）
+    # ==================================================================
+
+    def _frame_chaining_enabled(self) -> bool:
+        """首末帧链式生成开关。
+
+        env ``AGNES_SCENE_FRAME_CHAINING``（默认关闭，维护模式保守默认）；
+        关键帧模式（I2V-first）已在关键帧层实现 i2i 视觉链，不叠加，恒为 False。
+        """
+        if self._keyframes_enabled():
+            return False
+        from core.config import get_settings
+        return bool(get_settings().agnes_scene_frame_chaining)
+
+    async def _extract_scene_last_frame(self, video_path: str, scene_dir: str) -> str:
+        """提取场景成片最后一帧作为下一场景的首帧参考。
+
+        结果缓存为 ``scene_{i}/last_frame.png``（续传直接复用）；
+        提取失败返回空串（fail-open：链条断开但任务继续）。
+        """
+        frame_path = os.path.join(scene_dir, "last_frame.png")
+        if os.path.exists(frame_path):
+            return frame_path
+        try:
+            return await asyncio.to_thread(
+                VideoProcessor.extract_last_frame, video_path, frame_path,
+            )
+        except Exception as e:
+            logger.warning(
+                "[MultiScene] extract last frame failed for %s: %s", video_path, e,
+            )
+            return ""
+
+    async def _generate_videos_chained(self) -> None:
+        """串行首末帧链式视频生成（Last-Frame → First-Frame）。
+
+        知识库调研（watch KB #120/#188，Seedance/Veo 实践）验证的接景技法：
+        上一场景成片的最后一帧作为下一场景的首帧参考（单参考 → v2.0
+        ``ti2vid`` 首帧初始化 / 2.5 ``reference`` 模式），消除场景间视觉跳变。
+
+        语义约束：
+        - 串行依赖：场景 i+1 的提交在场景 i 成片之后，总耗时 ≈ 各场景之和
+          （放弃通用路径的并发等待优化，换取场景间连续性）。
+        - 链式参考只在场景自身无参考图时叠加：与用户参考图混用会触发
+          keyframes/reference 多图模式，首帧语义不可控（v2.0 keyframes 取
+          refs[0]/refs[-1] 为首末帧）。
+        - 断点续传与通用路径同规则：``video.mp4`` 已在 → 跳过生成、仅提取
+          末帧延续链条；``task.json`` 有 video_id → 等待成片，不重复提交。
+        - 末帧提取失败 → 该处链条断开，下一场景退回 text-to-video。
+        """
+        scenes = self._state.scenes
+        total = len(scenes)
+        prev_last_frame = ""
+
+        # v7.2 R8（P2）：链式路径同样在提交前做成本估算 + 预算闸
+        await self._announce_video_cost(self._remaining_submit_indices(total))
+
+        await self._emit(
+            "video_gen", "running",
+            self._t("progress.multi_scene.wait_videos", n=total),
+            0.40,
+        )
+
+        for i in range(total):
+            self._check_shutdown()
+            # 注意：update_state(scenes=...) 会以 model_dump 重建 scenes 列表，
+            # 禁止跨 update_state 持有旧 SceneTask 引用——每轮从
+            # self._state.scenes 重新取对象，写回也一律走 self._state.scenes[i]
+            scene = self._state.scenes[i]
+            scene_dir = os.path.join(self.working_dir, f"scene_{i}")
+            os.makedirs(scene_dir, exist_ok=True)
+            video_path = os.path.join(scene_dir, "video.mp4")
+
+            if os.path.exists(video_path):
+                scene.video_file = video_path
+                prev_last_frame = await self._extract_scene_last_frame(video_path, scene_dir)
+                await self._emit(
+                    "video_gen", "running",
+                    self._t("progress.multi_scene.save_video", cur=i + 1, total=total),
+                    0.40 + 0.35 * (i + 1) / max(total, 1),
+                )
+                continue
+
+            video_id = self._load_task_json(scene_dir)
+            if not video_id:
+                prompt = self._get_scene_video_prompt(scene, i)
+                ref_images = self._get_scene_ref_images(scene, i)
+                duration = self._get_scene_duration(scene, i)
+                # 链式首帧：仅当场景无自身参考图时叠加（见方法 docstring 语义约束）
+                refs = list(ref_images)
+                if prev_last_frame and not refs:
+                    refs = [prev_last_frame]
+                # 校验放在链式叠加之后：上一段尾帧也算有效参考图
+                await self._guard_scene_reference(scene, i, refs)
+                video_id = await self.video_api.submit_video(
+                    prompt=prompt,
+                    reference_image_paths=refs,
+                    duration=duration,
+                    width=self._state.video_width,
+                    height=self._state.video_height,
+                    # U1（v7.0）：队列满时实时向前端推「排队重试中」
+                    progress_callback=self._submit_progress_callback("video_gen", 0.40),
+                )
+                scene.video_id = video_id
+                self._save_task_json(scene_dir, {"video_id": video_id})
+
+            video_output = await self._wait_for_video_with_retry(video_id, i)
+            await video_output.save(video_path)
+            self._state.scenes[i].video_file = video_path
+            self.task_manager.update_state(
+                scenes=[s.model_dump() for s in self._state.scenes],
+            )
+            prev_last_frame = await self._extract_scene_last_frame(video_path, scene_dir)
+            await self._emit(
+                "video_gen", "running",
+                self._t("progress.multi_scene.save_video", cur=i + 1, total=total),
+                0.40 + 0.35 * (i + 1) / max(total, 1),
+            )
+
+    # ==================================================================
+    # v7.1 关键帧模式（I2V-first）：逐场景先出关键帧静图，再以 i2v 提交动画
+    # ==================================================================
+
+    def _keyframes_enabled(self) -> bool:
+        """关键帧模式是否开启（state.generate_keyframes，旧任务缺字段视为关闭）。"""
+        return bool(getattr(self._state, "generate_keyframes", False))
+
+    async def _generate_scene_keyframes(self) -> None:
+        """通用关键帧生成：逐场景出首帧静图（断点续传：已存在的帧跳过）。
+
+        链式一致性：场景 i 的关键帧默认以场景 i-1 的关键帧做 i2i 参考
+        （视觉链，对齐 creative 尾帧链做法）；首场景无参考走 t2i。
+        子类可通过钩子定制 prompt / 参考优先级 / 落盘目录 / 状态持久化。
+        """
+        scenes = self._state.scenes
+        total = len(scenes)
+        size = f"{self._state.video_width}x{self._state.video_height}"
+        prev_keyframe = ""
+
+        for i, scene in enumerate(scenes):
+            self._check_shutdown()
+
+            # 断点续传：帧已存在（文件在且路径已登记）→ 跳过生成，仅延续视觉链
+            existing = getattr(scene, "keyframe_file", "")
+            if existing and os.path.exists(existing):
+                prev_keyframe = existing
+                continue
+
+            rel_dir = self._keyframe_rel_dir(scene, i)
+            scene_dir = os.path.join(self.working_dir, rel_dir)
+            os.makedirs(scene_dir, exist_ok=True)
+            kf_path = os.path.join(scene_dir, "keyframe.png")
+
+            await self._emit(
+                "keyframes", "running",
+                self._t("progress.multi_scene.keyframe_scene", i=i + 1, total=total),
+                _PROGRESS.reference_end + (_PROGRESS.keyframe_end - _PROGRESS.reference_end) * (i + 1) / max(total, 1),
+            )
+
+            prompt = self._get_scene_keyframe_prompt(scene, i)
+            refs = self._get_scene_keyframe_refs(scene, i, prev_keyframe)
+            img_output = await self.image_api.generate_single_image(
+                prompt=prompt,
+                reference_image_paths=refs,
+                size=size,
+            )
+            await img_output.save(kf_path)
+
+            scene.keyframe_file = kf_path
+            prev_keyframe = kf_path
+            self._persist_keyframe_state(i)
+            logger.info(
+                "[MultiScene] keyframe: scene %d/%d saved → %s (refs=%d)",
+                i + 1, total, kf_path, len(refs),
+            )
+
+    def _get_scene_keyframe_prompt(self, scene: SceneTask, index: int) -> str:
+        """关键帧 prompt。默认复用场景视频 prompt（其中已含风格描述）。"""
+        return getattr(scene, "scene_prompt", "") or getattr(scene, "end_frame_prompt", "")
+
+    def _get_scene_keyframe_refs(
+        self, scene: SceneTask, index: int, prev_keyframe: str,
+    ) -> List[str]:
+        """关键帧 i2i 参考。默认上一场景关键帧（视觉链）；首场景空（t2i）。"""
+        return [prev_keyframe] if prev_keyframe else []
+
+    def _keyframe_rel_dir(self, scene: SceneTask, index: int) -> str:
+        """关键帧落盘子目录。默认 ``scene_{i}``（子类如稿件覆写为 ``para_{index}``）。"""
+        return f"scene_{index}"
+
+    def _persist_keyframe_state(self, last_index: int) -> None:
+        """单个关键帧落盘后的状态持久化。默认回写 scenes 列表。"""
+        self.task_manager.update_state(
+            scenes=[s.model_dump() for s in self._state.scenes],
+        )
 
     async def _wait_for_video_with_retry(
         self, video_id: str, scene_idx: int, max_retries: int = 3
@@ -459,12 +955,68 @@ class MultiScenePipeline(BasePipeline):
         return os.path.join(self.working_dir, "combined_narration.mp3")
 
     def _get_scene_video_prompt(self, scene: SceneTask, index: int) -> str:
-        """单场景视频 prompt。默认优先 end_frame_prompt，回退 scene_prompt。"""
+        """单场景视频 prompt。
+
+        v7.1.1 关键帧模式：优先 motion_prompt（i2v 动画专用运动描述，构图由
+        关键帧锚定）；空串回退 end_frame_prompt / scene_prompt（原行为）。
+        """
+        if self._keyframes_enabled():
+            motion = getattr(scene, "motion_prompt", "")
+            if motion:
+                return motion
         return getattr(scene, "end_frame_prompt", "") or getattr(scene, "scene_prompt", "")
 
     def _get_scene_ref_images(self, scene: SceneTask, index: int) -> List[str]:
-        """单场景参考图列表。默认取 scene.ref_images。"""
-        return list(getattr(scene, "ref_images", []) or [])
+        """单场景参考图列表。默认取 scene.ref_images。
+
+        v7.1 关键帧模式开启时优先返回该场景关键帧（I2V-first：动画锚定
+        在已确认的首帧上；用户显式参考图已被关键帧 i2i 消化或按子类优先级处理）。
+        """
+        refs = list(getattr(scene, "ref_images", []) or [])
+        if self._keyframes_enabled():
+            kf = getattr(scene, "keyframe_file", "")
+            if kf and os.path.exists(kf):
+                return [kf]
+        return refs
+
+    def _reference_required(self) -> bool:
+        """本流水线是否强制每个片段都带参考图（铁律 No pure Text-to-Video）。
+
+        默认 ``False``：诗词 / 稿件按设计走 T2V（诗词无角色卡，稿件参考图可选），
+        强行拦截会破坏既有产品行为。**有角色卡的流水线（creative / anchor）
+        必须覆写为 ``True``** —— 那里缺参考图是缺陷，不是可选路径。
+
+        Returns:
+            ``True`` 表示缺参考图时阻止提交；``False`` 表示只告警不拦截。
+        """
+        return False
+
+    async def _guard_scene_reference(self, scene: SceneTask, index: int, refs: List[str]) -> None:
+        """提交前校验参考图；强制模式下缺图直接中止，否则记录可见告警。
+
+        Args:
+            scene: 当前场景。
+            index: 场景下标（0 起）。
+            refs: 即将随提交发送的参考图列表。
+
+        Raises:
+            PipelineShutdown: ``_reference_required()`` 为 ``True`` 且参考图为空。
+        """
+        if refs:
+            return
+        message = self._t("pipeline.reference_required", index=index + 1)
+        if self._reference_required():
+            raise PipelineShutdown(message)
+        # 非强制流水线：不打断任务，但把「这里在跑纯 T2V」写进日志与任务进度，
+        # 避免无声降级成人物漂移却没人知道。每条流水线只提示一次。
+        logger.warning(
+            "[MultiScene] scene %d submits WITHOUT reference image (pure T2V) — "
+            "allowed for %s, character consistency is not guaranteed",
+            index + 1, type(self).__name__,
+        )
+        if not getattr(self, "_reference_warned", False):
+            self._reference_warned = True
+            await self._emit("video_gen", "running", message, 0.40)
 
     def _get_scene_duration(self, scene: SceneTask, index: int) -> int:
         """单场景视频时长。默认 max(scene.duration, 3)。"""

@@ -6,6 +6,8 @@
 import logging
 import os
 
+from typing import Optional, Dict, List
+
 from core.compositor.ffmpeg_tool import resolve_binary
 
 logger = logging.getLogger(__name__)
@@ -123,3 +125,139 @@ class VideoProcessor:
                 final.close()
 
         return output_path
+
+    @staticmethod
+    def list_available_luts(luts_dir: Optional[str] = None) -> Dict[str, str]:
+        """列出可用的 3D LUT 文件。"""
+        if luts_dir is None:
+            here = os.path.dirname(os.path.abspath(__file__))
+            luts_dir = os.path.normpath(os.path.join(here, "..", "..", "resource", "luts"))
+
+        if not os.path.isdir(luts_dir):
+            return {}
+
+        luts = {}
+        for fname in os.listdir(luts_dir):
+            if fname.lower().endswith(".cube"):
+                key = os.path.splitext(fname)[0]
+                luts[key] = os.path.join(luts_dir, fname)
+        return luts
+
+    @staticmethod
+    def apply_lut(video_path: str, lut_path: str, output_path: str) -> str:
+        """使用 3D LUT (.cube) 为视频进行电影级调色与 AI 塑料感消除。
+
+        Args:
+            video_path: 输入视频
+            lut_path: 3D LUT 文件路径 (.cube)
+            output_path: 输出视频路径
+        """
+        if not os.path.exists(lut_path):
+            raise FileNotFoundError(f"LUT file not found: {lut_path}")
+
+        logger.info(f"[Compositor] Applying 3D LUT: {lut_path} → {output_path}")
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
+        # Windows 路径兼容处理: ffmpeg 滤镜中反斜杠需转义为正斜杠，冒号需转义
+        lut_filter_path = lut_path.replace("\\", "/").replace(":", "\\:")
+
+        import subprocess
+        subprocess.run([
+            resolve_binary("ffmpeg"), "-y",
+            "-i", video_path,
+            "-vf", f"lut3d='{lut_filter_path}'",
+            "-c:v", "libx264", "-preset", "fast",
+            "-c:a", "copy",
+            output_path,
+        ], stdin=subprocess.DEVNULL, capture_output=True, check=True, timeout=300)
+
+        return output_path
+
+    @staticmethod
+    def detect_scene_changes(
+        video_path: str,
+        threshold: float = 0.15,
+        min_interval_s: float = 2.0,
+        max_scenes: int = 50
+    ) -> List[float]:
+        """使用 FFmpeg 场景切换检测提取时间戳（秒）。
+
+        基于 watch.py 的场景分析算法，通过 select='gt(scene,{threshold})' 识别关键切镜。
+        """
+        import re
+        import subprocess
+
+        logger.info(f"[Compositor] Detecting scene changes (threshold={threshold}): {video_path}")
+        scene_cmd = [
+            resolve_binary("ffmpeg"), "-i", video_path,
+            "-filter:v", f"select='gt(scene,{threshold})',showinfo",
+            "-vsync", "vfr", "-f", "null", "-"
+        ]
+        res = subprocess.run(scene_cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600)
+
+        # 从 showinfo 日志提取 pts_time
+        pts_times = [float(m.group(1)) for m in re.finditer(r"pts_time:([\d.]+)", res.stderr)]
+
+        # 去重并应用最小间隔过滤
+        pts_times = sorted(set(pts_times))
+        filtered = []
+        last_t = -min_interval_s
+        for t in pts_times:
+            if t - last_t >= min_interval_s:
+                filtered.append(round(t, 3))
+                last_t = t
+            if len(filtered) >= max_scenes:
+                break
+
+        return filtered
+
+    @staticmethod
+    def extract_scene_keyframes(
+        video_path: str,
+        output_dir: str,
+        threshold: float = 0.15,
+        min_interval_s: float = 2.0,
+        max_scenes: int = 30,
+        width: int = 1280
+    ) -> List[dict]:
+        """多线程并行提取视频分镜关键帧。"""
+        import subprocess
+        from concurrent.futures import ThreadPoolExecutor
+
+        os.makedirs(output_dir, exist_ok=True)
+        timestamps = VideoProcessor.detect_scene_changes(video_path, threshold, min_interval_s, max_scenes)
+
+        if not timestamps:
+            timestamps = [0.0]
+
+        def _grab(item):
+            idx, ts = item
+            fname = f"scene_{idx+1:03d}_{int(ts)}s.jpg"
+            fpath = os.path.join(output_dir, fname)
+            cmd = [
+                resolve_binary("ffmpeg"), "-y",
+                "-ss", str(ts),
+                "-i", video_path,
+                "-vframes", "1",
+                "-q:v", "3",
+                "-vf", f"scale='min({width},iw)':-1",
+                fpath
+            ]
+            r = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            if r.returncode == 0 and os.path.exists(fpath):
+                return {
+                    "scene_number": idx + 1,
+                    "timestamp_s": ts,
+                    "frame_path": fpath,
+                    "filename": fname
+                }
+            return None
+
+        tasks = list(enumerate(timestamps))
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(_grab, tasks))
+
+        keyframes = [res for res in results if res is not None]
+        logger.info(f"[Compositor] Extracted {len(keyframes)} scene keyframes to {output_dir}")
+        return keyframes
+

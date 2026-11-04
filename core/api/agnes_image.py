@@ -40,6 +40,11 @@ class ImageOutput:
         """同步保存实现（供线程池调用；同步上下文可直接使用）。"""
         if self.fmt == "url":
             download_image(self.data, path)
+        elif isinstance(self.data, str) and os.path.exists(self.data):
+            # 只有「确实是存在文件的字符串」才走复制。先判类型再判路径：Mock/测试会以
+            # fmt="file" 传 data URI，交给 shutil.copy2 会直接抛异常。
+            import shutil
+            shutil.copy2(self.data, path)
         else:
             raw = self.data.split(",")[1] if "," in self.data else self.data
             with open(path, "wb") as f:

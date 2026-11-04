@@ -44,6 +44,7 @@ T_SCRIPT = "script"
 T_END_FRAME_PROMPTS = "end_frame_prompts"
 T_CHARACTER_REF = "character_ref"
 T_END_FRAME = "end_frame"
+T_KEYFRAME = "keyframe"
 T_VIDEO = "video"
 T_AUDIO = "audio"
 T_SUBTITLE = "subtitle"
@@ -60,7 +61,9 @@ T_CLIP = "clip"
 #
 # 规则：key 为「被修改的产物」，value 为「受影响的下游产物」集合。
 # key 支持字段级声明 "script:scene_prompt"；value 支持场景级通配 "video:{i}"。
-# 注意：受影响集合不含自身（自身由调用方显式声明为 modified）。
+# 注意：此处的边表只描述「下游」，不含自身（自身由调用方显式声明为 modified）。
+# compute_impact 默认把自身并入 affected（regen 需要）；approve/impact 传
+# keep_modified=True 以保留用户提供的产物。
 # 规则源自 PRD §4.5「具体规则」表。
 
 _PRODUCT_EDGES: dict[str, dict[str, set[str]]] = {
@@ -86,8 +89,10 @@ _PRODUCT_EDGES: dict[str, dict[str, set[str]]] = {
         T_SUBTITLE: {T_FINAL_VIDEO},
     },
     TaskType.MANUSCRIPT.value: {
-        # 稿件无参考图；改场景 prompt → videos / final
-        T_SCENE_PROMPTS: {T_VIDEO, T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
+        # 稿件无参考图；改场景 prompt → keyframes（v7.1）/ videos / final
+        T_SCENE_PROMPTS: {T_KEYFRAME, T_VIDEO, T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
+        # 改段落关键帧 → 该段视频 / final（v7.1 I2V-first 锚点）
+        f"{T_KEYFRAME}:{_ANY}": {T_VIDEO, T_FINAL_VIDEO},
         f"{T_VIDEO}:{_ANY}": {T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
         T_AUDIO: {T_SUBTITLE, T_FINAL_VIDEO},
         T_SUBTITLE: {T_FINAL_VIDEO},
@@ -102,8 +107,10 @@ _PRODUCT_EDGES: dict[str, dict[str, set[str]]] = {
         T_SUBTITLE: {T_FINAL_VIDEO},
     },
     TaskType.POETRY.value: {
-        # 诗词场景 prompt 来自诗句拆分；改任一场景 → 该场景视频 / 全局成片
-        T_SCRIPT: {T_VIDEO, T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
+        # 诗词场景 prompt 来自诗句拆分；改任一场景 → 该场景关键帧（v7.1）/ 视频 / 全局成片
+        T_SCRIPT: {T_KEYFRAME, T_VIDEO, T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
+        # 改场景关键帧 → 该场景视频 / final（v7.1 I2V-first 锚点）
+        f"{T_KEYFRAME}:{_ANY}": {T_VIDEO, T_FINAL_VIDEO},
         f"{T_VIDEO}:{_ANY}": {T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
         T_AUDIO: {T_SUBTITLE, T_FINAL_VIDEO},
         T_SUBTITLE: {T_FINAL_VIDEO},
@@ -173,6 +180,7 @@ _TYPE_TO_CHECKPOINT_COARSE: dict[str, str] = {
     T_END_FRAME_PROMPTS: "scenes",
     T_CHARACTER_REF: "references",
     T_END_FRAME: "references",
+    T_KEYFRAME: "keyframes",
     T_VIDEO: "videos",
     T_AUDIO: "audio",
     T_SUBTITLE: "subtitle",
@@ -185,8 +193,9 @@ _TYPE_TO_CHECKPOINT_COARSE: dict[str, str] = {
 
 # 检查点依赖链（PRD §4.3 简化版，供前端展示）
 _CHECKPOINT_EDGES: dict[str, set[str]] = {
-    "scenes": {"references", "videos", "audio", "subtitle", "final"},
-    "references": {"videos", "final"},
+    "scenes": {"references", "keyframes", "videos", "audio", "subtitle", "final"},
+    "references": {"keyframes", "videos", "final"},
+    "keyframes": {"videos", "final"},
     "videos": {"audio", "subtitle", "final"},
     "audio": {"subtitle", "final"},
     "subtitle": {"final"},
@@ -209,7 +218,7 @@ _CHECKPOINT_EDGES_FINE: dict[str, set[str]] = {
     "final": set(),
 }
 
-_ALL_CHECKPOINTS = ["scenes", "references", "videos", "audio", "subtitle", "final"]
+_ALL_CHECKPOINTS = ["scenes", "references", "keyframes", "videos", "audio", "subtitle", "final"]
 _ALL_CHECKPOINTS_FINE = [
     "image_analysis", "story", "script", "character_ref",
     "end_frame_prompts", "end_frame_gen", "videos", "audio", "subtitle", "final",
@@ -224,7 +233,8 @@ _ALL_CHECKPOINTS_FINE = [
 class ImpactPlan:
     """修改产物的影响计划（PRD §4.5）。
 
-    - affected: 将删除重跑的产物 id 集合（含自身 modified）
+    - affected: 将删除重跑的产物 id 集合（默认含自身 modified；``keep_modified=True``
+      时不含，用户提供的产物原样保留）
     - retained: 保留的产物 id 集合（不受影响）
     - steps_to_reset: 需重置的 step 字段（由 affected 推导）
     - affected_checkpoints: 受影响检查点（供前端展示）
@@ -264,6 +274,8 @@ class DependencyGraph:
         state: BaseTaskState,
         modified_artifact_ids: list[str],
         param_updates: Optional[dict] = None,
+        *,
+        keep_modified: bool = False,
     ) -> ImpactPlan:
         """核心决策：给定修改集合 → 返回影响计划。
 
@@ -274,12 +286,17 @@ class DependencyGraph:
                 - 可含场景级 id: "creative:video:2"（仅影响该场景）或
                   "creative:video"（影响全部场景视频）
             param_updates: 任务参数修改（如 {"resolution": "768x1152"}）
+            keep_modified: Logikcheck Befund 10。``False``（默认）：被修改的产物本身也算
+                受影响，会被删除并重新生成——「重新生成」(regen) 依赖这一点。``True``：
+                被修改的产物是用户提供的内容（上传/回填），**保留其文件与步骤**，只有
+                下游重跑；它们同时是另一个被修改产物的下游时也不会被删。
         """
         # 1. 展开所有产物 id（含场景级）
         all_ids = self._expand_all_artifact_ids(state)
 
         # 2. 解析 modified → 受影响产物 id 集合（含场景级传播）
         affected_ids: set[str] = set()
+        own_ids: set[str] = set()  # 被修改产物自身（keep_modified 时从 affected 中扣除）
 
         for mid in modified_artifact_ids:
             base_type, field, index = self._parse_artifact_id(mid, state)
@@ -290,11 +307,12 @@ class DependencyGraph:
                 continue
             # 自身加入 affected
             if index is not None:
-                affected_ids.add(self._normalize_id(base_type, index))
+                own_ids.add(self._normalize_id(base_type, index))
             elif self._is_scoped(base_type, state):
-                affected_ids.update(self._expand_type(base_type, state))
+                own_ids.update(self._expand_type(base_type, state))
             else:
-                affected_ids.add(self._normalize_id(base_type, None))
+                own_ids.add(self._normalize_id(base_type, None))
+            affected_ids.update(own_ids)
             # 下游（字段级精确命中 / 产物级并集）
             for t in self._downstream(base_type, field, index):
                 if index is not None and self._is_scoped(t, state):
@@ -308,6 +326,10 @@ class DependencyGraph:
             for param, _val in param_updates.items():
                 for t in self.param_edges.get(param, set()):
                     affected_ids.update(self._expand_type(t, state))
+
+        # 4. 用户提供的产物原样保留（含「同时是另一个修改产物的下游」的情况）
+        if keep_modified:
+            affected_ids -= own_ids
 
         # 5. 计算 retained 与 steps_to_reset
         retained_ids = [aid for aid in all_ids if aid not in affected_ids]

@@ -63,41 +63,37 @@ function onLocate(item: Item) {
   if (item.state !== 'pending') emit('locate', item.key)
 }
 
-function iconFor(state: Item['state']): string {
-  if (state === 'done') return '✓'
-  if (state === 'running') return '◉'
-  if (state === 'awaiting') return '⏸'
-  return '○'
-}
-
 function clsFor(state: Item['state']): string {
-  if (state === 'done') return 'text-green-400'
+  if (state === 'done') return 'text-success'
   if (state === 'running') return 'text-accent'
-  if (state === 'awaiting') return 'text-amber-400'
+  if (state === 'awaiting') return 'text-warning'
   return 'text-muted'
 }
 </script>
 
 <template>
-  <div v-if="!props.horizontal" class="glass-card rounded-2xl p-4">
-    <div class="text-xs text-muted mb-3">{{ t('ppStages') }}</div>
-    <div class="space-y-0.5">
+  <div v-if="!props.horizontal" class="neu-card rounded-2xl p-4 border border-rule/30">
+    <div class="text-xs font-semibold text-muted mb-3">{{ t('ppStages') }}</div>
+    <div class="space-y-1">
       <button
         v-for="item in items"
         :key="item.key"
-        class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-sm transition"
+        class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-sm transition"
         :class="[
-          item.state === 'awaiting' ? 'bg-amber-500/10 border border-amber-500/30' : 'hover:bg-paper-2/40 border border-transparent',
-          item.state === 'running' ? 'bg-accent/5 border border-accent/20' : '',
+          item.state === 'awaiting' ? 'neu-sunken border-amber-500/40 text-warning font-medium' : '',
+          item.state === 'running' ? 'neu-raised text-accent font-medium border border-accent/20' : '',
+          item.state !== 'awaiting' && item.state !== 'running' ? 'hover:neu-sunken text-ink-2' : '',
         ]"
         @click="onLocate(item)"
       >
-        <span
-          class="w-4 text-center shrink-0"
-          :class="[clsFor(item.state), item.state === 'running' ? 'animate-pulse' : '']"
-        >{{ iconFor(item.state) }}</span>
-        <span class="truncate" :class="item.state === 'awaiting' ? 'text-amber-400 font-medium' : ''">{{ item.label }}</span>
-        <span v-if="item.state === 'awaiting'" class="ml-auto text-[10px] text-amber-400 shrink-0">{{ t('ppWaiting') }}</span>
+        <span class="w-4 h-4 flex items-center justify-center shrink-0" :class="clsFor(item.state)">
+          <svg v-if="item.state === 'done'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          <span v-else-if="item.state === 'running'" class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+          <span v-else-if="item.state === 'awaiting'" class="w-2 h-2 rounded-full bg-warning"></span>
+          <span v-else class="w-1.5 h-1.5 rounded-full bg-rule"></span>
+        </span>
+        <span class="truncate" :class="item.state === 'awaiting' ? 'text-warning font-medium' : ''">{{ item.label }}</span>
+        <span v-if="item.state === 'awaiting'" class="ml-auto text-[10px] text-warning shrink-0 px-2 py-0.5 rounded-full neu-sunken">{{ t('ppWaiting') }}</span>
       </button>
     </div>
   </div>
@@ -107,15 +103,20 @@ function clsFor(state: Item['state']): string {
     <button
       v-for="item in items"
       :key="item.key"
-      class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap border transition"
+      class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap transition neu-raised hover:neu-sunken"
       :class="[
-        item.state === 'awaiting' ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-paper/50 border-rule/60 text-ink-2',
-        item.state === 'running' ? 'border-accent/40 text-accent' : '',
-        item.state === 'done' ? 'text-green-400' : '',
+        item.state === 'awaiting' ? 'neu-sunken border-amber-500/40 text-warning font-medium' : 'text-ink-2',
+        item.state === 'running' ? 'text-accent font-medium' : '',
+        item.state === 'done' ? 'text-success' : '',
       ]"
       @click="onLocate(item)"
     >
-      <span :class="item.state === 'running' ? 'animate-pulse' : ''">{{ iconFor(item.state) }}</span>
+      <span class="w-3.5 h-3.5 flex items-center justify-center shrink-0">
+        <svg v-if="item.state === 'done'" class="w-3 h-3 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+        <span v-else-if="item.state === 'running'" class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
+        <span v-else-if="item.state === 'awaiting'" class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+        <span v-else class="w-1.5 h-1.5 rounded-full bg-rule"></span>
+      </span>
       <span>{{ item.label }}</span>
     </button>
   </div>

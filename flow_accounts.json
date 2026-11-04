@@ -1,0 +1,10 @@
+{
+  "default": "second",
+  "accounts": {
+    "second": {
+      "index": 0,
+      "project": "0559cf6d-d69a-4ba0-a214-0b4c5d6c0c81",
+      "note": "Hauptkonto fuer die Masha-Produktion"
+    }
+  }
+}

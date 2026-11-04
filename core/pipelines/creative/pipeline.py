@@ -1,15 +1,19 @@
 """core.pipelines.creative.pipeline — CreativeVideoPipeline 主类（v5.0 Batch 4 / 4.2 拆分）
 
 四步 mixin（script/frames/video/audio）+ MultiScenePipeline 模板方法组合；
-AgnesImageAPI/AgnesVideoAPI 在此模块 import 并实例化（mock 回归 patch 目标）。"""
+AgnesImageAPI/AgnesVideoAPI 在此模块 import 并实例化（mock 回归 patch 目标）；
+图片/视频实际经 provider 工厂按所选模型路由（image_providers/video_providers）。"""
 import asyncio
 import logging
+import os
 from typing import Callable, Optional
 
-from core.api.agnes_image import AgnesImageAPI
-from core.api.agnes_video import AgnesVideoAPI
+from core.api.agnes_image import AgnesImageAPI  # noqa: F401  (mock 补丁符号，见 conftest)
+from core.api.agnes_video import AgnesVideoAPI  # noqa: F401  (公开符号 + mock 补丁点，见 conftest/测试断言)
+from core.api.image_providers import create_image_provider
+from core.api.video_providers import create_video_provider
 from core.config import DEFAULT_TEXT_MODEL
-from core.pipelines import MultiScenePipeline, StepStatus
+from core.pipelines import MultiScenePipeline, PipelineShutdown, StepStatus
 from core.screenwriter import Screenwriter
 from models.task import CreativeVideoTask
 
@@ -42,6 +46,27 @@ class CreativeVideoPipeline(
     # 本类依赖各 ``_step_*`` 读盘做细粒度断点续传，通过类属性关闭
     # MultiScenePipeline._execute_step 的粗粒度 skip（原覆写已删除，行为一致）。
     coarse_skip = False
+
+    def _reference_required(self) -> bool:
+        """创意流水线始终有角色卡 → 缺参考图即缺陷，提交前拦截（铁律 No pure T2V）。"""
+        return True
+
+    def _require_character_reference(self) -> None:
+        """角色卡缺失时直接中止，绝不提交纯 T2V 片段（铁律）。
+
+        角色卡是整条创意流水线的视觉锚点：没有它，逐场景出图与出片都会各自
+        重新想象人物，跨镜头一致性必然崩。宁可失败也不产出漂移的成片。
+
+        Raises:
+            PipelineShutdown: 角色卡路径为空或文件已不存在。
+        """
+        for candidate in (
+            getattr(self, "_character_ref_path", ""),
+            getattr(self._state, "character_ref_file", ""),
+        ):
+            if candidate and os.path.exists(candidate):
+                return
+        raise PipelineShutdown(self._t("pipeline.reference_required", index=1))
 
     def __init__(
         self,
@@ -82,9 +107,12 @@ class CreativeVideoPipeline(
 
         _sw_language = None if is_prompt_language_explicit() else "en"
         self.screenwriter = Screenwriter(api_key=api_key, model=chat_model, language=_sw_language)
-        self.image_generator = AgnesImageAPI(api_key=api_key, model=image_model)
-        self.video_generator = AgnesVideoAPI(api_key=api_key, model=video_model)
-        self.video_generator.shutdown_event = shutdown_event
+        self.image_generator = create_image_provider(api_key=api_key, model=image_model)
+        # v7.1 阶段 2：经 Provider 工厂构建（AGNES_VIDEO_PROVIDER=agnes|fal）
+        self.video_generator = create_video_provider(
+            api_key=api_key, default_model=video_model, shutdown_event=self.shutdown_event,
+        )
+        self.video_generator.shutdown_event = self.shutdown_event
 
         self._state: Optional[CreativeVideoTask] = None
 
@@ -201,8 +229,21 @@ class CreativeVideoPipeline(
     # 视频生成（链式 keyframes / ti2vid / independent — 保留原逻辑）
     # ------------------------------------------------------------------
 
+    # v7.2 R8 质量闸钩子覆写：重生参考图与提交逻辑同源（用户分镜图优先，
+    # 其次角色参考图；创意流水线的 scenes 不携带 ref_images 字段）
+    def _qc_regen_refs(self, scene, index: int) -> list:
+        user_ref = self._user_scene_ref(index)
+        if user_ref:
+            return [user_ref]
+        ref_file = getattr(self._state, "character_ref_file", "") \
+            or getattr(self, "_character_ref_path", "")
+        return [ref_file] if ref_file and os.path.exists(ref_file) else []
+
     async def _generate_videos(self) -> None:
         """链式视频生成（覆写通用实现，保留 keyframes/ti2vid/independent 逻辑）。"""
+        # 铁律：没有角色卡就不出片——本方法在基类的参考图守卫之外，
+        # 必须自己拦一次（三个模式共用同一张角色卡作视觉锚点）。
+        self._require_character_reference()
         self._all_video_paths = await self._step_generate_videos(
             self._scenes, self._character_ref_path,
             self._end_frame_prompts, self._pregenerated_end_frames,

@@ -11,10 +11,12 @@ Pipeline 通过 ``BaseTaskState.ui_language``（任务创建时落盘）拿到�
 from __future__ import annotations
 
 import logging
+import os
+from urllib.parse import urlparse
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
 from core.i18n_backend import (
@@ -26,7 +28,7 @@ from core.i18n_backend import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["LangContextMiddleware", "extract_request_lang"]
+__all__ = ["LangContextMiddleware", "OriginGuardMiddleware", "extract_request_lang"]
 
 
 def extract_request_lang(request: Request) -> str:
@@ -69,3 +71,58 @@ class LangContextMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         finally:
             current_lang.reset(token)
+
+
+# ── Logikcheck Befund 5：跨站写请求防护 ─────────────────────────────────────
+# 本服务默认无任何认证（本地工具定位），而 multipart POST / 无 body DELETE 属于
+# CORS "simple request"——浏览器不发送预检，任意第三方网页都可以在用户打开本应用
+# 时携带其 Cookie/网络位置直接提交（例如覆盖 /api/config 的 API Key、创建任务）。
+# 浏览器对跨站请求必带 Origin 头（同站 POST 也会带），因此对**写方法**做
+# Origin↔Host 一致性校验即可挡住跨站伪造，同时不影响 curl / 脚本调用（无 Origin）。
+_UNSAFE_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+
+
+def _allowed_hosts() -> list[str]:
+    """读取 AGNES_ALLOWED_HOSTS（逗号分隔）。设置后所有请求的 Host 都必须在列表内。
+
+    经 ``get_settings()`` 读取（.env 文件同样生效），settings 不可用时回退 os.environ。
+    """
+    try:
+        from core.config import get_settings
+        raw = (get_settings().agnes_allowed_hosts or "").strip()
+    except Exception:
+        raw = (os.environ.get("AGNES_ALLOWED_HOSTS") or "").strip()
+    return [h.strip().lower() for h in raw.split(",") if h.strip()]
+
+
+class OriginGuardMiddleware(BaseHTTPMiddleware):
+    """写方法 Origin 一致性校验 + 可选 Host 白名单（DNS rebinding 缓解）。
+
+    - Origin 头存在且其 host:port 与请求 Host 不一致 → 403（跨站伪造写请求）。
+      反向代理场景优先比对 ``X-Forwarded-Host``。
+    - ``AGNES_ALLOWED_HOSTS`` 非空时，Host 不在白名单 → 403（缓解 DNS rebinding）。
+      默认空 = 不限制，公网域名部署不受影响。
+    - 无 Origin 的请求（curl / 同源 GET / 老客户端）直接放行，保持 CLI 可用。
+    """
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        allowed = _allowed_hosts()
+        req_host = (
+            request.headers.get("x-forwarded-host")
+            or request.headers.get("host")
+            or ""
+        ).lower()
+        if allowed and req_host and req_host not in allowed:
+            return JSONResponse(
+                {"detail": "Host not allowed"}, status_code=403,
+            )
+
+        if request.method in _UNSAFE_METHODS:
+            origin = request.headers.get("origin")
+            if origin is not None:
+                origin_host = urlparse(origin).netloc.lower()
+                if not req_host or origin_host != req_host:
+                    return JSONResponse(
+                        {"detail": "Cross-origin request rejected"}, status_code=403,
+                    )
+        return await call_next(request)

@@ -1,0 +1,19 @@
+seq01|5|Static locked camera, no camera movement. The still painting gently comes alive: the match flare flares up and settles into a steady candle flame, darkness around
+seq02|15|Static locked camera, no camera movement. The still painting gently comes alive: the candle flame trembles softly, shadows breathe on the walls, the shards lie perfectly still
+seq03|10|Static locked camera, no camera movement. The still painting gently comes alive: the cold candle flame flickers, the sharp shard shadows sway almost imperceptibly
+seq04|10|Static locked camera, no camera movement. The still painting gently comes alive: the molten gold seam glows and pulses in a slow heartbeat rhythm, the candle light steady
+seq05|10|Static locked camera, no camera movement. The still painting gently comes alive: black tarnish slowly spreads over the second cup surface, the knife edge glints faintly
+seq06|15|Static locked camera, no camera movement. The still painting gently comes alive: more golden seams light up one by one, the bowl's inner glow pulses warm
+seq07|5|Static locked camera, no camera movement. The still painting gently comes alive: the tiny blue flame barely holds on, darkness closing in, everything else still
+seq08|15|Static locked camera, no camera movement. The still painting gently comes alive: the distant lighthouse light twinkles through the window, its reflection shivers in the golden seam
+seq09|15|Static locked camera, no camera movement. The still painting gently comes alive: pre-dawn blue slowly warms through the window, dust motes drift in the light, golden seams shimmer
+seq10|10|Static locked camera, no camera movement. The still painting gently comes alive: the golden veins pulse like a slow heartbeat, the candle flame steady beside
+seq11|15|Static locked camera, no camera movement. The still painting gently comes alive: wax drips slowly down the candlestick, dust motes float in the beam, the glaze reflects the fire
+seq12a|10|Static locked camera, no camera movement. The still painting gently comes alive: the golden veins breathe light, the room warms and cools in a slow pulse
+seq12b|10|Static locked camera, no camera movement. The still painting gently comes alive: the golden glow keeps breathing, the shadows soften slowly
+seq13|15|Static locked camera, no camera movement. The still painting gently comes alive: the second cup slowly dissolves into fine dust that settles down, the golden bowl glows brighter
+seq14|10|Static locked camera, no camera movement. The still painting gently comes alive: only the golden seam pulses in the darkness, a thin thread of smoke rises from the wick
+seq15a|15|Static locked camera, no camera movement. The still painting gently comes alive: the candle goes out, yet the room stays lit by the golden light of the bowl, pulsing gently
+seq15b|15|Static locked camera, no camera movement. The still painting gently comes alive: the inner golden light keeps pulsing in a slow heartbeat rhythm, the room glowing from within
+seq16|10|Static locked camera, no camera movement. The still painting gently comes alive: full dawn light lays a warm beam across the table, dust motes sparkle, the bowl radiant and still
+seq17|10|Static locked camera, no camera movement. The still painting gently comes alive: the golden glow fades slowly into quiet, the dawn light steady

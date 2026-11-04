@@ -24,13 +24,13 @@ const typeLabelKey: Record<string, string> = {
 }
 
 const statusInfo = computed(() => {
-  if (taskFailed.value) return { key: 'statusFailed', cls: 'text-red-400 bg-red-950/60 border-red-800/60' }
-  if (needsResume.value) return { key: 'statusNeedsResume', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/30' }
-  if (awaitingCheckpoint.value) return { key: 'statusAwaitingUser', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/30' }
+  if (taskFailed.value) return { key: 'statusFailed', cls: 'badge-danger' }
+  if (needsResume.value) return { key: 'statusNeedsResume', cls: 'badge-warning' }
+  if (awaitingCheckpoint.value) return { key: 'statusAwaitingUser', cls: 'badge-warning' }
   if (appState.isTaskRunning || progressPct.value > 0 && progressPct.value < 100) {
-    return { key: 'statusRunning', cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' }
+    return { key: 'statusRunning', cls: 'badge-warning' }
   }
-  return { key: 'statusCompleted', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
+  return { key: 'statusCompleted', cls: 'badge-success' }
 })
 
 function onBack() {
@@ -55,55 +55,57 @@ async function onSwitchAuto() {
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 bg-paper border-b border-rule/40">
+  <header class="sticky top-0 z-40 bg-paper/90 backdrop-blur-md border-b border-rule/30 neu-raised">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
       <button
-        class="flex items-center gap-1 text-sm text-ink-2 hover:text-accent transition rounded-lg px-2 py-1 -ml-2"
+        class="flex items-center gap-1.5 text-sm font-medium text-ink-2 hover:text-accent transition rounded-xl px-3 py-1.5 neu-raised hover:neu-sunken"
         @click="onBack"
       >
-        <span class="text-lg leading-none">←</span>
+        <span class="text-base leading-none">←</span>
         <span class="text-xs">{{ t('progressBack') }}</span>
       </button>
 
       <a
         href="#"
-        class="flex items-center gap-1 text-sm text-accent hover:text-ink transition rounded-lg px-2 py-1"
+        class="flex items-center gap-1.5 text-sm text-accent hover:text-ink transition rounded-xl px-3 py-1.5 neu-raised hover:neu-sunken"
         @click.prevent="onHome"
       >
-        <span class="text-lg leading-none">🏠</span>
+        <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
         <span class="text-xs">{{ t('goHome') }}</span>
       </a>
 
       <div class="flex items-center gap-2 min-w-0">
-        <span class="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent shrink-0">
+        <span class="text-xs px-2.5 py-0.5 rounded-full neu-sunken text-accent font-medium shrink-0">
           {{ t(typeLabelKey[appState.currentTaskType] || '') || appState.currentTaskType }}
         </span>
-        <span class="text-sm font-medium truncate text-ink">{{ t('task_') }}: {{ taskId }}</span>
-        <span v-if="dirName" class="text-xs text-muted font-mono truncate hidden md:inline">{{ dirName }}</span>
+        <span class="text-sm font-semibold truncate text-ink">{{ t('task_') }}: {{ taskId }}</span>
+        <span v-if="dirName" class="text-xs text-muted font-mono truncate hidden md:inline px-2 py-0.5 rounded-full neu-sunken">{{ dirName }}</span>
       </div>
 
-      <div class="ml-auto flex items-center gap-2 shrink-0">
+      <div class="ml-auto flex items-center gap-2.5 shrink-0">
         <LangSwitcher compact />
-        <span class="text-xs px-2.5 py-1 rounded-full border" :class="statusInfo.cls">
+        <span class="text-xs px-2.5 py-1 rounded-full neu-sunken font-medium" :class="statusInfo.cls">
           {{ t(statusInfo.key) }}
         </span>
         <button
           v-if="needsResume"
-          class="text-xs px-3 py-1.5 bg-accent text-accent-ink rounded-lg transition"
+          class="inline-flex items-center gap-1.5 text-xs px-3.5 py-1.5 neu-raised hover:neu-sunken text-accent font-semibold rounded-xl transition glow-btn"
           @click="onResume"
         >
-          ▶ {{ t('resumeTaskBtn') }}
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          {{ t('resumeTaskBtn') }}
         </button>
         <button
           v-if="awaitingCheckpoint"
-          class="text-xs px-3 py-1.5 border border-rule text-ink-2 rounded-lg transition hover:border-accent/40"
+          class="inline-flex items-center gap-1.5 text-xs px-3.5 py-1.5 neu-raised hover:neu-sunken text-ink-2 rounded-xl transition"
           @click="onSwitchAuto"
         >
-          ⚡ {{ t('switchToAuto') }}
+          <svg class="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          {{ t('switchToAuto') }}
         </button>
         <button
           v-if="appState.isTaskRunning"
-          class="text-xs px-3 py-1.5 bg-red-700/80 hover:bg-red-600 text-red-100 rounded-lg transition"
+          class="btn-danger text-xs px-3.5 py-1.5 rounded-xl neu-raised hover:neu-sunken"
           @click="onStop"
         >
           {{ t('stopTask') }}

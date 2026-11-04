@@ -1,0 +1,11 @@
+{
+  "auto-find-skills": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python .agents/hooks/auto_find_skills.py",
+        "timeout": 5
+      }
+    ]
+  }
+}

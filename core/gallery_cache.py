@@ -50,6 +50,22 @@ def has_thumb(task_id: str) -> bool:
     return bool(path) and os.path.isfile(path)
 
 
+def invalidate_thumb(task_id: str) -> None:
+    """删除某任务的缓存缩略图（任务删除时调用，防止孤儿缓存）。
+
+    task_id 非法或文件不存在时静默返回；IO 失败仅告警（缓存可重建，不阻断删除）。
+    task_id 已由 ``_thumb_path`` 做形态白名单校验，可安全入日志。
+    """
+    path = _thumb_path(task_id)
+    if not path or not os.path.isfile(path):
+        return
+    try:
+        os.remove(path)
+        logger.info("[GalleryCache] Invalidated thumb for task %s", task_id)
+    except OSError as e:
+        logger.warning("[GalleryCache] Failed to invalidate thumb for %s: %s", task_id, e)
+
+
 def ensure_thumb(task_id: str, final_video_file: str) -> str | None:
     """确保指定视频成片的缩略图存在，缺失时惰性抽帧生成。
 

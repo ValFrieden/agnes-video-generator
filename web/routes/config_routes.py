@@ -457,6 +457,11 @@ async def list_models(refresh: bool = False):
     key = get_api_key()
     if not key:
         raise HTTPException(status_code=400, detail=translate("config.api_key_not_configured"))
+    # v7.2 R8 Batch 3：Provider-/fal-Modell-Metadaten（hebt PRD-Limitierung Nr. 5，
+    # Modell-Dropdown war agnes-only）— 每次实时读取，不随模型缓存陈旧
+    from core.api.video_providers import get_video_provider_catalog
+
+    provider_catalog = get_video_provider_catalog()
     now = time.time()
     if (
         not refresh
@@ -471,6 +476,7 @@ async def list_models(refresh: bool = False):
             # 是否因版本过旧（能力表随发版硬编码）
             "app_version": APP_VERSION,
             "video_capabilities": get_video_model_capabilities(),
+            "video_provider": provider_catalog,
         }
     grouped = fetch_available_models(key)
     _MODEL_CACHE["models"] = grouped
@@ -481,6 +487,7 @@ async def list_models(refresh: bool = False):
         "cached": False,
         "app_version": APP_VERSION,
         "video_capabilities": get_video_model_capabilities(),
+        "video_provider": provider_catalog,
     }
 
 

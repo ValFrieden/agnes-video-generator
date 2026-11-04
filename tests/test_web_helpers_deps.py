@@ -398,13 +398,11 @@ class TestCreatePipelineForType:
         deps.AnchorPipeline.assert_called_once()
         self._assert_common(deps.AnchorPipeline.call_args.kwargs)
 
-    def test_poetry_no_image_model(self, monkeypatch):
+    def test_poetry(self, monkeypatch):
         self._prepare(monkeypatch)
         deps.create_pipeline_for_type(TaskType.POETRY, "key", "tid", "dir")
         deps.PoetryVideoPipeline.assert_called_once()
-        kw = deps.PoetryVideoPipeline.call_args.kwargs
-        assert "image_model" not in kw
-        assert kw["video_model"] == "v"
+        self._assert_common(deps.PoetryVideoPipeline.call_args.kwargs)
 
     def test_creative_default(self, monkeypatch):
         self._prepare(monkeypatch)
@@ -412,9 +410,17 @@ class TestCreatePipelineForType:
         deps.CreativeVideoPipeline.assert_called_once()
         self._assert_common(deps.CreativeVideoPipeline.call_args.kwargs)
 
+    def test_image_rejected(self, monkeypatch):
+        # Logikcheck Befund 1: 简单图片任务是同步生成的，没有流水线；
+        # 误入工厂会启动错误的 CreativeVideoPipeline —— 现在显式拒绝。
+        self._prepare(monkeypatch)
+        with pytest.raises(ValueError):
+            deps.create_pipeline_for_type(TaskType.IMAGE, "key", "tid", "dir")
+        deps.CreativeVideoPipeline.assert_not_called()
+
     def test_unknown_falls_back_to_creative(self, monkeypatch):
         self._prepare(monkeypatch)
-        deps.create_pipeline_for_type(TaskType.IMAGE, "key", "tid", "dir")
+        deps.create_pipeline_for_type("robot", "key", "tid", "dir")
         deps.CreativeVideoPipeline.assert_called_once()
 
 

@@ -15,11 +15,13 @@ import os
 import re
 from typing import Callable, Optional
 
-from core.api.agnes_image import AgnesImageAPI
-from core.api.agnes_video import AgnesVideoAPI, VideoTaskCancelled
+from core.api.agnes_image import AgnesImageAPI  # noqa: F401  (mock 补丁符号，见 conftest)
+from core.api.image_providers import create_image_provider
+from core.api.agnes_video import AgnesVideoAPI, VideoTaskCancelled  # noqa: F401  (AgnesVideoAPI: mock 补丁符号)
+from core.api.video_providers import create_video_provider
 from core.compositor.concatenator import VideoConcatenator
 from core.config import DEFAULT_TEXT_MODEL
-from core.pipelines import MultiScenePipeline
+from core.pipelines import MultiScenePipeline, PipelineShutdown
 from core.screenwriter import Screenwriter
 from models.task import (
     AnchorVideoTask,
@@ -42,8 +44,8 @@ _PROGRESS_CLIP_PROMPTS_DONE = 0.18
 _PROGRESS_CLIP_GEN_START = 0.28
 _PROGRESS_CLIP_GEN_DONE = 0.55
 _PROGRESS_AUDIO_START = 0.55
-# 注意：post_stitch 音频完成态回退 0.28（历史行为，保持不变）
-_PROGRESS_AUDIO_DONE = 0.28
+# Logikcheck Befund 3: post_stitch 音频完成态推进至 0.60（消除 55% -> 28% 倒退跳跃）
+_PROGRESS_AUDIO_DONE = 0.60
 _PROGRESS_SUBTITLE_START = 0.65
 _PROGRESS_SUBTITLE_DONE = 0.75
 _PROGRESS_CONCAT_START = 0.80
@@ -83,9 +85,12 @@ class AnchorPipeline(MultiScenePipeline):
         shutdown_event: Optional[asyncio.Event] = None,
     ):
         super().__init__(api_key, task_id, dir_name, progress_callback, shutdown_event)
-        self.image_generator = AgnesImageAPI(api_key=api_key, model=image_model)
-        self.video_generator = AgnesVideoAPI(api_key=api_key, model=video_model)
-        self.video_generator.shutdown_event = shutdown_event
+        self.image_generator = create_image_provider(api_key=api_key, model=image_model)
+        # v7.1 阶段 2：经 Provider 工厂构建（AGNES_VIDEO_PROVIDER=agnes|fal）
+        self.video_generator = create_video_provider(
+            api_key=api_key, default_model=video_model, shutdown_event=self.shutdown_event,
+        )
+        self.video_generator.shutdown_event = self.shutdown_event
         self.screenwriter = Screenwriter(api_key=api_key, model=chat_model)
         self._state: Optional[AnchorVideoTask] = None
 
@@ -110,6 +115,21 @@ class AnchorPipeline(MultiScenePipeline):
     # ------------------------------------------------------------------
     # 数据来源：参考图（主播形象）
     # ------------------------------------------------------------------
+
+    def _reference_required(self) -> bool:
+        """数字人流水线始终有主播形象图 → 缺参考图即缺陷，提交前拦截（铁律 No pure T2V）。"""
+        return True
+
+    def _require_anchor_image(self) -> None:
+        """主播形象图缺失时直接中止，绝不提交纯 T2V 片段（铁律）。
+
+        Raises:
+            PipelineShutdown: ``anchor_image_path`` 为空或文件已不存在。
+        """
+        path = getattr(self._state, "anchor_image_path", "")
+        if path and os.path.exists(path):
+            return
+        raise PipelineShutdown(self._t("pipeline.reference_required", index=1))
 
     async def _build_reference_images(self) -> None:
         """Step: 生成主播形象图（t2i / i2i）。"""
@@ -208,6 +228,17 @@ class AnchorPipeline(MultiScenePipeline):
     # 视频生成（单段 i2v 循环，覆写通用实现）
     # ------------------------------------------------------------------
 
+    # v7.2 R8 质量闸钩子覆写：单 clip 布局 + 主播形象作为重生参考图
+    def _scene_clip_path(self, scene, index: int) -> str:
+        return os.path.join(self.working_dir, "clip", "clip.mp4")
+
+    def _qc_scene_dir(self, scene, index: int) -> str:
+        return os.path.join(self.working_dir, "clip")
+
+    def _qc_regen_refs(self, scene, index: int) -> list:
+        anchor_ref = getattr(self._state, "anchor_image_path", "")
+        return [anchor_ref] if anchor_ref else []
+
     async def _generate_videos(self) -> None:
         """生成单段 i2v 视频（5 秒，循环用）。"""
         scene = self._state.scenes[0]
@@ -233,6 +264,8 @@ class AnchorPipeline(MultiScenePipeline):
         if saved_video_id:
             video_id = saved_video_id
         else:
+            # 铁律：数字人必须有形象图作参考，否则人物样貌会漂移
+            self._require_anchor_image()
             video_id = await self.video_generator.submit_video(
                 prompt=prompt,
                 reference_image_paths=[anchor_image_path],
@@ -411,3 +444,8 @@ class AnchorPipeline(MultiScenePipeline):
 
         logger.info("[Anchor] composite: final video → %s", output_path)
         return output_path
+
+
+# 向后兼容别名与规范对齐（docs 与 tests 中统一使用 AnchorVideoPipeline）
+AnchorVideoPipeline = AnchorPipeline
+

@@ -1,0 +1,20 @@
+HTTP 400
+
+Date: Sat, 10 Oct 2026 13:19:41 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 94
+Connection: close
+Set-Cookie: acw_tc=0a0a01e217916383811208890e2147733e48c7de0d5b1b46948af5baae6706;path=/;HttpOnly;Max-Age=1800
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: OPTION,HEAD,GET,POST
+Access-Control-Allow-Headers: DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
+Access-Control-Max-Age: 1728000
+
+{
+  "error": {
+    "message": "Invalid model id: ",
+    "request_id": "8b5d779c-76bd-4c77-99b1-94a7bff6713d"
+  }
+}

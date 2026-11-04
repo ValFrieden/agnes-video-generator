@@ -12,6 +12,7 @@ Guthabenpunkte. Geprüft wird die Logik, die echtes Geld kostet:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 import types
@@ -36,6 +37,17 @@ if "playwright" not in sys.modules:  # pragma: no cover - umgebungsabhängig
 
 from core.api.google_flow_engine import GoogleFlowEngine  # noqa: E402
 from core.api.google_flow_errors import FlowPendingError, FlowStoppedError  # noqa: E402
+
+@pytest.fixture(autouse=True)
+def short_sleeps(monkeypatch):
+    """Die Engine wartet echte Sekunden auf die Oberfläche; in den Tests nicht."""
+    real_sleep = asyncio.sleep
+
+    async def _short(seconds=0, *args, **kwargs):
+        await real_sleep(min(seconds, 0.01))
+
+    monkeypatch.setattr(asyncio, "sleep", _short)
+
 
 # ── Attrappen ────────────────────────────────────────────────────────────────
 

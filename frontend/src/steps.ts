@@ -23,7 +23,9 @@ export const STEPS: Record<string, StepDef[]> = {
   manuscript: [
     { key: 'split_text', labelKey: 'mStepSplit' },
     { key: 'scene_prompts', labelKey: 'mStepScenePrompts' },
+    { key: 'keyframes', labelKey: 'mStepKeyframes', requires: 'generate_keyframes' },
     { key: 'video_gen', labelKey: 'mStepVideoGen' },
+    { key: 'qc', labelKey: 'mStepQc', requires: 'qc_enabled' },
     { key: 'audio', labelKey: 'mStepAudio' },
     { key: 'subtitle', labelKey: 'mStepSubtitle' },
     { key: 'concatenate', labelKey: 'mStepConcat' },
@@ -39,7 +41,9 @@ export const STEPS: Record<string, StepDef[]> = {
   ],
   poetry: [
     { key: 'build_scenes', labelKey: 'pStepBuildScenes' },
+    { key: 'keyframes', labelKey: 'pStepKeyframes', requires: 'generate_keyframes' },
     { key: 'video_generation', labelKey: 'pStepVideoGen' },
+    { key: 'qc', labelKey: 'pStepQc', requires: 'qc_enabled' },
     { key: 'audio', labelKey: 'pStepAudio' },
     { key: 'subtitle', labelKey: 'pStepSubtitle' },
     { key: 'concatenation', labelKey: 'pStepConcat' },
@@ -64,7 +68,9 @@ export const STEP_FIELD_MAP: Record<string, Record<string, string>> = {
   manuscript: {
     split_text: 'step_split',
     scene_prompts: 'step_scene_prompts',
+    keyframes: 'step_keyframes',
     video_gen: 'step_video_generation',
+    qc: 'step_qc',
     audio: 'step_audio',
     subtitle: 'step_subtitle',
     concatenate: 'step_concatenation',
@@ -80,15 +86,19 @@ export const STEP_FIELD_MAP: Record<string, Record<string, string>> = {
   },
   poetry: {
     build_scenes: 'step_build_scenes',
+    keyframes: 'step_keyframes',
     video_generation: 'step_video_generation',
+    qc: 'step_qc',
     audio: 'step_audio',
     subtitle: 'step_subtitle',
     concatenation: 'step_concatenation',
   },
 }
 
-export function getStepsForType(taskType?: TaskType | string): StepDef[] {
-  return STEPS[taskType as string] || STEPS.creative
+export function getStepsForType(taskType?: TaskType | string, state?: any): StepDef[] {
+  const all = STEPS[taskType as string] || STEPS.creative
+  // v7.1：按 state 布尔字段过滤条件步骤（如 keyframes 仅 generate_keyframes 时显示）
+  return all.filter((s) => !s.requires || !!(state && state[s.requires]))
 }
 
 export function isStepDoneInState(state: any, stepKey: string, taskType?: string): boolean {

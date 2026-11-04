@@ -354,3 +354,87 @@ class TestArtifactsCheckpoint:
         video_ids = {a["artifact_id"] for a in data["checkpoints"]["videos"]["artifacts"]}
         assert "creative:video:0" in video_ids
         assert "creative:video:1" in video_ids
+
+
+class TestKeepModified:
+    """Logikcheck Befund 10: ``keep_modified`` — was die Nutzerin geliefert hat, bleibt erhalten.
+
+    ``approve``/``impact`` löschten das hochgeladene Ergebnis und setzten dessen Schritt zurück,
+    sodass die Pipeline es neu generierte und die Eingabe überschrieb. ``regen`` dagegen
+    verlässt sich genau auf das Selbst-Einbeziehen (es übergibt die Ergebnisse des Prüfpunkts
+    als „geändert“ und will sie neu erzeugen), deshalb bleibt der Standard ``False``.
+    """
+
+    def _plan(self, modified, keep, scenes=3):
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        graph = get_dependency_graph(TaskType.CREATIVE)
+        return graph.compute_impact(_make_creative_state(scenes), modified, keep_modified=keep)
+
+    def test_default_still_includes_the_modified_artifact_for_regen(self):
+        plan = self._plan(["creative:story"], keep=False)
+
+        assert "creative:story" in plan.affected
+        assert "step_story" in plan.steps_to_reset
+
+    def test_kept_artifact_is_not_deleted_and_its_step_is_not_reset(self):
+        plan = self._plan(["creative:story"], keep=True)
+
+        assert "creative:story" not in plan.affected
+        assert "creative:story" in plan.retained
+        assert "step_story" not in plan.steps_to_reset
+
+    def test_downstream_of_a_kept_artifact_is_still_redone(self):
+        plan = self._plan(["creative:story"], keep=True)
+
+        for downstream in ("creative:script", "creative:character_ref", "creative:video:0",
+                           "creative:audio", "creative:final_video"):
+            assert downstream in plan.affected
+        assert "step_script" in plan.steps_to_reset
+        assert "step_video_generation" in plan.steps_to_reset
+
+    def test_two_modified_artifacts_are_both_kept_even_if_one_is_downstream_of_the_other(self):
+        """story → script: ist das Skript selbst hochgeladen, darf die Story-Änderung es nicht löschen."""
+        plan = self._plan(["creative:story", "creative:script"], keep=True)
+
+        assert "creative:story" not in plan.affected
+        assert "creative:script" not in plan.affected
+        assert "step_story" not in plan.steps_to_reset
+        assert "step_script" not in plan.steps_to_reset
+        assert "creative:video:0" in plan.affected
+
+    def test_scoped_scene_video_is_kept_and_other_scenes_untouched(self):
+        plan = self._plan(["creative:video:1"], keep=True)
+
+        assert "creative:video:1" not in plan.affected
+        assert "creative:video:0" in plan.retained
+        assert "creative:video:2" in plan.retained
+        assert "creative:audio" in plan.affected
+        assert "creative:final_video" in plan.affected
+        assert "step_video_generation" not in plan.steps_to_reset
+
+    def test_all_scene_videos_kept_when_unindexed(self):
+        plan = self._plan(["creative:video"], keep=True)
+
+        assert not [a for a in plan.affected if a.startswith("creative:video")]
+        assert "creative:final_video" in plan.affected
+
+    def test_field_level_modification_keeps_the_whole_file(self):
+        """Ein hochgeladenes script.json ersetzt die ganze Datei, auch bei Feld-Id."""
+        plan = self._plan(["creative:script:scene_prompt"], keep=True)
+
+        assert "creative:script" not in plan.affected
+        assert "step_script" not in plan.steps_to_reset
+        assert "creative:video:0" in plan.affected
+
+    def test_param_updates_are_not_affected_by_keep(self):
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        graph = get_dependency_graph(TaskType.CREATIVE)
+        state = _make_creative_state(2)
+        plain = graph.compute_impact(state, [], {"resolution": "768x1152"})
+        kept = graph.compute_impact(state, [], {"resolution": "768x1152"}, keep_modified=True)
+
+        assert kept.affected == plain.affected

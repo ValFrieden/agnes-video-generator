@@ -79,9 +79,10 @@ def test_builtin_ffprobe_sibling_found(monkeypatch, tmp_path):
     monkeypatch.delenv("FFPROBE_BINARY", raising=False)
     monkeypatch.setattr(ft.shutil, "which", lambda name: None)
     bin_dir = tmp_path
-    fake_ff = bin_dir / "ffmpeg"
+    suffix = ".exe" if os.name == "nt" else ""  # _sibling 在 Windows 补 .exe
+    fake_ff = bin_dir / f"ffmpeg{suffix}"
     fake_ff.write_text("x")
-    fake_ffp = bin_dir / "ffprobe"
+    fake_ffp = bin_dir / f"ffprobe{suffix}"
     fake_ffp.write_text("x")
     monkeypatch.setattr(ft, "_cache", {"ffmpeg": str(fake_ff)})
 

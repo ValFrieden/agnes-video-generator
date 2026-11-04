@@ -1,0 +1,20 @@
+{
+  "type": "video",
+  "account": "",
+  "model_used": "Veo 3.1 - Fast",
+  "ratio": "16:9",
+  "duration": "8s",
+  "quantity": 1,
+  "prompt": "The man walks slowly forward along the street, steady cinematic dolly shot, mouth closed.",
+  "start_frame": "C:\\Users\\Valeri\\AppData\\Local\\Temp\\claude\\D--Projects-VideoGenerator\\d135a699-94cf-4f96-bd1e-795bdfebc4df\\scratchpad\\test_clip_lastframe.png",
+  "end_frame": null,
+  "chained_from": "C:/Users/Valeri/AppData/Local/Temp/claude/D--Projects-VideoGenerator/d135a699-94cf-4f96-bd1e-795bdfebc4df/scratchpad/test_clip.mp4",
+  "reference_images": [],
+  "estimated_credits": 20,
+  "max_credits": 20,
+  "balance": 670,
+  "screenshot": null,
+  "jobId": "3ba74b81",
+  "status": "ready_for_confirmation",
+  "message": "Would cost 20 credits (balance 670). Declined for now; call again with auto_confirm=true to generate."
+}

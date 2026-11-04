@@ -1,0 +1,16 @@
+# Сетка шотов: «Беги за солнцем» — Вариант A «Жёлтый зонт»
+# Темп: 120 BPM (~2.0 с на такт). Все склейки строго на сильную долю (кратны 8.0 с).
+# Всего: 12 сцен × 8.0 с = 96.0 с (ровно хронометраж трека).
+
+01|00.0-08.0|8.0|Intro «Беги за солнцем не жди»|Wet park bench in rain, closed glowing yellow umbrella lying on wood, mood of quiet solitude before dawn
+02|08.0-16.0|8.0|V1a «Беги когда идут дожди»|Medium shot from behind, traveler in dark trench coat picking up and opening the bright yellow umbrella, amber glow blooming inside
+03|16.0-24.0|8.0|V1b «Беги и в снег, туман и град»|Low angle cobblestone street, puddle mirror reflecting dark stormy sky while first golden sunbeam pierces down
+04|24.0-32.0|8.0|Pre-CH «Солнце ты за луч держи»|Narrow stone alley in misty rain, single solid beam of warm sun cutting through fog, guiding the way forward
+05|32.0-40.0|8.0|Pre-CH «Там вечно лето и тепло / Открыто окно»|Facade of old European building in cool mist, one round attic window flung wide open, blazing with warm summer afternoon light
+06|40.0-48.0|8.0|CH1a «Беги за солнцем, беги!»|Wide cinematic bridge over river, traveler stands still holding raised yellow umbrella on the boundary of dark storm and golden dawn
+07|48.0-56.0|8.0|CH1b «Беги за солнцем впереди / Беги и тень не жди»|Close-up profile of traveler's face, rain droplets on cheek catching pure golden sunlight, eyes determined, quiet hope
+08|56.0-64.0|8.0|V2a «И задыхаясь за спиной / Тень бежит пусть...»|Ancient arched colonnade, giant ink-like creeping shadows rising and stretching along stone walls behind
+09|64.0-72.0|8.0|V2b «Но ты её не жди, беги...»|Traveler turns the yellow umbrella backward like a radiant sun shield, dark shadow mist hits the glowing dome and shatters into gold embers
+10|72.0-80.0|8.0|CH2a «Беги за солнцем, беги!»|Low angle shot looking directly up through translucent bright yellow umbrella fabric at the blazing solar disc
+11|80.0-88.0|8.0|CH2b «Беги за солнцем... Беги и тень не жди»|High rooftop panoramic vista, golden sunlight boundary sweeping rapidly across the city, banishing deep indigo shadows
+12|88.0-96.0|8.0|Outro (Кода)|Return to the bench from Scene 01: dry wooden planks flooded with warm noon sunlight, flowers in background, gentle summer peace

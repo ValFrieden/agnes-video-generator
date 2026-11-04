@@ -36,6 +36,7 @@ class TaskType(str, Enum):
     ANCHOR = "anchor"
     IMAGE = "image"
     POETRY = "poetry"
+    MUSIC_VIDEO = "music_video"
 
 
 class VideoMode(str, Enum):
@@ -111,7 +112,7 @@ class ManualConfig(BaseModel):
     """
 
     enabled: bool = False                 # 是否手动模式
-    pause_points: list[str] = []          # 空 = 全部检查点暂停；清空 = 切回自动
+    pause_points: list[str] = []          # 需暂停的检查点列表；空列表表示不主动暂停（切回自动）
     approved_checkpoints: list[str] = []  # 已确认的检查点（恢复执行时跳过暂停）
     modified_artifacts: list[str] = []    # 最近一次回填的产物 id（脏标记）
     current_checkpoint: str = ""          # 当前暂停/待展示的检查点（空 = 无暂停）
@@ -134,9 +135,14 @@ class ManuscriptParagraph(BaseModel):
     index: int
     text: str
     scene_prompt: str = ""
+    # v7.1.1 关键帧模式：I2V 动画专用运动提示词（摄像机+主体运动）；
+    # 空串回退 scene_prompt（兼容旧任务 / LLM 未返回时）
+    motion_prompt: str = ""
     same_scene_as_prev: bool = False
     video_id: str = ""
     video_file: str = ""
+    # v7.1 关键帧模式：该段关键帧图（I2V-first，动画前的首帧锚点）
+    keyframe_file: str = ""
     narration_audio: str = ""
     subtitle_srt: str = ""
     final_clip: str = ""
@@ -154,6 +160,10 @@ class SceneTask(BaseModel):
     video_id: str = ""
     video_status: StepStatus = StepStatus.PENDING
     video_file: str = ""
+    # v7.1 关键帧模式：该场景关键帧图（I2V-first，动画前的首帧锚点）
+    keyframe_file: str = ""
+    # v7.1.1：I2V 动画专用运动提示词（空串回退 scene_prompt）
+    motion_prompt: str = ""
     # v2.0 新增
     narration_text: str = ""
     narration_audio: str = ""
@@ -222,6 +232,26 @@ class BaseTaskState(BaseModel):
     # 保证任务全生命周期用同一语言发消息（即便用户中途切了 UI 语言）。
     # 旧 task_state.json 缺此字段时 Pydantic 自动补默认 ``zh``，向后兼容。
     ui_language: str = "zh"
+
+    # ── v7.2 R8（P2）：成本核算 ──
+    # 视频生成前估算的剩余提交成本（USD）。免费 Provider（agnes）恒为 None；
+    # 付费 Provider（fal）按「待新提交片段数 × 单价 × 吸附时长」估算并在
+    # step_video_generation 前落盘，供前端/诊断展示。旧任务缺字段 → None。
+    estimated_video_cost_usd: Optional[float] = None
+
+    # ── SYNTX 电影级摄像机与 Draft 模式 ──
+    camera_movement: str = ""
+    draft_mode: bool = False
+
+    # ── v7.2 R8（Batch 2）：VLM 质量闸（opt-in，默认关）──
+    # qc_enabled: 任务创建表单勾选后，视频生成完成后逐场景跑免费 Agnes-Vision
+    #   质量检查（core/quality/qc.py），FAIL 片段自动重生成一次，仍 FAIL 保留
+    #   原片并在 qc_report 标记人工复核（fail-open：QC 故障不影响任务成败）。
+    # qc_report: {scene_index(str): {"passed": bool, "verdict": str}} 检查结论。
+    # step_qc: 质量闸步骤状态（沿用规范步骤字段约定，旧任务缺字段 → PENDING）。
+    qc_enabled: bool = False
+    qc_report: dict = Field(default_factory=dict)
+    step_qc: StepStatus = StepStatus.PENDING
 
 
 class SimpleVideoTask(BaseTaskState):
@@ -350,6 +380,8 @@ class ManuscriptVideoTask(BaseTaskState):
     # v4.0 重构：通用场景列表（由 _build_scenes 填充，供模板与下游步骤引用）
     scenes: List[SceneTask] = Field(default_factory=list)
     video_duration: int = 10
+    # v7.1 关键帧模式（I2V-first）：逐段先出关键帧静图，再以 i2v 提交动画
+    generate_keyframes: bool = False
 
     combined_audio: str = ""
     combined_subtitle: str = ""
@@ -357,6 +389,7 @@ class ManuscriptVideoTask(BaseTaskState):
 
     step_split: StepStatus = StepStatus.PENDING
     step_scene_prompts: StepStatus = StepStatus.PENDING
+    step_keyframes: StepStatus = StepStatus.PENDING
     # v4.0 重构：MultiScenePipeline 规范步骤字段
     step_build_scenes: StepStatus = StepStatus.PENDING
     step_reference_images: StepStatus = StepStatus.PENDING
@@ -415,6 +448,21 @@ class AnchorVideoTask(BaseTaskState):
     final_video_path: str = ""
 
 
+class MusicVideoTask(BaseTaskState):
+    """音乐视频任务（类型 7 / SYNTX Audio-First MV Pipeline）"""
+
+    task_type: TaskType = TaskType.MUSIC_VIDEO
+    song_title: str = ""
+    visual_style: str = "Cinematic Music Video"
+    bpm: int = 120
+    audio_file: str = ""
+    lyrics: str = ""
+    scenes: List[SceneTask] = Field(default_factory=list)
+    scene_count: int = 6
+    scene_durations: List[int] = Field(default_factory=list)
+    reference_image: str = ""
+
+
 class PoetryVideoTask(BaseTaskState):
     """诗词视频任务（类型 6 / v4.0 Phase 5）
 
@@ -453,10 +501,14 @@ class PoetryVideoTask(BaseTaskState):
     scenes: List[SceneTask] = Field(default_factory=list)
     step_build_scenes: StepStatus = StepStatus.PENDING
     step_reference_images: StepStatus = StepStatus.PENDING
+    step_keyframes: StepStatus = StepStatus.PENDING
     step_video_generation: StepStatus = StepStatus.PENDING
     step_audio: StepStatus = StepStatus.PENDING
     step_subtitle: StepStatus = StepStatus.PENDING
     step_concatenation: StepStatus = StepStatus.PENDING
+
+    # v7.1 关键帧模式（I2V-first）：逐场景先出关键帧静图，再以 i2v 提交动画
+    generate_keyframes: bool = False
 
     # 产物
     combined_audio: str = ""
@@ -483,7 +535,7 @@ class SimpleImageTask(BaseTaskState):
 # 联合类型 + 反序列化工厂
 # ═══════════════════════════════════════════════════
 
-AnyTaskState = Union[SimpleVideoTask, CreativeVideoTask, ManuscriptVideoTask, AnchorVideoTask, PoetryVideoTask, SimpleImageTask]
+AnyTaskState = Union[SimpleVideoTask, CreativeVideoTask, ManuscriptVideoTask, AnchorVideoTask, PoetryVideoTask, SimpleImageTask, MusicVideoTask]
 
 # 用于 TaskManager.load()：根据 task_type 字段选择正确的模型类
 _TASK_TYPE_MAP: dict[str, type[BaseTaskState]] = {
@@ -493,6 +545,7 @@ _TASK_TYPE_MAP: dict[str, type[BaseTaskState]] = {
     TaskType.ANCHOR: AnchorVideoTask,
     TaskType.POETRY: PoetryVideoTask,
     TaskType.IMAGE: SimpleImageTask,
+    TaskType.MUSIC_VIDEO: MusicVideoTask,
 }
 
 
@@ -522,6 +575,8 @@ class CreateSimpleTaskRequest(BaseModel):
     seed: Optional[int] = None
     negative_prompt: Optional[str] = None
     system_prompt: str = ""
+    camera_movement: Optional[str] = None
+    draft_mode: bool = False
 
 
 class CreateCreativeTaskRequest(BaseModel):
@@ -541,6 +596,8 @@ class CreateCreativeTaskRequest(BaseModel):
 
     audio_config: Optional[AudioConfig] = None
     subtitle_config: Optional[SubtitleConfig] = None
+    camera_movement: Optional[str] = None
+    draft_mode: bool = False
 
 
 class CreateManuscriptTaskRequest(BaseModel):
@@ -552,6 +609,8 @@ class CreateManuscriptTaskRequest(BaseModel):
     video_duration: int = 10
     audio_config: Optional[AudioConfig] = None
     subtitle_config: Optional[SubtitleConfig] = None
+    camera_movement: Optional[str] = None
+    draft_mode: bool = False
 
 
 class CreateAnchorTaskRequest(BaseModel):
@@ -562,6 +621,43 @@ class CreateAnchorTaskRequest(BaseModel):
     script_text: str
     video_width: int = 768
     video_height: int = 1344
+    audio_config: Optional[AudioConfig] = None
+    subtitle_config: Optional[SubtitleConfig] = None
+
+
+class CreateMusicVideoTaskRequest(BaseModel):
+    """创建音乐视频任务的请求体"""
+
+    song_title: str = ""
+    visual_style: str = "Cinematic Music Video"
+    bpm: int = 120
+    lyrics: str = ""
+    video_width: int = 1280
+    video_height: int = 720
+    scene_count: int = 6
+    camera_movement: Optional[str] = None
+    draft_mode: bool = False
+    subtitle_config: Optional[SubtitleConfig] = None
+
+
+class CreatePoetryTaskRequest(BaseModel):
+    """创建诗词视频任务的请求体（类型 6）"""
+
+    poem_text: str
+    creative_name: str = ""
+    style: str = "电影质感写实风格"
+    video_width: int = 768
+    video_height: int = 1152
+    video_duration: int = 30
+    generate_keyframes: bool = False
+    qc_enabled: bool = False
+
+    duration_source: str = "manual"  # "manual" | "prompt"
+    scene_count: int = 3
+    uniform_duration: bool = True
+    scene_durations: List[int] = Field(default_factory=lambda: [5, 5, 5])
+    user_scene_prompts: List[str] = Field(default_factory=list)
+
     audio_config: Optional[AudioConfig] = None
     subtitle_config: Optional[SubtitleConfig] = None
 

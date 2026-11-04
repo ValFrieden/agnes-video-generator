@@ -124,9 +124,11 @@ def test_list_artifacts_creative_counts(monkeypatch, tmp_path):
     assert "creative:story" in ids
     assert "creative:end_frame:0" in ids and "creative:end_frame:2" in ids
     assert "creative:video:0" in ids
-    # 场景级产物 = 2 种(scene 级) * 3 场景 = 6
+    # QC-Trio (25/50/75% 接触单) ist ebenfalls szene-basiert
+    assert "creative:qa_trio:0" in ids and "creative:qa_trio:2" in ids
+    # 场景级产物 = 3 种(end_frame / video / qa_trio) * 3 场景 = 9
     scene_arts = [a for a in arts if a.scope == "scene"]
-    assert len(scene_arts) == 6
+    assert len(scene_arts) == 9
 
 
 def test_list_artifacts_manuscript(monkeypatch, tmp_path):
@@ -319,6 +321,30 @@ def test_sweep_protect_statuses_override(monkeypatch, tmp_path):
         age_days=7, protect_statuses={StepStatus.RUNNING, StepStatus.QUEUED}
     )
     assert result["swept"] == ["t_pending"]
+
+
+def test_sweep_spares_active_task_ids(monkeypatch, tmp_path):
+    """Logikcheck Befund 1: Treffer in active_task_ids werden VOR dem Löschen
+    geschützt — per Verzeichnisname und per task_id im Zustandsfile."""
+    monkeypatch.setattr("core.artifacts.get_working_dir", lambda: str(tmp_path))
+    # 1. Treffer über den Verzeichnisnamen (Statusfile wäre löschbar)
+    _make_task(tmp_path, "running_named", "completed", age_days=30)
+    # 2. Treffer über die task_id im Zustandsfile
+    d = _make_task(tmp_path, "looks_stale", "completed", age_days=30)
+    payload = '{"status": "completed", "task_type": "creative", "task_id": "abc123"}'
+    f = d / "task_state.json"
+    f.write_text(payload, encoding="utf-8")
+    ts = time.time() - 30 * 86400
+    os.utime(f, (ts, ts))
+    # 3. Kontrollgruppe: übermäßig alt und nicht aktiv → wird gelöscht
+    _make_task(tmp_path, "really_stale", "completed", age_days=30)
+
+    result = sweep_stale_tasks(age_days=7, active_task_ids={"running_named", "abc123"})
+    assert result["swept"] == ["really_stale"]
+    assert sorted(result["protected"]) == ["looks_stale", "running_named"]
+    assert (tmp_path / "running_named").exists()
+    assert (tmp_path / "looks_stale").exists()
+    assert not (tmp_path / "really_stale").exists()
 
 
 def test_sweep_skips_non_task_dirs_and_reports_broken(monkeypatch, tmp_path):

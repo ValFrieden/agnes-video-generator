@@ -205,6 +205,21 @@ def resolve_lang(explicit: Optional[str] = None) -> str:
 #: **约束**：新增/修改 key 时 zh 与 en 缺一不可，其余 20 语言允许暂时缺失
 #: （``translate()`` 会回退 zh）。
 CATALOG: Dict[str, Dict[str, str]] = {
+    # ── 参考图强制（铁律 No pure Text-to-Video）──
+    "pipeline.reference_required": {
+        "zh": (
+            "场景 {index} 缺少参考图，已阻止提交纯文本视频（纯 T2V）。"
+            "本项目要求每个片段都附带角色卡/分镜参考图，否则人物样貌会漂移。"
+            "请先在「参考图」步骤生成或上传角色卡与分镜图，然后点「续传」从视频步骤重试。"
+        ),
+        "en": (
+            "Scene {index} has no reference image, so the pure text-to-video (T2V) "
+            "submission was blocked. This project requires every clip to carry a "
+            "character sheet or storyboard reference, otherwise the character's "
+            "appearance drifts across shots. Generate or upload the character sheet "
+            "and storyboard first, then click \"Resume\" to retry from the video step."
+        ),
+    },
     # ── 网络诊断（utils/network.py::describe_network_error）──
     "network.dns_failed": {
         "zh": (
@@ -301,6 +316,25 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "task.awaiting_checkpoint": {
         "zh": "等待你在检查点 '{checkpoint}' 确认或修改产物",
         "en": "Waiting for you to review or edit artifacts at checkpoint '{checkpoint}'",
+    },
+    "task.resume_blocked_checkpoint": {
+        "zh": "任务正等待你在检查点审核（手动模式），请在任务页确认检查点后再继续",
+        "en": "Task is waiting for your checkpoint review (manual mode) — approve the checkpoint on the task page first",
+    },
+    # ── Logikcheck Befund 7：停止后旧流水线仍在收尾，此时不可 resume ──
+    "task.still_stopping": {
+        "zh": "任务正在停止中，请稍候几秒再继续。",
+        "en": "The task is still stopping. Please wait a few seconds and try again.",
+    },
+    # ── Logikcheck Befund 1：简单图片任务无流水线，禁止 resume ──
+    "task.image_no_resume": {
+        "zh": "简单图片任务是同步生成的，无法续传。如需重新生成，请创建新的图片任务。",
+        "en": "Simple image tasks are generated synchronously and cannot be resumed. Please create a new image task instead.",
+    },
+    # ── Logikcheck Befund 6：上传体积上限 ──
+    "validation.upload_too_large": {
+        "zh": "上传文件过大（上限 {max_mb} MB），请压缩后再试。",
+        "en": "The uploaded file is too large (limit {max_mb} MB). Please compress it and try again.",
     },
 
     # ── 模式切换（web/routes/task_routes.py::switch_task_mode）──
@@ -436,6 +470,18 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "zh": "参考图生成完成",
         "en": "Reference images generated",
     },
+    "progress.multi_scene.keyframes_running": {
+        "zh": "生成关键帧（先出画面再动画）",
+        "en": "Generating keyframes (stills before animation)",
+    },
+    "progress.multi_scene.keyframes_done": {
+        "zh": "关键帧生成完成",
+        "en": "Keyframes generated",
+    },
+    "progress.multi_scene.keyframe_scene": {
+        "zh": "生成关键帧 {i}/{total}",
+        "en": "Generating keyframe {i}/{total}",
+    },
     "progress.multi_scene.videos_running": {
         "zh": "生成视频",
         "en": "Generating videos",
@@ -479,6 +525,28 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "progress.multi_scene.gen_audio": {
         "zh": "生成配音 ({chars} 字)...",
         "en": "Generating narration ({chars} chars)...",
+    },
+    # v7.2 R8（P2）：成本估算 / 预算闸（后端 zh/en 兜底；前端可用同名 key 以 22 语言渲染）
+    "progress.multi_scene.cost_estimate": {
+        "zh": "预计剩余视频成本约 ${cost}（付费 Provider）",
+        "en": "Estimated remaining video cost ≈ ${cost} (paid provider)",
+    },
+    "error.video.budget_exceeded": {
+        "zh": "成本预算超限：剩余片段预计约 ${cost}，超过预算上限 ${budget}（AGNES_VIDEO_BUDGET_USD）。任务已在产生费用前中止。",
+        "en": "Cost budget exceeded: remaining clips would cost ≈ ${cost}, above the budget cap ${budget} (AGNES_VIDEO_BUDGET_USD). Task aborted before any spend.",
+    },
+    # v7.2 R8（Batch 2）：VLM 质量闸进度消息（后端 zh/en 兜底；前端可用同名 key）
+    "progress.multi_scene.qc_running": {
+        "zh": "AI 质量检查（免费视觉模型逐片段审查）",
+        "en": "AI quality gate (free vision model reviewing clips)",
+    },
+    "progress.multi_scene.qc_scene": {
+        "zh": "检查片段 {i}/{total}...",
+        "en": "Reviewing clip {i}/{total}...",
+    },
+    "progress.multi_scene.qc_done": {
+        "zh": "质量检查完成：{total} 个片段（自动重生成修复 {fixed}，建议人工复核 {flagged}）",
+        "en": "Quality gate done: {total} clip(s), {fixed} auto-regenerated, {flagged} flagged for review",
     },
     "screenwriter.image_analyze_failed": {
         "zh": "图片分析失败（{label}）: {reason}",
@@ -809,6 +877,14 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "validation.scene_count_range": {
         "zh": "scene_count 范围 {min}-{max}",
         "en": "scene_count must be between {min} and {max}",
+    },
+    "validation.preview_payload_invalid": {
+        "zh": "preview_json 无效：需要非空的 story（字符串）与非空的 scenes（数组）",
+        "en": "preview_json is invalid: requires a non-empty story (string) and a non-empty scenes (array)",
+    },
+    "validation.preview_scene_count_mismatch": {
+        "zh": "preview_json 场景数（{actual}）与 scene_count（{expected}）不一致，请重新生成预览",
+        "en": "preview_json scene count ({actual}) does not match scene_count ({expected}) — regenerate the preview",
     },
     "validation.manuscript_empty": {
         "zh": "稿件内容不能为空",

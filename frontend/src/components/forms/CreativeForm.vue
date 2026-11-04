@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { t, currentLang } from '@/i18n'
 import { appState } from '@/store'
 import { useVoice } from '@/composables/useVoice'
@@ -9,6 +9,12 @@ import { normalizeResolution } from '@/composables/useVideoModelCaps'
 import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import SubtitleConfig from '@/components/shared/SubtitleConfig.vue'
 import PresetPicker from '@/components/presets/PresetPicker.vue'
+import CameraMovementPicker from '@/components/presets/CameraMovementPicker.vue'
+import AspectPicker from '@/components/shared/AspectPicker.vue'
+import DropzoneCard from '@/components/shared/DropzoneCard.vue'
+import StylePresetChips from '@/components/shared/StylePresetChips.vue'
+import InfoTooltip from '@/components/shared/InfoTooltip.vue'
+import NeuStepper from '@/components/shared/NeuStepper.vue'
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -24,6 +30,8 @@ const form = reactive({
   uniformDuration: 5,
   independentDurations: [] as number[],
   style: '',
+  cameraMovement: '',
+  draftMode: false,
   chaining: 'keyframes',
   resolution: '768x1152',
   refImage: null as File | null,
@@ -62,6 +70,30 @@ draft.autoSave(form, (v) => ({
   independentDurations: v.independentDurations, style: v.style, chaining: v.chaining,
   resolution: v.resolution,
 }))
+
+// Logikcheck Befund 9: Drehbuch-Studio Szenario direkt in dieses Formular übernehmen
+function onApplyScenario(e: CustomEvent) {
+  const p = e.detail
+  if (!p) return
+  if (p.title) form.name = p.title
+  if (p.logline) form.idea = p.logline
+  if (p.style) form.style = p.style
+  if (Array.isArray(p.shots) && p.shots.length > 0) {
+    form.sceneCount = p.shots.length
+    form.uniform = false
+    form.independentDurations = p.shots.map((s: any) =>
+      Math.max(2, Math.min(30, Math.round((s.end_time_s || 5) - (s.start_time_s || 0)) || 5)),
+    )
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('apply-scenario-to-creative', onApplyScenario as EventListener)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('apply-scenario-to-creative', onApplyScenario as EventListener)
+})
 
 function onRefImageChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0] || null
@@ -106,6 +138,8 @@ async function submitCreative() {
       fd.append('idea', idea)
       fd.append('creative_name', form.name.trim())
       fd.append('style', form.style)
+      if (form.cameraMovement) fd.append('camera_movement', form.cameraMovement)
+      fd.append('draft_mode', String(form.draftMode))
       fd.append('chaining_mode', form.chaining)
 
       fd.append('duration_source', form.durationSource)
@@ -170,7 +204,9 @@ async function submitCreative() {
 <template>
   <div>
     <div class="flex items-center gap-2 mb-4 text-xs text-muted">
-      <span class="text-muted">💡</span>
+      <svg class="w-3.5 h-3.5 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
       <a href="https://video.lichuanyang.top/guides/prompt-examples-creative" target="_blank" rel="noopener" class="hover:text-accent transition-colors">{{ t('exampleLinkCreative') }}</a>
     </div>
 
@@ -206,13 +242,13 @@ async function submitCreative() {
         </div>
 
         <div v-if="form.durationSource === 'manual'">
-          <div class="mb-3">
-            <label class="block text-xs text-muted mb-1">{{ t('sceneCount') }}</label>
-            <input v-model.number="form.sceneCount" type="number" min="1" max="30" class="w-24 glass-input rounded-lg px-3 py-2 text-sm text-ink" />
+          <div class="mb-4">
+            <label class="block text-xs text-muted font-medium mb-1.5">{{ t('sceneCount') }}</label>
+            <NeuStepper v-model="form.sceneCount" :min="1" :max="30" />
           </div>
           <div class="mb-3">
-            <label class="block text-xs text-muted mb-1.5">{{ t('durationMode') }}</label>
-            <div class="flex gap-2 mb-2">
+            <label class="block text-xs text-muted font-medium mb-2">{{ t('durationMode') }}</label>
+            <div class="flex gap-2 mb-3">
               <label class="flex items-center gap-2 text-sm text-muted cursor-pointer">
                 <input v-model="form.uniform" type="radio" :value="true" class="text-accent" />
                 <span>{{ t('uniformDuration') }}</span>
@@ -223,14 +259,12 @@ async function submitCreative() {
               </label>
             </div>
             <div v-if="form.uniform">
-              <input v-model.number="form.uniformDuration" type="number" min="2" max="30" class="w-24 glass-input rounded-lg px-3 py-2 text-sm text-ink" />
-              <span class="text-xs text-muted ml-1">{{ t('seconds') }}</span>
+              <NeuStepper v-model="form.uniformDuration" :min="2" :max="30" :unit="t('seconds') || 's'" />
             </div>
             <div v-else class="space-y-2">
-              <div v-for="i in form.sceneCount" :key="i" class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs text-muted w-12">{{ t('scene_') }}{{ i }}</span>
-                <input v-model.number="form.independentDurations[i - 1]" type="number" min="2" max="30" class="w-20 glass-input rounded-lg px-3 py-1.5 text-sm text-ink" />
-                <span class="text-xs text-muted">{{ t('seconds') }}</span>
+              <div v-for="i in form.sceneCount" :key="i" class="flex items-center gap-3 mb-1.5">
+                <span class="text-xs text-muted w-14">{{ t('scene_') }} {{ i }}</span>
+                <NeuStepper v-model="form.independentDurations[i - 1]" :min="2" :max="30" :unit="t('seconds') || 's'" />
               </div>
             </div>
           </div>
@@ -238,47 +272,82 @@ async function submitCreative() {
       </div>
 
       <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('visualStyle') }}</label>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-sm text-muted font-medium">{{ t('visualStyle') }}</label>
+          <InfoTooltip text="Задайте художественный стиль сцен: кинематограф, аниме, 3D анимация, живопись или фотореализм." />
+        </div>
+        <StylePresetChips v-model="form.style" class="mb-2" />
         <div class="flex items-center gap-2">
-          <input v-model="form.style" class="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
+          <input v-model="form.style" :placeholder="t('visualStyle')" class="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
           <PresetPicker v-model="form.style" />
         </div>
+      </div>
+
+      <!-- 20 Cinematic Camera Movements (SYNTX AI) -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-sm text-muted font-medium">Кинематографическое движение камеры (SYNTX)</label>
+          <InfoTooltip text="20 операторских пресетов (Dolly In, Orbital Pan, Snorricam, Vertigo, Crane): задает физику и кинематографическую траекторию камеры." />
+        </div>
+        <CameraMovementPicker v-model="form.cameraMovement" />
       </div>
     </div>
 
     <!-- Advanced Config -->
     <div class="glass-card rounded-2xl p-6 mb-4">
       <h2 class="text-lg font-semibold text-accent mb-4">{{ t('advancedSettings') }}</h2>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+
+      <!-- Draft Mode Toggle -->
+      <div class="mb-5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
         <div>
-          <label class="block text-sm text-muted mb-1.5">{{ t('chainingMode') }}</label>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-amber-300">⚡ Черновой режим (Draft Mode)</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200">Экономия квот</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 mt-0.5">Генерация контактных листов (25/50/75%) перед чистовым рендером. Позволяет отсеять брак без перерасхода ресурсов.</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" v-model="form.draftMode" class="sr-only peer" />
+          <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+        </label>
+      </div>
+
+      <!-- Visual Aspect Ratio -->
+      <div class="mb-5">
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm text-muted font-medium">{{ t('resolution') }}</label>
+          <InfoTooltip text="Формат кадра для ваших видео: 9:16 подходит для TikTok и Reels, 16:9 — для YouTube и горизонтальных экранов, 1:1 — для постов." />
+        </div>
+        <AspectPicker v-model="form.resolution" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-sm text-muted font-medium">{{ t('chainingMode') }}</label>
+            <InfoTooltip text="Keyframes: сцепка по конечному кадру предыдущей сцены. Ti2vid: text+image в видео. None: независимые сцены." />
+          </div>
           <select v-model="form.chaining" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
             <option value="keyframes">{{ t('modeKeyframes') }}</option>
             <option value="ti2vid">{{ t('modeTi2vid') }}</option>
             <option value="none">{{ t('modeNone') }}</option>
           </select>
         </div>
-        <div>
-          <label class="block text-sm text-muted mb-1.5">{{ t('resolution') }}</label>
-          <select v-model="form.resolution" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
-            <option value="768x1152">{{ t('resPortrait') }}</option>
-            <option value="1280x720">{{ t('resLandscape') }}</option>
-            <option value="1024x1024">{{ t('resSquare') }}</option>
-          </select>
-        </div>
       </div>
 
-      <!-- Reference Image -->
-      <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('referenceImage') }}</label>
-        <div class="flex items-center gap-4">
-          <label class="cursor-pointer px-4 py-2.5 glass-input rounded-lg text-sm transition inline-block hover:border-blue-500/30">
-            <span>{{ t('chooseImage') }}</span>
-            <input type="file" accept="image/*" class="hidden" @change="onRefImageChange" />
-          </label>
-          <span class="text-sm text-muted">{{ form.refName || t('notSelected') }}</span>
+      <!-- Reference Image with DropzoneCard -->
+      <div class="mb-5">
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm text-muted font-medium">{{ t('referenceImage') }}</label>
+          <InfoTooltip text="Эталонное изображение персонажа или стиля. Нейросеть зафиксирует внешность главного героя во всех сценах." />
         </div>
-        <p class="text-xs text-muted mt-2">{{ t('refDescription') }}</p>
+        <DropzoneCard
+          v-model="form.refImage"
+          :title="t('referenceImage')"
+          :hint="t('refDescription')"
+          badge="Reference Anchor"
+          @change="(f) => form.refName = f ? f.name : ''"
+        />
       </div>
 
       <!-- End Frames -->

@@ -4,8 +4,11 @@ import { t } from '@/i18n'
 import { appState } from '@/store'
 import { useVoice } from '@/composables/useVoice'
 import { useTaskSubmit, collectAudioSubtitleFields } from '@/composables/useTaskSubmit'
+import { useDraft } from '@/composables/useDraft'
 import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import SubtitleConfig from '@/components/shared/SubtitleConfig.vue'
+import AspectPicker from '@/components/shared/AspectPicker.vue'
+import NeuSwitch from '@/components/shared/NeuSwitch.vue'
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -16,9 +19,30 @@ const form = reactive({
   name: '',
   text: '',
   resolution: '768x1152',
+  // v7.1 关键帧模式（I2V-first）：逐段先出关键帧静图再 i2v 动画
+  keyframes: false,
+  // v7.2 R8 质量闸：生成后逐段免费 VLM 检查 + FAIL 自动重生成一次
+  qc: false,
 })
 
 const charCount = computed(() => form.text.length)
+
+// Logikcheck Befund 6: Entwurf wie im Kreativformular lokal sichern —
+// Aufgabentyp-Wechsel (unmount) und Seiten-Reload verlieren sonst lange Texte.
+const draft = useDraft('manuscript')
+;(() => {
+  const d = draft.load()
+  if (!d) return
+  if (typeof d.name === 'string') form.name = d.name
+  if (typeof d.text === 'string') form.text = d.text
+  if (typeof d.resolution === 'string') form.resolution = d.resolution
+  if (typeof d.keyframes === 'boolean') form.keyframes = d.keyframes
+  if (typeof d.qc === 'boolean') form.qc = d.qc
+})()
+draft.autoSave(form, (v) => ({
+  name: v.name, text: v.text, resolution: v.resolution,
+  keyframes: v.keyframes, qc: v.qc,
+}))
 
 function parseResolution(val: string) {
   const [w, h] = val.split('x').map(Number)
@@ -38,6 +62,8 @@ async function submitManuscript() {
       const res = parseResolution(form.resolution)
       fd.append('video_width', String(res.width))
       fd.append('video_height', String(res.height))
+      fd.append('generate_keyframes', String(form.keyframes))
+      fd.append('qc_enabled', String(form.qc))
 
       const sc = subtitleRef.value
       collectAudioSubtitleFields(fd, sc, voiceSelections, 'm')
@@ -55,6 +81,8 @@ async function submitManuscript() {
       return fd
     },
     extraEvent: ev,
+    // Erfolgreich abgeschickt → Entwurf nicht wiederherstellen
+    onSuccess: () => draft.clear(),
   })
 }
 </script>
@@ -62,7 +90,9 @@ async function submitManuscript() {
 <template>
   <div>
     <div class="flex items-center gap-2 mb-4 text-xs text-muted">
-      <span class="text-muted">💡</span>
+      <svg class="w-3.5 h-3.5 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
       <a href="https://video.lichuanyang.top/guides/prompt-examples-manuscript" target="_blank" rel="noopener" class="hover:text-accent transition-colors">{{ t('exampleLinkManuscript') }}</a>
     </div>
 
@@ -80,13 +110,27 @@ async function submitManuscript() {
         <p class="text-xs text-muted mt-1">{{ t('charCount') }}: {{ charCount }}</p>
       </div>
 
-      <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('resolution') }}</label>
-        <select v-model="form.resolution" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
-          <option value="768x1152">{{ t('resPortrait') }}</option>
-          <option value="1280x720">{{ t('resLandscape') }}</option>
-          <option value="1024x1024">{{ t('resSquare') }}</option>
-        </select>
+      <div class="mb-5">
+        <label class="block text-sm text-muted font-medium mb-2">{{ t('resolution') }}</label>
+        <AspectPicker v-model="form.resolution" />
+      </div>
+
+      <!-- v7.1 关键帧模式（I2V-first） -->
+      <div class="mb-3 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+        <div class="mr-4">
+          <span class="block text-sm text-ink-2 font-medium">{{ t('kfToggleLabel') }}</span>
+          <span class="block text-xs text-muted mt-0.5 leading-relaxed">{{ t('kfToggleHint') }}</span>
+        </div>
+        <NeuSwitch v-model="form.keyframes" />
+      </div>
+
+      <!-- v7.2 R8 质量闸（opt-in） -->
+      <div class="mb-2 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+        <div class="mr-4">
+          <span class="block text-sm text-ink-2 font-medium">{{ t('qcToggleLabel') }}</span>
+          <span class="block text-xs text-muted mt-0.5 leading-relaxed">{{ t('qcToggleHint') }}</span>
+        </div>
+        <NeuSwitch v-model="form.qc" />
       </div>
     </div>
 

@@ -39,6 +39,7 @@ error_logs/
 .coverage.*
 htmlcov/
 coverage.xml
+coverage.json
 
 # Mock 回归测试生成的报告与临时数据（预制素材 assets/ fixture_data/ 需保留）
 tests/mock_regression/reports/
@@ -51,12 +52,6 @@ agnes_data/
 final_video*TEMP*.mp4
 *TEMP*_wvf_snd.mp4
 
-# 覆盖率分析产物
-.coverage
-.coverage.*
-htmlcov/
-coverage.xml
-coverage.json
 scripts/_verify_resume_skip.py
 
 scripts/_i18n_fill.py
@@ -81,25 +76,43 @@ clips/
 clips2/
 frames_169/
 storyboard_frames/
-balloon_frames/*
-!balloon_frames/prompts.txt
-!balloon_frames/prompts_v5.txt
-!balloon_frames/shots2.txt
-!balloon_frames/seq01.png
-!balloon_frames/seq02.png
-!balloon_frames/seq03.png
-!balloon_frames/seq04.png
-!balloon_frames/seq05.png
-!balloon_frames/seq06.png
-!balloon_frames/seq07.png
-!balloon_frames/seq08.png
-!balloon_frames/seq09.png
-!balloon_frames/seq10.png
-!balloon_frames/seq11.png
-!balloon_frames/seq12.png
-!balloon_frames/seq13.png
-!balloon_frames/seq14.png
-!balloon_frames/seq15.png
-!balloon_frames/balloon_sprite.png
+*_frames/**/*.png
+*_frames/**/*.jpg
+*_frames/**/*.jpeg
+*_frames/**/*.webp
+*_frames/*.png
+*_frames/*.jpg
+*_frames/*.jpeg
+*_frames/*.webp
+
+# 本地实验/QA 产物与日志（不入库）
+agnes_out/
+fal_out/
+scratch_watch_analysis/
+*.log
+_pytest_out.txt
+
 *.mp4
 *.mp3
+
+# 临时调试脚本与产物（Agent 排障用，不入库）
+scratch_*.py
+scratch_*.mjs
+scratch_*.js
+scratch_*.ps1
+scratch_*.txt
+screenshots-debug/
+tmp_pytest/
+t[0-9].png
+
+# Tools & ML models
+tools/insightface_models/
+tools/google-flow-browser-mcp/
+tools/.oauth_state.json
+*.onnx
+
+# Local binaries and personal media
+bin/*.exe
+Hochzeit/
+references/
+*.db

@@ -143,8 +143,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       <button type="button" class="px-3 py-2 rounded-lg text-sm bg-accent text-accent-ink cursor-pointer" @click="submitSave">
         {{ t('presetSaveAs') }}
       </button>
-      <button type="button" class="px-2 py-2 rounded-lg text-sm text-muted cursor-pointer" @click="saving = false">
-        ✕
+      <button type="button" class="px-2 py-2 rounded-lg text-sm text-muted hover:text-ink cursor-pointer" :aria-label="t('cancel')" @click="saving = false">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
     </div>
 
@@ -155,7 +155,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
     >
       <template v-if="groups.length">
         <div v-for="g in groups" :key="g.category" class="mb-1">
-          <div class="text-xs text-muted px-2 py-1 uppercase tracking-wide">{{ catName(g.category) }}</div>
+          <div class="text-xs font-medium text-muted px-2 py-1">{{ catName(g.category) }}</div>
           <button
             v-for="p in g.items"
             :key="p.id"
@@ -167,9 +167,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             <span class="truncate">{{ displayName(p) }}</span>
             <span
               v-if="p.kind === 'user'"
-              class="text-muted hover:text-red-400 px-1 shrink-0"
+              class="text-muted hover:text-red-400 p-0.5 shrink-0"
               @click.stop="remove(p)"
-            >✕</span>
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </span>
           </button>
         </div>
         <p class="text-xs text-muted px-2 py-1">{{ t('presetSelectHint') }}</p>

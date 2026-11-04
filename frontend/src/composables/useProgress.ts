@@ -37,6 +37,9 @@ const awaitingCheckpoint = ref('')
 const retryCount = ref(0)
 // v6.1：任务未完成但后台无活跃 pipeline → 待续传（展示续传入口）
 const needsResume = ref(false)
+// Logikcheck Befund 2：任务不存在（已删除 / 链接失效）→ 明确的终态提示，
+// 而不是「任务正在启动...」占位符 + 误导性的「连接中断」横幅
+const taskNotFound = ref(false)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -81,8 +84,8 @@ function reportUpstreamErrors(state: TaskState) {
   }
 }
 
-function resetSteps(taskType: string) {
-  steps.value = getStepsForType(taskType)
+function resetSteps(taskType: string, state?: TaskState | null) {
+  steps.value = getStepsForType(taskType, state)
   const st: Record<string, 'done' | 'running' | 'pending'> = {}
   steps.value.forEach((s) => (st[s.key] = 'pending'))
   stepStates.value = st
@@ -130,6 +133,7 @@ const currentRunningStep = computed(() => {
 async function showProgress(taskId: string, dirName?: string | null): Promise<TaskState | null> {
   progressVisible.value = true
   taskFailed.value = false
+  taskNotFound.value = false
   resultVideoVisible.value = false
   progressPct.value = 0
 
@@ -137,11 +141,14 @@ async function showProgress(taskId: string, dirName?: string | null): Promise<Ta
   try {
     state = await api.getTask(taskId)
     if (state && state.task_type) appState.currentTaskType = state.task_type
-  } catch {
-    /* ignore */
+  } catch (e: any) {
+    // Logikcheck Befund 2：404 = 任务不存在/已删除，是终态而非网络问题，
+    // 标记后在进度页展示明确提示；其余错误保持原行为（轮询后提示连接异常）
+    if (e?.status === 404) taskNotFound.value = true
   }
 
-  resetSteps(appState.currentTaskType)
+  // v7.1：条件步骤（keyframes）按任务 state 过滤显示
+  resetSteps(appState.currentTaskType, state)
 
   // 标记已完成步骤
   if (state) {
@@ -258,6 +265,7 @@ function unmountProgressPage() {
   awaitingCheckpoint.value = ''
   needsResume.value = false
   taskFailed.value = false
+  taskNotFound.value = false
   retryCount.value = 0
   liveFailedStep.value = ''
 }
@@ -338,7 +346,15 @@ async function pollTaskProgress(taskId: string) {
       // 已恢复执行（含排队阶段）：立即清除暂停 UI，避免「继续」按钮残留可点
       awaitingCheckpoint.value = ''
     }
-  } catch {
+  } catch (e: any) {
+    // Logikcheck Befund 2：任务在查看期间被删除（404）→ 立即结束轮询并给出
+    // 终态提示；其他错误走原有的连续失败退避（连接异常横幅）
+    if (e?.status === 404) {
+      clearRunning()
+      taskNotFound.value = true
+      failedMessage.value = ''
+      return
+    }
     // 1.7：连续失败 N 次 → 提示连接异常（此前无限静默轮询，用户看不到原因）
     consecutivePollFailures += 1
     if (consecutivePollFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
@@ -414,6 +430,7 @@ export function useProgress() {
     liveFailedStep,
     awaitingCheckpoint,
     needsResume,
+    taskNotFound,
     retryCount,
     connectionLost,
     retryFailedTask,

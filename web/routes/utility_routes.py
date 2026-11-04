@@ -8,6 +8,7 @@ import shutil
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from core.async_io import read_text
 from core.config import get_working_dir
@@ -124,3 +125,71 @@ async def cleanup_regression():
         "scenarios_cleaned": scenarios_cleaned,
         "errors": errors,
     }
+
+
+class ExtractScenesRequest(BaseModel):
+    video_path: str
+    threshold: float = 0.15
+    min_interval_s: float = 2.0
+    max_scenes: int = 30
+    width: int = 1280
+
+
+@router.get("/api/tools/luts")
+async def get_available_luts():
+    """获取系统内置的电影级 3D LUT 调色预设列表。"""
+    from core.compositor.processor import VideoProcessor
+    luts = VideoProcessor.list_available_luts()
+    descriptions = {
+        "cinematic_teal_orange": "好莱坞经典青橙调色 (Teal & Orange)：阴影冷青，肤色与高光温暖，增强画面戏剧张力与景深感",
+        "clean_film_anti_plastic": "胶片质感抗塑料感滤镜 (Anti-Plastic)：消除 AI 生成视频常见的高光塑料反光与数码过饱和",
+        "warm_vintage": "复古暖调胶片 (Warm Vintage)：柔和高光压缩与温暖微黄底色，适合怀旧与情感向叙事"
+    }
+    items = []
+    for k, v in luts.items():
+        items.append({
+            "id": k,
+            "name": k.replace("_", " ").title(),
+            "description": descriptions.get(k, "Professional 3D LUT Color Grade"),
+            "path": v
+        })
+    return {"ok": True, "luts": items}
+
+
+@router.post("/api/tools/extract-scenes")
+async def extract_scenes(req: ExtractScenesRequest):
+    """使用 FFmpeg 场景切变检测算法，自动提取视频关键帧与分镜 Storyboard。"""
+    from core.compositor.processor import VideoProcessor
+    from core.path_security import safe_workspace_path
+
+    try:
+        validated_video = safe_workspace_path(req.video_path)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid video path: {e}")
+
+    if not os.path.isfile(validated_video):
+        raise HTTPException(status_code=404, detail="Video file not found")
+
+    working_dir = get_working_dir()
+    video_basename = os.path.splitext(os.path.basename(validated_video))[0]
+    out_dir = os.path.join(working_dir, "storyboards", video_basename)
+
+    import asyncio
+    keyframes = await asyncio.to_thread(
+        VideoProcessor.extract_scene_keyframes,
+        validated_video,
+        out_dir,
+        req.threshold,
+        req.min_interval_s,
+        req.max_scenes,
+        req.width
+    )
+
+    return {
+        "ok": True,
+        "video": req.video_path,
+        "scene_count": len(keyframes),
+        "output_dir": out_dir,
+        "scenes": keyframes
+    }
+

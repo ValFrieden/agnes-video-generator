@@ -205,7 +205,7 @@ onMounted(async () => {
     <!-- 展开态：完整反馈区 -->
     <div v-else class="space-y-3">
       <!-- 引导语：确定性故障 / 重试次数超阈值切换 -->
-      <p class="text-xs leading-relaxed" :class="deterministic ? 'text-amber-400' : 'text-muted'">
+      <p class="text-xs leading-relaxed" :class="deterministic ? 'text-warning' : 'text-muted'">
         {{ deterministic ? t('fbDeterministicHint') : t('fbExpandedHint').replace('{n}', String(props.retryCount)) }}
       </p>
 
@@ -217,7 +217,7 @@ onMounted(async () => {
           @click="diagOpen = !diagOpen"
         >
           <span class="text-xs transition-transform" :class="diagOpen ? 'rotate-90' : ''">▸</span>
-          <span class="text-xs text-red-300 font-medium">{{ t('fbDiagTitle') }}</span>
+          <span class="text-xs text-danger font-medium">{{ t('fbDiagTitle') }}</span>
           <span v-if="reportLoading" class="ml-auto text-xs text-muted animate-pulse">…</span>
         </button>
         <div v-show="diagOpen" class="px-3 pb-3">
@@ -229,10 +229,10 @@ onMounted(async () => {
       <div class="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          class="text-xs px-3 py-1.5 bg-red-900/50 border border-red-800 text-red-200 rounded-lg transition hover:bg-red-900/80"
+          class="text-xs px-3 py-1.5 btn-danger-soft cursor-pointer"
           @click="onCopy"
         >
-          📋 {{ t('fbCopy') }}
+          {{ t('fbCopy') }}
         </button>
         <a
           :href="FAQ_URL"
@@ -240,27 +240,28 @@ onMounted(async () => {
           rel="noopener"
           class="text-xs px-3 py-1.5 bg-paper-2/40 border border-rule text-ink-2 rounded-lg transition hover:bg-paper-2/70"
         >
-          ❓ {{ t('fbFaq') }}
+          {{ t('fbFaq') }}
         </a>
         <button
           type="button"
-          class="text-xs px-3 py-1.5 bg-accent text-accent-ink rounded-lg transition hover:opacity-90"
+          class="text-xs px-3 py-1.5 bg-accent text-accent-ink rounded-lg transition hover:opacity-90 cursor-pointer"
           @click="onGithub"
         >
-          🐛 {{ t('fbGithub') }}
+          {{ t('fbGithub') }}
         </button>
         <button
           v-if="deterministic"
           type="button"
-          class="text-xs px-2 py-1 text-muted underline underline-offset-2 hover:text-ink-2 transition"
+          class="text-xs px-2 py-1 text-muted underline underline-offset-2 hover:text-ink-2 transition cursor-pointer"
           @click="$emit('retry')"
         >
-          ↻ {{ t('fbRetryBtn') }}
+          <!-- Logikcheck Befund 11：与失败区/头部按钮统一为「续传」（同一后端动作） -->
+          {{ t('btnResume') }}
         </button>
       </div>
 
       <!-- 隐私提示 -->
-      <p class="text-[11px] text-muted/70">🔒 {{ t('fbPrivacyHint') }}</p>
+      <p class="text-[11px] text-muted/70">{{ t('fbPrivacyHint') }}</p>
     </div>
   </div>
 </template>

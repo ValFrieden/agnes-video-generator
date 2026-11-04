@@ -1,0 +1,21 @@
+{
+  "type": "video",
+  "account": "",
+  "model_used": "Veo 3.1 - Fast",
+  "ratio": "16:9",
+  "duration": "8s",
+  "quantity": 1,
+  "prompt": "The man walks slowly forward along the street, steady cinematic dolly shot, mouth closed.",
+  "start_frame": "C:\\Users\\Valeri\\AppData\\Local\\Temp\\claude\\D--Projects-VideoGenerator\\d135a699-94cf-4f96-bd1e-795bdfebc4df\\scratchpad\\test_clip_lastframe.png",
+  "end_frame": null,
+  "chained_from": "C:/Users/Valeri/AppData/Local/Temp/claude/D--Projects-VideoGenerator/d135a699-94cf-4f96-bd1e-795bdfebc4df/scratchpad/test_clip.mp4",
+  "reference_images": [],
+  "estimated_credits": null,
+  "max_credits": 20,
+  "balance": 670,
+  "screenshot": "screenshots-debug\\2026-10-23T08-36-38-083Z_video-prompt-ready.png",
+  "jobId": "8133e3b9",
+  "status": "cost_unreadable",
+  "agent_text": "d_ios\n\nIch habe die Videogenerierung abgebrochen. Möchtest du Änderungen am Prompt, an den Einstellungen oder am Konzept vornehmen?\n\nthumb_up\nthumb_down\ncontent_copy\nflag\nGenerate 1 video in 720p resolution using Veo 3.1 - Fast, 16:9, 8s. Use the attached image as the exact START frame of the video and animate from it (image-to-video). The man walks slowly forward along the street, steady cinematic dolly shot, mouth closed.\nerror\nWir haben ungewöhnliche Aktivitäten festgestellt. Beachten Sie, dass Browsererweiterungen, die die Seite verändern, Probleme verursachen können. Weitere Informationen finden Sie in der [Google Flow-Hilfe](https://support.google.com/flow).\nNoch einmal versuchen\nthumb_up\nthumb_down\ncontent_copy\nflag\nWas möchten Sie erstellen?\n\n\n\n\nadd\narticle_spark\ntune\narrow_forward",
+  "message": "The Flow agent did not show a cost card. Nothing was approved."
+}

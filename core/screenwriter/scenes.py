@@ -140,6 +140,12 @@ Output in the SAME LANGUAGE as the input scene.
 - 不要描述旁白本身——描述观众看到的内容。
 - 视觉应补充和增强文本的含义。
 - 描述动作和动态，而非静态图像。
+- 按 2-3 个连续镜头组织画面：先以远景/全景建立环境，\
+再以中景/特写呈现关键动作；每个镜头标注专业景别\
+（如「全景」「中景」「特写」）与镜头运动方向，\
+镜头之间自然延续，不要转场特效。
+- 只描述视觉：不要描写音乐、歌声、音效或任何声音——\
+生成的视频为无声画面，旁白与配乐在后期统一叠加。
 
 用词指导：
 - 使用电影化语言传达情感基调："充满张力的氛围"、\
@@ -170,6 +176,12 @@ weather, time of day.
 - Do NOT describe the narration itself — describe what the VIEWER SEES.
 - The visual should complement and enhance the meaning of the text.
 - Describe MOTION and ACTION, not a static image.
+- Organize the scene as 2-3 consecutive shots: open with a wide/establishing \
+shot, then move to medium/close shots for the key action; label each shot \
+with professional shot-size terms (wide shot, medium shot, close-up) and \
+camera movement direction; shots flow continuously — no transition effects.
+- Visuals ONLY: do not describe music, songs, sound effects, or any audio — \
+the generated video is silent; narration and music are added in post-production.
 
 VOCABULARY GUIDANCE:
 - Use cinematic language to convey emotional tone: "charged atmosphere", \
@@ -201,6 +213,111 @@ Output ONLY the visual prompt text, no JSON, no explanation.
         prompt = strip_code_fence(self._chat(system_prompt, user_prompt))
         logger.info(f"[Screenwriter] Scene prompt: {prompt[:100]}...")
         return prompt
+
+    def generate_scene_prompts_for_paragraph_keyframes(self, text: str, style: str = "") -> dict:
+        """为稿件段落生成关键帧模式双提示词（v7.1.1：静态画面 + 运动动画）。
+
+        I2V-first 最佳实践：关键帧（静图）与动画（i2v）各需侧重不同的提示词——
+        静图含运动动词会导致构图漂移，动画提示词只含静态又会得到呆板画面。
+
+        Args:
+            text: 段落文本
+            style: 风格描述（可选）
+
+        Returns:
+            ``{"image_prompt": str, "motion_prompt": str}``；任一字段缺失/非 str
+            时归一为空串，由调用方回退（motion 为空 → 用 image_prompt 提交）。
+        """
+        system_prompt = self._prompt(
+            zh_text="""\
+你是一位专业的视频导演和视觉提示词工程师。给定一段\
+将作为旁白朗读的文本，请生成两个侧重不同的提示词：\
+一个用于先生成静态关键帧图像，一个用于将该帧动画化（image-to-video）。
+
+[输出格式] 只返回一个 JSON 对象：
+{
+  "image_prompt": "静态画面描述",
+  "motion_prompt": "运动描述"
+}
+
+image_prompt 规则（静态构图）：
+- 使用与输入段落相同的语言，60-120 词。
+- 描述主体、取景、光线、色彩、材质、构图、天气、时间。
+- 严禁动作动词（如「奔跑」「爆炸」「飞过」）——这是一张定格照片。
+- 不要文字叠加、标题、字幕。
+
+motion_prompt 规则（帧间动画）：
+- 使用与输入段落相同的语言，15-40 词。
+- 只描述动态：摄像机运动方向与速度、主体动作、光影/氛围的细微变化。
+- 使用方向性镜头语言：「缓慢推近」「平缓右摇」「轻微手持感」「固定机位，
+主体微微转身」。
+- 保持克制：I2V 模型在小幅度定向运动下一致性最好；避免瞬间位移、
+剧烈变焦、场景切换。
+
+两个提示词必须描述同一画面与同一主体，视觉上互为因果。
+两个提示词都只描述视觉——不要音乐、歌声、音效或人声描述：\
+生成的视频为无声画面，旁白与配乐在后期统一叠加。
+
+只输出 JSON，不要解释，不要代码围栏。
+""",
+            en_text="""\
+You are a professional video director and visual prompt engineer. Given a \
+paragraph of text that will be narrated as voiceover, produce TWO prompts \
+with different focus: one for generating a STATIC KEYFRAME image first, and \
+one for animating that frame (image-to-video).
+
+[Output Format] Return ONLY a JSON object:
+{
+  "image_prompt": "static scene description",
+  "motion_prompt": "motion description"
+}
+
+image_prompt rules (static composition):
+- SAME LANGUAGE as the input paragraph, 60-120 words.
+- Describe subjects, framing, lighting, colors, textures, composition, weather, time.
+- NEVER use action verbs ("running", "exploding", "flying") — this is a frozen still.
+- No text overlays, titles, or subtitles.
+
+motion_prompt rules (inter-frame animation):
+- SAME LANGUAGE as the input paragraph, 15-40 words.
+- Describe dynamics ONLY: camera movement direction and speed, subject actions, \
+subtle light/atmosphere changes.
+- Use directional camera language: "slow push in", "gentle pan right", \
+"subtle handheld feel", "locked-off shot, subject slowly turns head".
+- Keep it restrained: I2V models keep consistency best with small directional \
+motion; avoid instant displacement, drastic zooms, scene cuts.
+
+Both prompts must describe the SAME scene and subjects — visually cause and effect.
+Both prompts are VISUALS ONLY — no music, songs, sound effects, or voice \
+descriptions: the generated video is silent; narration and music are added \
+in post-production.
+
+Output ONLY JSON, no explanation, no code fences.
+""",
+        )
+        style_block = f"\n<style>{style}</style>\n" if style else ""
+        user_prompt = f"""\
+<paragraph>
+{text}
+</paragraph>
+{style_block}
+{self._prompt(
+    zh_text="请为此段落生成关键帧双提示词（静态画面 + 运动）。",
+    en_text="Generate the keyframe prompt pair (static scene + motion) for this paragraph."
+)}
+"""
+        logger.info(
+            f"[Screenwriter] Generating keyframe prompt pair for paragraph ({len(text)} chars)..."
+        )
+        result = self._chat_json(system_prompt, user_prompt)
+        if not isinstance(result, dict):
+            result = {}
+        image_prompt = result.get("image_prompt")
+        motion_prompt = result.get("motion_prompt")
+        return {
+            "image_prompt": image_prompt.strip() if isinstance(image_prompt, str) else "",
+            "motion_prompt": motion_prompt.strip() if isinstance(motion_prompt, str) else "",
+        }
 
     def generate_poetry_scenes(
         self,
@@ -336,3 +453,32 @@ Night rain, wind sounds... | Rain on window, petals on stone""",
                 continue
             scenes.append({"narration": verse, "scene_prompt": prompt})
         return scenes
+
+    @staticmethod
+    def format_temporal_prompt_structure(
+        raw_prompt: str,
+        duration_s: float = 5.0,
+        camera_movement: str = "",
+    ) -> str:
+        """Преобразует сценарный промпт в посекундную 3-фазную структуру (SYNTX / LTX Standard).
+
+        Если в промпте уже есть посекундные таймкоды вида [0-1s], возвращает его без изменений.
+        Иначе делит хронометраж на 3 фазы:
+        - [0.0 - t1 s]: Установка кадра, свет, композиция, микромоушн
+        - [t1 - t2 s]: Динамика действия + движение камеры
+        - [t2 - dur s]: Эмоциональный акцент и стабилизация кадра
+        """
+        if not raw_prompt:
+            return ""
+        if re.search(r"\[\d+(\.\d+)?-\d+(\.\d+)?s\]", raw_prompt):
+            return raw_prompt
+        dur = max(2.0, float(duration_s))
+        t1 = round(max(0.8, min(1.5, dur * 0.25)), 1)
+        t2 = round(max(t1 + 1.0, min(dur - 0.8, dur * 0.75)), 1)
+
+        cam_clause = f" Camera motion: {camera_movement}." if camera_movement else ""
+        return (
+            f"[0.0-{t1:.1f}s]: Establishing shot, environmental atmosphere, lighting: {raw_prompt}. Atmospheric micro-motion, gentle breathing, mouth firmly closed. Preserve exact facial geometry and identity, zero beautification.\n"
+            f"[{t1:.1f}-{t2:.1f}s]: Dynamic narrative action unfolds.{cam_clause} Natural kinetic momentum and cinematic depth of field, steady linear velocity with zero sudden acceleration drops.\n"
+            f"[{t2:.1f}-{dur:.1f}s]: Emotional beat resolves, actor micro-expression, subtle breath, camera settles smoothly for clean cut."
+        )

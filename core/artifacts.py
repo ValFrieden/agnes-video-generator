@@ -92,6 +92,7 @@ _CREATIVE_STEPS = [
 _MANUSCRIPT_STEPS = [
     ("step_split", "split_text"),
     ("step_scene_prompts", "scene_prompts"),
+    ("step_keyframes", "keyframes"),      # v7.1 关键帧模式（generate_keyframes 开启时经过）
     ("step_video_generation", "video_gen"),
     ("step_audio", "audio"),
     ("step_subtitle", "subtitle"),
@@ -119,6 +120,7 @@ _ANCHOR_STEPS_MODEL = [
 _POETRY_STEPS = [
     ("step_build_scenes", "build_scenes"),
     ("step_reference_images", "reference_images"),
+    ("step_keyframes", "keyframes"),      # v7.1 关键帧模式（generate_keyframes 开启时经过）
     ("step_video_generation", "video_gen"),
     ("step_audio", "audio"),
     ("step_subtitle", "subtitle"),
@@ -156,6 +158,9 @@ def _creative_artifact_defs() -> list[dict]:
          "category": "video", "scope": "scene", "file": "scene_{i}/video.mp4",
          "scene_fields": ["video_file", "video_id", "video_status"],
          "extra_files": ["scene_{i}/task.json", "scene_{i}/curl.sh"]},
+        # QC-Trio：25/50/75% 关键帧接触单（铁律「单段确认」的人工可审依据）
+        {"type": "qa_trio", "step_key": "video_gen", "label": "artQaTrio",
+         "category": "image", "scope": "scene", "file": "scene_{i}/qa_trio.png"},
         # 任务级音频/字幕
         {"type": "audio", "step_key": "audio", "label": "artAudio",
          "category": "audio", "scope": "task", "file": "combined_narration.mp3",
@@ -175,11 +180,17 @@ def _manuscript_artifact_defs() -> list[dict]:
     return [
         {"type": "scene_prompts", "step_key": "scene_prompts", "label": "artScenePrompts",
          "category": "json", "scope": "task", "file": "prompts.json",
-         "fields": [], "para_fields_all": ["scene_prompt"]},
+         "fields": [], "para_fields_all": ["scene_prompt", "motion_prompt"]},
+        # v7.1 关键帧模式：逐段首帧静图（I2V 锚点，手动模式可审查/替换）
+        {"type": "keyframe", "step_key": "keyframes", "label": "artKeyframe",
+         "category": "image", "scope": "paragraph", "file": "para_{i}/keyframe.png",
+         "para_fields": ["keyframe_file"]},
         {"type": "video", "step_key": "video_gen", "label": "artParaVideo",
          "category": "video", "scope": "paragraph", "file": "para_{i}/video.mp4",
          "para_fields": ["video_file", "video_id"],
          "extra_files": ["para_{i}/task.json", "para_{i}/curl.sh"]},
+        {"type": "qa_trio", "step_key": "video_gen", "label": "artQaTrio",
+         "category": "image", "scope": "paragraph", "file": "para_{i}/qa_trio.png"},
         {"type": "audio", "step_key": "audio", "label": "artAudio",
          "category": "audio", "scope": "task", "file": "full_narration.mp3",
          "fields": ["combined_audio"]},
@@ -200,11 +211,16 @@ def _poetry_artifact_defs() -> list[dict]:
     scene_{i}/subtitle.srt。无参考图阶段（空实现跳过）。
     """
     return [
-        # 场景级：视频 / 配音 / 字幕
+        # 场景级：关键帧（v7.1 I2V-first，generate_keyframes 开启时存在）/ 视频 / 配音 / 字幕
+        {"type": "keyframe", "step_key": "keyframes", "label": "artKeyframe",
+         "category": "image", "scope": "scene", "file": "scene_{i}/keyframe.png",
+         "scene_fields": ["keyframe_file"]},
         {"type": "video", "step_key": "video_gen", "label": "artVideo",
          "category": "video", "scope": "scene", "file": "scene_{i}/video.mp4",
          "scene_fields": ["video_file", "video_id"],
          "extra_files": ["scene_{i}/task.json", "scene_{i}/curl.sh"]},
+        {"type": "qa_trio", "step_key": "video_gen", "label": "artQaTrio",
+         "category": "image", "scope": "scene", "file": "scene_{i}/qa_trio.png"},
         {"type": "audio", "step_key": "audio", "label": "artAudio",
          "category": "audio", "scope": "scene", "file": "scene_{i}/narration.mp3",
          "scene_fields": ["narration_audio"]},
@@ -230,6 +246,8 @@ def _anchor_artifact_defs(is_model_mode: bool) -> list[dict]:
         {"type": "clip", "step_key": "clip_gen", "label": "artClip",
          "category": "video", "scope": "task", "file": "clip/clip.mp4",
          "fields": []},
+        {"type": "qa_trio", "step_key": "clip_gen", "label": "artQaTrio",
+         "category": "image", "scope": "task", "file": "clip/qa_trio.png"},
     ]
     if not is_model_mode:
         # post_stitch 模式还有音频、字幕、最终视频
@@ -283,7 +301,9 @@ _SCHEMA_HINTS = {
                "只修改 scene_prompt/end_frame_prompt 最安全，修改 narration_text 会触发重新配音与字幕。"),
     "end_frame_prompts": "尾帧描述 JSON：{scene_i: {prompt: 画面描述}}。可修改后影响对应场景尾帧图与视频。",
     "end_frame": "场景尾帧图 PNG（关键帧衔接用）。可替换后影响后续场景视频。",
+    "keyframe": "场景关键帧图 PNG（v7.1 I2V-first：动画首帧锚点）。可替换后影响该场景视频。",
     "video": "场景视频 MP4（H.264+AAC）。可用 ffmpeg 或外部 Agent 剪辑/调色后覆盖同名文件。",
+    "qa_trio": "25/50/75% 关键帧接触单 PNG（单段确认用）。只由流水线生成，删除后下次运行会重建。",
     "audio": "配音音频 MP3。同名 .txt 为旁白纯文本，建议先修改文本再重新生成音频。",
     "subtitle": "标准 SubRip SRT（UTF-8，每条 ≤2 行）。可手动修正断句与时间轴。",
     "final_video": "最终成片 MP4（含配音与字幕）。",
@@ -680,7 +700,8 @@ _DEFAULT_PROTECT_STATUSES = {StepStatus.RUNNING, StepStatus.QUEUED, StepStatus.P
 
 
 def sweep_stale_tasks(age_days: int = 7,
-                      protect_statuses: Optional[set] = None) -> dict:
+                      protect_statuses: Optional[set] = None,
+                      active_task_ids: Optional[set] = None) -> dict:
     """扫描并清理僵尸任务目录（状态文件超龄且任务非活跃）。
 
     清理条件（全部满足才删除）：
@@ -698,6 +719,9 @@ def sweep_stale_tasks(age_days: int = 7,
     Args:
         age_days: 状态文件超龄阈值（天）
         protect_statuses: 保护的状态集合；None 时使用默认保护集合
+        active_task_ids: 活跃任务 ID 集合（含排队）。目录名或 task_id 命中的目录
+            一律不删——过滤必须在删除前生效，不能事后从结果里剔除
+            （Logikcheck Befund 1：此前先删除后过滤，活跃任务可能被误删）。
 
     Returns:
         {"swept": [目录名], "protected": [目录名], "errors": [描述]}
@@ -723,11 +747,19 @@ def sweep_stale_tasks(age_days: int = 7,
             continue  # 非任务目录（如 uploads/ 或普通文件目录）
         try:
             with open(task_file, "r", encoding="utf-8") as f:
-                status_str = json.load(f).get("status")
+                state_data = json.load(f)
         except (OSError, json.JSONDecodeError):
             errors.append(f"{name}: task_state.json 无法解析")
             continue
+        status_str = state_data.get("status")
         if status_str in {s.value for s in protect}:
+            protected.append(name)
+            continue
+        # Logikcheck Befund 1: aktive Aufgaben VOR dem Löschen überspringen —
+        # Treffer per Verzeichnisname oder task_id im Zustandsfile.
+        if active_task_ids and (
+            name in active_task_ids or state_data.get("task_id") in active_task_ids
+        ):
             protected.append(name)
             continue
         try:
@@ -773,6 +805,7 @@ _ARTIFACT_TO_CHECKPOINT_FINE: dict[str, str] = {
     "end_frame_prompts": "end_frame_prompts",
     "end_frame": "end_frame_gen",
     "video": "videos",
+    "qa_trio": "videos",
     "audio": "audio",
     "subtitle": "subtitle",
     "final_video": "final",
@@ -785,6 +818,7 @@ _ARTIFACT_TO_CHECKPOINT_COARSE: dict[str, str] = {
     "character_ref": "references",
     "end_frame": "references",
     "video": "videos",
+    "qa_trio": "videos",
     "audio": "audio",
     "subtitle": "subtitle",
     "final_video": "final",

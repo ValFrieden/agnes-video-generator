@@ -1,0 +1,37 @@
+LANGS_MISSING_COUNT
+ar: 15
+bn: 15
+es: 15
+fa: 15
+fr: 15
+hi: 15
+id: 15
+it: 15
+ja: 15
+ko: 15
+ms: 15
+nl: 15
+pt: 15
+th: 15
+tl: 15
+tr: 15
+ur: 15
+vi: 15
+TOTAL_UNIQUE_KEYS: 15
+
+KEYS (key | zh | en | placeholders)
+knowledgeBtnOpenGraph | 打开代码知识图谱 | Open Code Knowledge Graph | []
+knowledgeBtnSync | 重新同步索引 | Sync & Re-index | []
+knowledgeCategoriesAll | 全部类别 | All Categories | []
+knowledgeClose | 关闭 | Close | []
+knowledgeCodeNodes | 代码图谱节点 | Code Graph Nodes | []
+knowledgeCrossSearchLabel | 跨库搜索：包含外部视频教程 (watch) | Cross-Search: Include external video tutorials (watch) | []
+knowledgeDocViewerTitle | 文档详情 | Document Preview | []
+knowledgeEmpty | 未找到匹配项，尝试不同关键词（如 LUT, Reference, Scenario Director, FFmpeg） | No matching entries found. Try keywords like LUT, Reference, Scenario Director, FFmpeg. | []
+knowledgeSearchHits | 找到 {count} 条相关结果 | Found {count} matching results | ['{count}']
+knowledgeSearchPlaceholder | 搜索知识库、Prompt、规则、LUT、架构或分镜... | Search knowledge base, prompts, rules, LUTs, architecture or storyboards... | []
+knowledgeSubtitle | 159 份文档 · 2,159 个 FTS5 索引片段 · 代码图谱 | 159 Documents · 2,159 FTS5 Indexed Sections · Code Graph | []
+knowledgeTitle | 项目知识库与智能探索 | Project Knowledge Base & Explorer | []
+knowledgeTotalDocs | 文档总数 | Total Documents | []
+knowledgeTotalSections | 索引片段 | Indexed Sections | []
+tabKnowledge | 知识库 | Knowledge Base | []

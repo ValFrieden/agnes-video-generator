@@ -171,3 +171,5 @@ Agent 会按 `AGENTS.md` 中的四层验证清单（连通性 → 静态分析 �
 ---
 
 > 💡 想跳过安装？直接打开 [在线体验](https://video.lichuanyang.top/demo) 免安装使用。
+
+> 📖 需要更手把手的入门讲解（从零到第一条视频）？见 [新手完全指南](beginner_guide.md)。

@@ -212,6 +212,12 @@ class VideoOutput:
         """同步保存实现（供线程池调用；同步上下文可直接使用）。"""
         if self.fmt == "url":
             download_video(self.data, path)
+        elif isinstance(self.data, str) and os.path.exists(self.data):
+            # 只有「确实是存在文件的字符串」才走复制。先判类型再判路径：
+            # Mock/测试会以 fmt="file" 传原始 bytes，把 bytes 交给
+            # os.path.exists/shutil.copy2 会在 Windows 上抛 UnicodeDecodeError。
+            import shutil
+            shutil.copy2(self.data, path)
         else:
             with open(path, "wb") as f:
                 f.write(self.data if isinstance(self.data, bytes) else self.data.encode())
@@ -314,6 +320,14 @@ class AgnesVideoAPI:
             b64 = base64.b64encode(f.read()).decode("utf-8")
         mime = mimetypes.guess_type(path)[0] or "image/png"
         return f"data:{mime};base64,{b64}"
+
+    async def resolve_image_ref(self, ref: str) -> str:
+        """公开别名（v7.1 Provider 契约）：creative 关键帧链等外部调用点使用。
+
+        与 ``_resolve_image_ref`` 行为完全一致——公开名使本类与
+        ``core.api.video_providers.VideoProviderBase`` 契约同形。
+        """
+        return await self._resolve_image_ref(ref)
 
     async def _resolve_image_ref(self, ref: str) -> str:
         if ref.startswith(("http://", "https://")):

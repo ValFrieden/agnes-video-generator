@@ -10,7 +10,8 @@ import re
 import traceback
 from typing import Callable, Optional
 
-from core.api.agnes_video import AgnesVideoAPI
+from core.api.agnes_video import AgnesVideoAPI  # noqa: F401  (mock 补丁符号，见 conftest)
+from core.api.video_providers import create_video_provider
 from core.config import DEFAULT_TEXT_MODEL
 from core.pipelines import BasePipeline, PipelineShutdown
 from models.task import SimpleVideoTask, StepStatus
@@ -50,8 +51,11 @@ class SimpleVideoPipeline(BasePipeline):
         shutdown_event: Optional[asyncio.Event] = None,
     ):
         super().__init__(api_key, task_id, dir_name, progress_callback, shutdown_event)
-        self.video_api = AgnesVideoAPI(api_key=api_key, model=video_model)
-        self.video_api.shutdown_event = shutdown_event
+        # v7.1 阶段 2：经 Provider 工厂构建（AGNES_VIDEO_PROVIDER=agnes|fal）
+        self.video_api = create_video_provider(
+            api_key=api_key, default_model=video_model, shutdown_event=self.shutdown_event,
+        )
+        self.video_api.shutdown_event = self.shutdown_event
 
     async def run(self, state: SimpleVideoTask) -> str:
         """执行简单视频生成流水线。"""
@@ -78,6 +82,7 @@ class SimpleVideoPipeline(BasePipeline):
 
         except PipelineShutdown as e:
             logger.info(f"[Simple] Shutdown: {e}")
+            self._mark_interrupted()
             # v7.0（issue #64）：中断提示按任务落盘的 ui_language 双语化
             await self._emit(
                 "error", "failed",

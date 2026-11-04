@@ -62,7 +62,9 @@ class _StubImageAPI:
 def deps(monkeypatch, tmp_path):
     monkeypatch.setattr(image_routes, "get_api_key", lambda: "sk-test")
     monkeypatch.setattr(image_routes, "TaskManager", _StubTaskManager)
-    monkeypatch.setattr(image_routes, "AgnesImageAPI", _StubImageAPI)
+    # v7.3 Multi-Provider: Die Route baut die Bild-API über die Fabrik create_image_provider,
+    # der Test patcht entsprechend die Fabrik statt des entfernten Modulattributs AgnesImageAPI.
+    monkeypatch.setattr(image_routes, "create_image_provider", lambda **kw: _StubImageAPI())
     monkeypatch.setattr(image_routes.helpers, "get_upload_dir", lambda: str(tmp_path / "uploads"))
     monkeypatch.setattr(image_routes.helpers, "get_working_dir", lambda: str(tmp_path))
     return tmp_path

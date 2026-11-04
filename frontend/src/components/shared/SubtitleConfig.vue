@@ -2,6 +2,7 @@
 import { ref, reactive } from 'vue'
 import { t } from '@/i18n'
 import VoiceSelector from './VoiceSelector.vue'
+import NeuSwitch from './NeuSwitch.vue'
 
 // 共享字幕样式配置（创意/稿件/数字人共用；诗词仅开关）
 const props = defineProps<{
@@ -50,13 +51,13 @@ defineExpose({
       <span class="text-muted text-xs">{{ collapsed.audio ? '▶' : '▼' }}</span>
     </div>
     <div v-show="!collapsed.audio" class="mt-4">
-      <div class="flex items-center gap-3 mb-4">
-        <label class="flex items-center gap-2 text-sm text-ink-2 cursor-pointer">
-          <input v-model="audioEnabled" type="checkbox" class="rounded bg-paper-2 border-rule" />
-          <span>{{ t('enableNarration') }}</span>
-        </label>
+      <div class="mb-4 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+        <div>
+          <span class="block text-sm text-ink-2 font-medium">{{ t('enableNarration') }}</span>
+        </div>
+        <NeuSwitch v-model="audioEnabled" />
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div v-if="audioEnabled" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <label class="block text-sm text-muted mb-1.5">{{ t('voiceRole') }}</label>
           <VoiceSelector :task="task" />
@@ -82,14 +83,15 @@ defineExpose({
       <span class="text-muted text-xs">{{ collapsed.subtitle ? '▶' : '▼' }}</span>
     </div>
     <div v-show="!collapsed.subtitle" class="mt-4">
-      <div class="flex items-center gap-3 mb-4">
-        <label class="flex items-center gap-2 text-sm text-ink-2 cursor-pointer">
-          <input v-model="subtitleEnabled" type="checkbox" class="rounded bg-paper-2 border-rule" />
-          <span>{{ t('enableSubtitle') }}</span>
-        </label>
+      <div class="mb-4 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+        <div>
+          <span class="block text-sm text-ink-2 font-medium">{{ t('enableSubtitle') }}</span>
+        </div>
+        <NeuSwitch v-model="subtitleEnabled" />
       </div>
 
-      <template v-if="withStyle">
+      <template v-if="subtitleEnabled">
+        <template v-if="withStyle">
         <div class="border-t border-rule/40 pt-4">
           <div class="mb-4">
             <label class="block text-sm text-muted mb-1.5">{{ t('subStyleMode') }}</label>
@@ -146,6 +148,7 @@ defineExpose({
         </div>
       </template>
       <p v-else class="text-xs text-muted">{{ t('poetrySubtitleFixed') }}</p>
+      </template>
     </div>
   </div>
 </template>

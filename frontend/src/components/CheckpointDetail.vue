@@ -37,8 +37,8 @@ const checkpointLabel = computed(() => {
     image_analysis: 'cpImageAnalysis', story: 'cpStory', script: 'cpScript',
     character_ref: 'cpCharacterRef', end_frame_prompts: 'cpEndFramePrompts',
     end_frame_gen: 'cpEndFrameGen',
-    scenes: 'cpScenes', references: 'cpReferences', videos: 'cpVideos',
-    audio: 'cpAudio', subtitle: 'cpSubtitle', final: 'cpFinal',
+    scenes: 'cpScenes', references: 'cpReferences', keyframes: 'cpKeyframes',
+    videos: 'cpVideos', audio: 'cpAudio', subtitle: 'cpSubtitle', final: 'cpFinal',
   }
   return t(map[props.checkpoint] || props.checkpoint)
 })
@@ -302,17 +302,17 @@ function artLabel(a: any): string {
 </script>
 
 <template>
-  <div class="mt-4 p-4 bg-paper/30 rounded-2xl border border-amber-500/30">
+  <div class="mt-4 p-5 neu-card rounded-3xl border border-amber-500/30">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-sm font-semibold text-amber-400">
         ⏸ {{ t('awaitingUser') }} · {{ t('checkpointTitle') }}: {{ checkpointLabel }}
       </h3>
       <div class="flex gap-2">
-        <button class="text-xs px-2.5 py-1.5 bg-accent text-accent-ink rounded-lg transition" @click="regen" :disabled="confirming">
+        <button class="text-xs px-3.5 py-1.5 neu-raised hover:neu-sunken text-accent font-semibold rounded-xl transition glow-btn" @click="regen" :disabled="confirming">
           {{ t('regenCurrent') }}
         </button>
-        <button class="text-xs px-2.5 py-1.5 border border-rule text-ink-2 rounded-lg transition hover:border-accent/40" @click="switchToAutoAndRun">
-          ⚡ {{ t('switchToAuto') }}
+        <button class="text-xs px-3.5 py-1.5 neu-raised hover:neu-sunken text-ink-2 rounded-xl transition" @click="switchToAutoAndRun">
+          {{ t('switchToAuto') }}
         </button>
       </div>
     </div>
@@ -322,7 +322,7 @@ function artLabel(a: any): string {
     <!-- 统一继续按钮：无论是否修改，均走同一 approve 逻辑（自动收集当前通道的修改产物） -->
     <div class="flex items-center justify-center mb-4">
       <button
-        class="text-sm px-6 py-2 bg-emerald-600 text-white rounded-lg transition hover:bg-emerald-500 disabled:opacity-50 shadow-sm"
+        class="text-sm px-7 py-2.5 neu-raised hover:neu-sunken bg-emerald-600/90 text-white font-semibold rounded-xl transition disabled:opacity-50 shadow-md glow-btn"
         :disabled="confirming"
         @click="continueTask"
       >
@@ -333,31 +333,31 @@ function artLabel(a: any): string {
 
     <!-- 四卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-      <button v-if="aiModifiableArts.length" class="p-3 rounded-xl border text-left transition" :class="activeCard === 'ai' ? 'border-accent bg-accent/10' : 'border-rule bg-paper-2/30 hover:border-accent/40'" @click="activeCard = 'ai'">
-        <div class="text-sm font-medium text-ink-2">{{ t('handleAi') }}</div>
-        <div class="text-xs text-muted mt-0.5">{{ t('handleAiDesc') }}</div>
+      <button v-if="aiModifiableArts.length" class="p-3.5 rounded-2xl text-left transition border border-rule/30" :class="activeCard === 'ai' ? 'neu-sunken border-accent/40 bg-accent/10' : 'neu-raised hover:neu-sunken'" @click="activeCard = 'ai'">
+        <div class="text-sm font-semibold text-ink-2">{{ t('handleAi') }}</div>
+        <div class="text-xs text-muted mt-0.5 leading-relaxed">{{ t('handleAiDesc') }}</div>
       </button>
-      <button class="p-3 rounded-xl border text-left transition" :class="activeCard === 'self' ? 'border-accent bg-accent/10' : 'border-rule bg-paper-2/30 hover:border-accent/40'" @click="activeCard = 'self'">
-        <div class="text-sm font-medium text-ink-2">{{ t('handleSelf') }}</div>
-        <div class="text-xs text-muted mt-0.5">{{ t('handleSelfDesc') }}</div>
+      <button class="p-3.5 rounded-2xl text-left transition border border-rule/30" :class="activeCard === 'self' ? 'neu-sunken border-accent/40 bg-accent/10' : 'neu-raised hover:neu-sunken'" @click="activeCard = 'self'">
+        <div class="text-sm font-semibold text-ink-2">{{ t('handleSelf') }}</div>
+        <div class="text-xs text-muted mt-0.5 leading-relaxed">{{ t('handleSelfDesc') }}</div>
       </button>
-      <div class="p-3 rounded-xl border transition flex flex-col" :class="activeCard === 'agent' ? 'border-accent bg-accent/10' : 'border-rule bg-paper-2/30 hover:border-accent/40'">
+      <div class="p-3.5 rounded-2xl transition flex flex-col border border-rule/30" :class="activeCard === 'agent' ? 'neu-sunken border-accent/40 bg-accent/10' : 'neu-raised hover:neu-sunken'">
         <button class="text-left" @click="activeCard = 'agent'">
-          <div class="text-sm font-medium text-ink-2">{{ t('handleAgent') }}</div>
-          <div class="text-xs text-muted mt-0.5">{{ t('handleAgentDesc') }}</div>
+          <div class="text-sm font-semibold text-ink-2">{{ t('handleAgent') }}</div>
+          <div class="text-xs text-muted mt-0.5 leading-relaxed">{{ t('handleAgentDesc') }}</div>
         </button>
-        <a :href="moreToolsHref" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-[10px] text-accent hover:text-ink transition-colors mt-1.5">🔗 {{ t('agentMoreTools') }}</a>
-        <a href="https://github.com/lcy362/flint" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-[10px] text-accent hover:text-ink transition-colors mt-1.5">{{ t('handleAgentFlint') }}</a>
+        <a :href="moreToolsHref" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-[10px] text-accent hover:text-ink transition-colors mt-2">{{ t('agentMoreTools') }}</a>
+        <a href="https://github.com/lcy362/flint" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-[10px] text-accent hover:text-ink transition-colors mt-1">{{ t('handleAgentFlint') }}</a>
       </div>
-      <button class="p-3 rounded-xl border text-left transition"
+      <button class="p-3.5 rounded-2xl text-left transition border border-rule/30"
         :class="editableTextArts.length
-          ? (activeCard === 'edit' ? 'border-accent bg-accent/10' : 'border-rule bg-paper-2/30 hover:border-accent/40')
-          : 'border-rule/40 bg-paper-2/20 opacity-45 cursor-not-allowed'"
+          ? (activeCard === 'edit' ? 'neu-sunken border-accent/40 bg-accent/10' : 'neu-raised hover:neu-sunken')
+          : 'neu-sunken opacity-45 cursor-not-allowed'"
         :disabled="!editableTextArts.length"
         @click="activeCard = 'edit'">
-        <div class="text-sm font-medium" :class="editableTextArts.length ? 'text-ink-2' : 'text-muted'">{{ t('handleEdit') }}</div>
-        <div class="text-xs text-muted mt-0.5">{{ t('handleEditDesc') }}</div>
-        <div v-if="!editableTextArts.length" class="text-[10px] text-muted mt-1">🚫 {{ t('editTextOnly') }}</div>
+        <div class="text-sm font-semibold" :class="editableTextArts.length ? 'text-ink-2' : 'text-muted'">{{ t('handleEdit') }}</div>
+        <div class="text-xs text-muted mt-0.5 leading-relaxed">{{ t('handleEditDesc') }}</div>
+        <div v-if="!editableTextArts.length" class="text-[10px] text-muted mt-1">{{ t('editTextOnly') }}</div>
       </button>
     </div>
 
@@ -419,7 +419,7 @@ function artLabel(a: any): string {
     <!-- 通道 3 面板 -->
     <div v-else-if="activeCard === 'agent'" class="space-y-3">
       <p class="text-xs text-muted">{{ t('agentCommand') }}:</p>
-      <code class="block text-xs bg-black/40 text-green-300 px-3 py-2 rounded-lg mb-2 break-all whitespace-pre">{{ t('agentCommandLines').replace('{dir}', checkpointData?.working_dir || '') }}</code>
+      <code class="code-block text-xs">{{ t('agentCommandLines').replace('{dir}', checkpointData?.working_dir || '') }}</code>
       <p class="text-xs text-muted">{{ t('agentPrompt') }}:</p>
       <textarea rows="3" class="w-full glass-input rounded-lg px-3 py-2 text-sm text-ink font-mono text-xs resize-y" :value="t('agentPromptTemplate').replace('{dir}', checkpointData?.working_dir || '')" readonly></textarea>
     </div>
@@ -429,7 +429,7 @@ function artLabel(a: any): string {
       <p class="text-xs text-muted">{{ t('handleEditDesc') }}</p>
       <div v-if="editableTextArts.length" class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <span v-for="a in editableTextArts" :key="a.artifact_id" class="text-ink-2">
-          📄 {{ artLabel(a) }}
+          {{ artLabel(a) }}
         </span>
       </div>
       <p v-else class="text-xs text-amber-400">{{ t('noEditableText') }}</p>
@@ -443,7 +443,7 @@ function artLabel(a: any): string {
   <div v-if="editModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" @click.self="closeEditModal">
     <div class="w-full max-w-3xl max-h-[85vh] flex flex-col glass-card rounded-2xl overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3 border-b border-rule/50 bg-paper-2/50">
-        <h3 class="text-sm font-semibold text-ink-2">✏️ {{ t('editModalTitle') }} · {{ checkpointLabel }}</h3>
+        <h3 class="text-sm font-semibold text-ink-2">{{ t('editModalTitle') }} · {{ checkpointLabel }}</h3>
         <button class="text-xs px-2.5 py-1.5 border border-rule text-ink-2 rounded-lg transition hover:border-accent/40" @click="closeEditModal">{{ t('close') }}</button>
       </div>
 
@@ -454,7 +454,7 @@ function artLabel(a: any): string {
           <!-- 标题 + 保存状态 -->
           <div class="flex items-center gap-2">
             <span class="text-sm font-medium text-ink-2">{{ artLabel(a) }}</span>
-            <span v-if="savedMap[a.artifact_id]" class="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">✓ {{ t('artifactSaved') }}</span>
+            <span v-if="savedMap[a.artifact_id]" class="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">{{ t('artifactSaved') }}</span>
             <span class="ml-auto text-[10px] text-muted font-mono truncate">{{ a.abs_path || a.path || '' }}</span>
           </div>
 

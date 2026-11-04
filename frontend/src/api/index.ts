@@ -6,7 +6,8 @@
 // 语言来源与 ``useI18n().lang`` 同源（localStorage ``lang``），切语言后新
 // 请求立即生效；已创建的异步任务通过 ``BaseTaskState.ui_language`` 快照保持
 // 整个生命周期语种一致。
-import type { GalleryItem, Preset } from '@/types'
+import type { GalleryItem, Preset, CameraMovementPreset } from '@/types'
+import { t } from '@/i18n'
 import { withUiLangHeader } from './langHeader'
 
 /**
@@ -29,7 +30,11 @@ async function request<T = any>(url: string, options?: RequestInit): Promise<T> 
     } catch {
       /* 非 JSON 响应体（如 502 错误页） */
     }
-    throw new Error(detail || `请求失败 (HTTP ${r.status})`)
+    // Logikcheck Befund 2/10：错误对象带 status，调用方可区分 404（任务不存在）
+    // 与网络故障；兜底文案走 i18n（原先硬编码中文，任何语言下都显示中文）。
+    const err = new Error(detail || t('requestFailed').replace('{code}', String(r.status))) as Error & { status?: number }
+    err.status = r.status
+    throw err
   }
   return r.json()
 }
@@ -208,6 +213,11 @@ export function getGallery(params?: { filter?: string; status?: string }) {
   return request<{ ok: boolean; items: GalleryItem[]; total: number }>(url)
 }
 
+// ── 电影级运镜预设（SYNTX / LTX）──
+export function getCameraMovements() {
+  return request<{ ok: boolean; count: number; presets: CameraMovementPreset[] }>('/api/presets/camera-movements')
+}
+
 // ── 风格预设库（P0-1）──
 export function getPresets() {
   return request<{ ok: boolean; system: Preset[]; user: Preset[] }>('/api/presets')
@@ -259,6 +269,26 @@ export function creativePreview(idea: string, contentLang: string, sceneCount: n
   form.append('scene_count', String(sceneCount))
   form.append('scene_durations_json', JSON.stringify(Array(sceneCount).fill(5)))
   return request('/api/creative/preview-script', { method: 'POST', body: form })
+}
+// ── 剧本工坊（Scenario Director）—— 此前只有后端端点、无前端消费者 ──
+export function generateScenario(params: {
+  idea: string
+  style?: string
+  duration?: number
+  bpm?: number
+  scenes?: number
+  anchor?: string
+  exportMarkdown?: boolean
+}) {
+  const form = new FormData()
+  form.append('idea', params.idea)
+  if (params.style) form.append('style', params.style)
+  if (params.duration != null) form.append('duration', String(params.duration))
+  if (params.bpm != null) form.append('bpm', String(params.bpm))
+  if (params.scenes != null) form.append('scenes', String(params.scenes))
+  if (params.anchor) form.append('anchor', params.anchor)
+  form.append('export_markdown', String(params.exportMarkdown ?? true))
+  return request('/api/scenario/generate', { method: 'POST', body: form })
 }
 export function submitManuscript(form: FormData) {
   return apiFetch('/api/tasks/manuscript', { method: 'POST', body: form }).then((r) => r.json())

@@ -111,7 +111,8 @@ class FakeGraph:
     def __init__(self, plan):
         self.plan = plan
 
-    def compute_impact(self, state, modified, params=None):
+    def compute_impact(self, state, modified, params=None, *, keep_modified=False):
+        self.last_keep_modified = keep_modified
         return self.plan
 
 
@@ -234,7 +235,11 @@ def _reset_store():
 def _register(task_id, task_type="creative", status="completed", manual=True):
     st = FakeState(task_id=task_id, task_type=task_type, status=status, manual=manual)
     STORE.states[task_id] = st
-    os.makedirs(os.path.join(WORKING_DIR, task_id), exist_ok=True)
+    task_dir = os.path.join(WORKING_DIR, task_id)
+    os.makedirs(task_dir, exist_ok=True)
+    # Eine echte Aufgabe hat eine Statusdatei; delete_task erkennt daran „ist eine Aufgabe“.
+    with open(os.path.join(task_dir, "task_state.json"), "w", encoding="utf-8") as f:
+        f.write("{}")
     return st
 
 
@@ -587,6 +592,32 @@ class TestDeleteTask:
         STORE.tasks = []
         r = env.delete("/api/tasks/ghost")
         assert r.status_code == 404
+
+    def test_non_task_folder_is_never_deleted(self, env):
+        # Logikcheck Befund 8: find_dir_name fällt bei unbekannter ID auf die ID
+        # selbst zurück, DELETE /api/tasks/uploads löschte <Arbeitsordner>/uploads
+        # samt aller Referenzbilder, bevor das 404 kam.
+        uploads = os.path.join(WORKING_DIR, "uploads")
+        os.makedirs(uploads)
+        ref = os.path.join(uploads, "ref.png")
+        with open(ref, "wb") as f:
+            f.write(b"x")
+        STORE.tasks = []
+        r = env.delete("/api/tasks/uploads")
+        assert r.status_code == 404
+        assert os.path.exists(ref)
+
+    def test_task_with_unreadable_state_file_is_still_deletable(self, env):
+        # Gegenprobe: eine Aufgabe mit beschädigter task_state.json bleibt löschbar
+        # (die Dateiexistenz zählt, nicht ob sie sich laden lässt).
+        task_dir = os.path.join(WORKING_DIR, "t1234567890")
+        os.makedirs(task_dir)
+        with open(os.path.join(task_dir, "task_state.json"), "w", encoding="utf-8") as f:
+            f.write("{broken")
+        STORE.tasks = []
+        r = env.delete("/api/tasks/t1234567890")
+        assert r.status_code == 200
+        assert not os.path.exists(task_dir)
 
 
 # ═════════════════════════════════════════════════════════

@@ -18,6 +18,19 @@
 > - 优化路线图：`docs/plans/v6.0/optimization_roadmap.md`（合并版，现行唯一路线图，计划 v6 版本线内完成；已取代并废弃 `docs/plans/v5.0/optimization_roadmap.md`）
 > - 待调研存档：`docs/plans/optimization-research/README.md`
 > - 发版规范：`docs/dev/release_process.md`（版本号规则 + 新增内容规范 + 发布流程）
+> - **音乐视频制作标准（MV consistency）**：`docs/dev/mv_style_consistency.md` + `.agents/rules/mandatory_reference_pipeline.md`（AI 动画 MV 铁律：先生成角色/物品卡与全部单段分镜图，再基于它们生成视频；每个视频任务强制附带分镜图与角色/物品参考图；做 balloon_frames / poka_beatsya_frames 类项目前必读）
+> - **【铁律 / ЖЕЛЕЗНЫЙ ЗАКОН】角色与物品一致性 (Reference-Driven Pipeline)**：
+>   1. **禁止盲跑视频**：任何视频片段在生成前，**必须先生成角色卡（Character Sheet / Turnaround）和物品卡（Props Map）**，再基于角色卡生成**每一段分镜的参考静态图（Scene Keyframe）**！
+>   2. **必须附带参考图**：在向视频模型（Veo / Google Flow / Agnes Video）提交任务时，**绝对禁止纯文字跑视频（No pure Text-to-Video）**！必须强制附加对应分镜的静态图（Image-to-Video）以及主角的参考图/角色卡！
+>   3. **主角样貌绝不漂移**：主角 Valeri 的形象必须严格锁定（高加索人种 / 浅色皮肤 / 棕发 / 灰绿眼 / 胡茬 / 无眼镜 / 闭嘴），绝不允许生成其他肤色或样貌漂移的随意角色！
+>   4. **单段确认流程**：严格单段生成，展示 25%/50%/75% 关键帧质检图，用户批准后再推进下一段！
+> - **剧本与分镜标准（Scenario Director）**：`core/screenwriter/scenario_director.py` + `scripts/create_scenario.py` + `.agents/rules/scenario_writing_standard.md`（Studiovity / LTX Studio 工业级标准：3幕 Beat Sheet + BPM 音乐对齐 + 角色 50 词锚点 + 镜头景别/运镜/光影清单）
+> - **连续性锁与剧本自检标准（Continuity Lock）**：`.agents/rules/scenario_continuity_standard.md`（身份 vs 状态分离 + 最小名词短语锁 + `SCN-00…11` 确定性自检）。实现：`scenario_director.py` 的 `ContinuityLock` / `format_continuity_lock_block` / `review_project`；UI 入口：`frontend/src/components/ScenarioStudioPanel.vue`（创建页 → 创意类型下方，消费 `POST /api/scenario/generate`）；QC 接触单（25/50/75%）由 `core/quality/qc.py:build_contact_sheet` + `MultiScenePipeline._write_all_contact_sheets` 生成，产物 ID `qa_trio`
+> - **第三方技能（vendored）**：来源与许可证见 `.agents/skills/THIRD_PARTY_NOTICES.md`。`short-drama*`（11 个）取自 `zenstory-ai/drama-skills`（MIT，v0.10.0），**非废弃文件，勿删**；升级须整批重新导入，不要就地改
+> - **开源生态调研存档**：`docs/plans/optimization-research/2026-10-30-open-source-video-automation-landscape.md`（同类开源项目 × 星标 × 许可证实测表；决定"自研 or 复用"前必读）
+> - **前端仪表盘与通知（P2）**：`frontend/src/components/TaskDashboard.vue`（任务列表页顶部：状态 KPI / 类型分布 / 近 14 天活动）+ `frontend/src/utils/taskStats.ts`（纯聚合逻辑，单测 `taskStats.test.ts`；**改统计口径先改这里**）+ `frontend/src/composables/useCompletionNotify.ts`（任务完成/失败系统通知，需用户显式授权，同一任务同一结局只通知一次）+ `frontend/src/utils/progressEta.ts`（剩余时间估算，单测 `progressEta.test.ts`；**进度 <3%、无 `created_at`、外推 >24h 一律返回 insufficient 并隐藏，绝不猜**）。后端字段来源：`TaskManager.list_tasks()` 的 `created_at` / `updated_at`（旧任务为空串，前端按"未知日期"处理，不伪造今天）
+> - **视频制作全景母本（Master Playbook）**：`docs/dev/video_generation_master_playbook.md`（AI 视频生产完整知识库与实操标准：剧本分析、Character Turnaround 5视角锁定、Google Flow 720p 独立项目隔离规范、Skills 生态与自动化 Hook、BPM/FFmpeg 剪辑；§14 为连续性锁与剧本自检；§15 为 SYNTX 电影级摄影与时间轴提示词 [SYNTX FAMILY](https://t.me/syntxfamily)）
+> - **SYNTX 电影级摄影与分秒时间轴标准（Cinematic Directing & Camera）**：`.agents/rules/syntx_cinematic_directing_standard.md` + `core/screenwriter/camera_presets.py`（基于 [SYNTX FAMILY](https://t.me/syntxfamily) 实战经验：分秒 Temporal Prompting `[0-1s]...`、20种镜头运镜预设、两阶段 Draft Mode 草稿模式与 Music Video 节奏对齐）
 
 ---
 
@@ -163,7 +176,7 @@ agnes-video-generator/
 │   ├── image.py                      # 图片下载 / base64 转换 / URL 上传
 │   └── video.py                      # 视频下载
 │
-├── resource/fonts/                   # 内置 CJK 字体（STHeitiMedium.ttc 默认，MicrosoftYaHeiNormal 备用）
+├── resource/fonts/                   # 内置字体（STHeitiMedium.ttc 默认 + Noto 阿拉伯/泰/天城文/孟加拉脚本字体）
 ├── static/                           # 前端构建产物（提交进仓库，供后端伺服，勿手工改）
 ├── frontend/                         # 前端源码（Vue 3 + Vite + TS，build 产物输出到 static/）
 │   ├── vite.config.ts                #   outDir=../static、base=/static/、emptyOutDir=false
@@ -203,6 +216,8 @@ agnes-video-generator/
 | **"待调研优化点" / "优化调研"** | 按 `docs/plans/optimization-research/README.md` 索引与调研方法评估 | 价值存疑的新点子先存档，转入可执行需移回 `optimization_roadmap.md` |
 | **"发版" / "发布" / "release"** | 按 `docs/dev/release_process.md` 执行（确认版本类型 → 升位 → 写 release notes → 打 tag） | 需用户明确版本类型或版本号 |
 | **"处理Issue" / "看下新的issue" / "处理GitHub问题"** | 按 `docs/dev/issue_handling_process.md` 执行（查看新 Issue → 分析原因 → 与用户沟通 → 回复[标注 agent]或优化代码 → 周期整理 FAQ） | 回复用户须标注具体实施的 agent；周期性沉淀常见问题完善 `docs/public/faq.md` |
+| **"编写剧本: ..." / "Напиши сценарий: ..." / "Drehbuch: ..."** | 运行 `ScenarioDirector` (`scripts/create_scenario.py`)，生成 3 幕 Beat Sheet + BPM 节奏对齐 + Character Bible (50 词锚点) + LTX Studio 镜头清单 | 强制执行 `.agents/rules/scenario_writing_standard.md` |
+| **任意 Prompt / 每次用户输入 (Every Prompt)** | 自动执行 `find-skills` 工作流：提取意图关键词 → `npx skills find <kw>` 检索生态技能 → 应用/推荐 | 强制全局自动触发，见 §6.12 与 `.agents/rules/auto_find_skills.md` |
 
 ---
 
@@ -369,6 +384,41 @@ def resolve_font_path(font: str) -> str:
     4. 其他 → 当作系统字体返回
     """
 ```
+
+### 6.11 角色面部与全视角一致性铁律（Character Sheet & Face Consistency）
+
+> **最高优先级规则**：视频中任何人物在所有镜头与片段中**必须完全一致**。面部、五官、体型、服饰与道具严禁在不同镜头中发生畸变、漂移或替换。
+
+1. **前置生成「角色全方位参考图」（Turnaround / Character Sheet）**：
+   - 在开始任何分镜或视频渲染**之前**，必须先为主要角色建立完整的角色卡（Character Sheet / Model Sheet / Turnaround）。
+   - 角色卡必须包含多视角参考：**正脸特写（Face Close-up）、3/4侧脸（3/4 View）、正侧面（Profile）、背影（Back View）及全身比例（Full Body）**。
+   - 统一持久化存储在项目资产目录（如 `<project>_frames/character_sheet.png` 及切片子图 `char_front.png`, `char_profile.png`, `char_back.png`）。
+2. **所有生成必须绑定角色参考（Strict Conditioning）**：
+   - **Keyframes (t2i / i2i)**：严禁无参考的纯文本盲抽。必须将角色卡作为 `reference_image` / `image_url` 传入，且 Prompt 中必须硬编码完全一致的角色锚点定义（Character Canon Line）。
+   - **Video (i2v)**：必须基于已锁死面部与外貌的关键帧（Keyframe）作为直接输入图像，结合微动 Prompt（环境/光影/呼吸），严禁重新触发未经参考的面部重绘。
+   - **Google Flow / Veo 3.1 流程**：必须在项目启动初期通过 Media Upload 将角色卡（Character Sheet）上传并点击「Zum Prompt hinzufügen」，确保 Veo 的生成上下文全程以该角色为约束基底。
+
+### 6.12 每次 Prompt 自动触发 find-skills 规范（Auto find-skills on Every Prompt）
+
+> **用户强制要求**：每次用户输入 Prompt 或下达任何新任务后，Agent **必须自动运行 `find-skills` 工作流**。
+
+1. **意图与领域分析**：从用户 Prompt 中解析核心任务与技术关键词（如 `character consistency`, `storyboard`, `flow`, `audio`, `video editing`, `prompt engineering` 等）。
+2. **检索生态技能**：
+   - 优先通过 `npx skills find <keywords>` 检索 Skills 生态库（skills.sh）；
+   - 对比本地已安装技能（`.agents/skills/`）与全局技能（`~/.gemini/config/skills/`）；
+3. **择优应用**：
+   - 若有高安装量（>1K）的成熟技能，主动应用其规范、提示词模板或推荐安装；
+   - 在回复中向用户同步本次 Prompt 所匹配/调用的相关技能。
+4. **生命周期 Hook 兜底**：`.agents/hooks.json` 与 `.agents/rules/auto_find_skills.md` 确保每次交互均受该规则约束。
+
+### 6.13 知识与经验强制持久化规范（Continuous Memory Persistence）
+
+> **用户强制要求**：每次对话中获得的新知识、调研结果、踩坑教训、影视戏剧规范和用户偏好，**必须无条件实时落盘到项目知识库**，严禁仅停留于单次对话。
+
+1. **核心落盘文件**：
+   - 生产母本：`docs/dev/video_generation_master_playbook.md`（完整标准、运镜公式、防裁切规范、AV-Script 框架）。
+   - 规则层：`AGENTS.md`（全局法则）+ `.agents/rules/*.md`（触发规则）。
+2. **防遗忘机制**：只要用户指出新问题（如画面边缘裁切、人物情感生硬），Agent 在定位原因并解决后，必须立刻将应对规则同步写入上述文档。
 
 ---
 

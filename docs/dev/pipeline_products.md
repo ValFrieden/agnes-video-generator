@@ -130,7 +130,15 @@ creative / manuscript / anchor / multi_scene / poetry（逐场景）。
 
 ### 产物文件清单
 `story.txt` · `script.json` · `prompts.json` · `character_reference.png`
-· `end_frame_prompts.json` · `scene_{i}/task.json` · `combined_narration.mp3` / `.srt` · `final_video.mp4`
+· `end_frame_prompts.json` · `scene_{i}/task.json` · `scene_{i}/qa_trio.png`
+· `combined_narration.mp3` / `.srt` · `final_video.mp4`
+
+> **QC-Trio（`qa_trio`，2026-10-30）**：四条长视频流水线共用的接触单产物——每个成片片段旁生成
+> `scene_{i}/qa_trio.png`（Manuscript 为 `para_{i}/qa_trio.png`，Anchor 为 `clip/qa_trio.png`），
+> 由 `core.quality.qc.build_contact_sheet()` 取 25%/50%/75% 三帧 `hstack` 而成，
+> 由 `MultiScenePipeline._write_all_contact_sheets()` 在视频步骤收尾时写入。
+> 属**辅助产物**：生成失败 fail-open（不写文件、不报错、不影响任务），已存在则跳过不重建。
+> 与 VLM 质量闸（`state.qc_enabled`，产物为 `state.qc_report`）互补：闸自动判定，接触单供人工核对。
 
 ---
 

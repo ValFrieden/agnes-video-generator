@@ -305,3 +305,55 @@ async def preview_manuscript_split(
         return {"ok": True, "paragraphs": paragraphs, "total_duration_sec": total_duration}
     finally:
         await _release_preview_slot()
+
+
+@router.post("/api/scenario/generate")
+async def generate_scenario_endpoint(
+    idea: str = Form(...),
+    style: str = Form("Vintage Gouache Cel Animation, Edward Hopper lighting, cinematic 16:9"),
+    duration: float = Form(96.0),
+    bpm: int = Form(120),
+    scenes: int = Form(12),
+    anchor: str = Form("A vibrant canary-yellow umbrella"),
+    export_markdown: bool = Form(True),
+):
+    """Генерация профессионального сценария по индустриальным стандартам (Studiovity / LTX Studio).
+
+    Включает 3-актный Beat Sheet, расчет длительностей по тактам BPM,
+    Character Bible с 50-словным Anchor Token и полную раскадровку со световыми схемами.
+    """
+    await _acquire_preview_slot()
+    try:
+        if not idea.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Idee / Handlung darf nicht leer sein.",
+            )
+
+        from dataclasses import asdict
+        from core.screenwriter.scenario_director import ScenarioDirector
+
+        director = ScenarioDirector()
+        loop = asyncio.get_running_loop()
+        project = await loop.run_in_executor(
+            None,
+            lambda: director.generate_scenario(
+                story_idea=idea,
+                visual_style=style,
+                total_duration_s=duration,
+                bpm=bpm,
+                num_scenes=scenes,
+                symbolic_anchor=anchor,
+            ),
+        )
+
+        md_content = director.export_to_markdown(project) if export_markdown else ""
+
+        return {
+            "ok": True,
+            "project": asdict(project),
+            "markdown": md_content,
+        }
+    finally:
+        await _release_preview_slot()
+

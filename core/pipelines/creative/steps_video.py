@@ -368,7 +368,8 @@ class VideoStepsMixin:
                     timeout=30,
                 )
 
-                last_frame_url = await self.video_generator._resolve_image_ref(last_frame_path)
+                # v7.1：公开名（Provider 契约），行为与旧 _resolve_image_ref 一致
+                last_frame_url = await self.video_generator.resolve_image_ref(last_frame_path)
 
                 next_scene_text = scenes[scene_idx + 1]
                 transition_prompt = _localize_transition_prompt(next_scene_text)

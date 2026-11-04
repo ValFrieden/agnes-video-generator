@@ -55,4 +55,8 @@ def safe_workspace_path(path: str, *, allowed_root: str | None = None) -> str:
     normalization + containment sanitizer.
     """
     root = allowed_root or get_workspace_root()
+    if allowed_root is None and os.name == "nt":
+        # On Windows realpath("/") is only the current drive (e.g. D:\), which
+        # would reject paths on other drives; use the target's own drive anchor.
+        root = os.path.splitdrive(os.path.realpath(path))[0] + os.sep
     return safe_join(root, path)

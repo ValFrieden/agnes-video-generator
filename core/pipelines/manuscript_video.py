@@ -15,7 +15,10 @@ import os
 import re
 from typing import Callable, List, Optional
 
-from core.api.agnes_video import AgnesVideoAPI, VideoTaskCancelled
+from core.api.agnes_image import AgnesImageAPI  # noqa: F401  (mock 补丁符号，见 conftest)
+from core.api.image_providers import create_image_provider
+from core.api.agnes_video import AgnesVideoAPI, VideoTaskCancelled  # noqa: F401  (AgnesVideoAPI: mock 补丁符号)
+from core.api.video_providers import create_video_provider
 from core.async_io import read_text
 from core.audio.voices import duration_len, estimate_chars_per_sec
 from core.compositor.concatenator import VideoConcatenator
@@ -152,8 +155,13 @@ class ManuscriptVideoPipeline(MultiScenePipeline):
         shutdown_event: Optional[asyncio.Event] = None,
     ):
         super().__init__(api_key, task_id, dir_name, progress_callback, shutdown_event)
-        self.video_api = AgnesVideoAPI(api_key=api_key, model=video_model)
-        self.video_api.shutdown_event = shutdown_event
+        # v7.1 阶段 2：经 Provider 工厂构建（AGNES_VIDEO_PROVIDER=agnes|fal）
+        self.video_api = create_video_provider(
+            api_key=api_key, default_model=video_model, shutdown_event=self.shutdown_event,
+        )
+        self.video_api.shutdown_event = self.shutdown_event
+        # v7.1 关键帧模式（I2V-first）：关键帧静图生成用；多 Provider 按所选模型路由
+        self.image_api = create_image_provider(api_key=api_key, model=image_model)
         # PRD 1.4：Screenwriter language pinning——默认 en、尊重显式配置
         # （未显式设置 PROMPT_LANGUAGE 时固定 en，修复非中文稿件被写成中文的问题）。
         _sw_language = None if is_prompt_language_explicit() else "en"
@@ -206,6 +214,7 @@ class ManuscriptVideoPipeline(MultiScenePipeline):
             SceneTask(
                 index=p.index,
                 scene_prompt=p.scene_prompt,
+                motion_prompt=p.motion_prompt,
                 narration_text=p.text,
                 duration=max(int(math.ceil(duration_len(p.text) / estimate_chars_per_sec(p.text))), 3),
             )
@@ -220,13 +229,47 @@ class ManuscriptVideoPipeline(MultiScenePipeline):
 
     # v6.0 P3 / PRD 1.7：稿件默认无参考图 → references 检查点不可暂停；
     # 引入逐段参考图（reference_images）后恢复为可暂停检查点。
+    # v7.1：关键帧模式关闭时 keyframes 检查点不触发（步骤不执行）。
     def _get_pausable_steps(self) -> set:
         from core.pipelines import _STEP_TO_CHECKPOINT
 
         steps = set(_STEP_TO_CHECKPOINT.keys())
         if not (self._state and getattr(self._state, "reference_images", None)):
             steps.discard("step_reference_images")
+        if not self._keyframes_enabled():
+            steps.discard("step_keyframes")
         return steps
+
+    # ------------------------------------------------------------------
+    # v7.1 关键帧模式（I2V-first）钩子覆写
+    # ------------------------------------------------------------------
+
+    def _get_scene_keyframe_refs(
+        self, scene: SceneTask, index: int, prev_keyframe: str,
+    ) -> List[str]:
+        """稿件关键帧 i2i 参考优先级：用户逐段参考图 > 上一段关键帧（视觉链）。"""
+        user_refs = list(
+            (self._state.reference_images or {}).get(str(scene.index), []) or []
+        )
+        if user_refs:
+            return user_refs
+        return [prev_keyframe] if prev_keyframe else []
+
+    def _keyframe_rel_dir(self, scene: SceneTask, index: int) -> str:
+        """稿件关键帧与段视频同目录：``para_{index}``。"""
+        return f"para_{scene.index}"
+
+    def _persist_keyframe_state(self, last_index: int) -> None:
+        """关键帧路径同步回 paragraphs（_generate_videos 按段落读取）并一并持久化。"""
+        scene = self._state.scenes[last_index]
+        for p in self._state.paragraphs:
+            if p.index == scene.index:
+                p.keyframe_file = scene.keyframe_file
+                break
+        self.task_manager.update_state(
+            scenes=[s.model_dump() for s in self._state.scenes],
+            paragraphs=[p.model_dump() for p in self._state.paragraphs],
+        )
 
     # ------------------------------------------------------------------
     # 步骤实现（覆写通用实现以保留稿件特有逻辑）
@@ -304,13 +347,34 @@ class ManuscriptVideoPipeline(MultiScenePipeline):
                         "[Manuscript] scene_prompt: generating for paragraph %d...",
                         para.index,
                     )
-                    prompt = await asyncio.to_thread(
-                        self.screenwriter.generate_scene_prompt_for_paragraph,
-                        para.text,
-                        self._state.style,
-                    )
-                    # stability_hardening P2：返回值防御归一化为 str（可能 None / 非 str）
-                    para.scene_prompt = (prompt or "").strip() if isinstance(prompt, str) else ""
+                    # v7.1.1 关键帧模式：双提示词——静态构图给关键帧、运动给 i2v 动画；
+                    # 关闭时维持原单提示词（motion 富集，适配 t2v）。
+                    if self._keyframes_enabled():
+                        pair = await asyncio.to_thread(
+                            self.screenwriter.generate_scene_prompts_for_paragraph_keyframes,
+                            para.text,
+                            self._state.style,
+                        )
+                        # 防御归一化：非 dict / 缺字段 → 空（stability_hardening P2 语义）
+                        if not isinstance(pair, dict):
+                            pair = {}
+                        image_prompt = pair.get("image_prompt")
+                        motion_prompt = pair.get("motion_prompt")
+                        para.scene_prompt = (
+                            image_prompt.strip() if isinstance(image_prompt, str) else ""
+                        )
+                        para.motion_prompt = (
+                            motion_prompt.strip() if isinstance(motion_prompt, str) else ""
+                        )
+                    else:
+                        prompt = await asyncio.to_thread(
+                            self.screenwriter.generate_scene_prompt_for_paragraph,
+                            para.text,
+                            self._state.style,
+                        )
+                        # stability_hardening P2：返回值防御归一化为 str（可能 None / 非 str）
+                        para.scene_prompt = (prompt or "").strip() if isinstance(prompt, str) else ""
+                        para.motion_prompt = ""
 
             # stability_hardening P2（M3）：单段 LLM 失败不累及整任务（issue #35 结构性来源）。
             # 区分控制流异常与业务失败：
@@ -369,10 +433,36 @@ class ManuscriptVideoPipeline(MultiScenePipeline):
         self.task_manager.update_state(paragraphs=paragraphs)
         self.save_prompts({
             "scene_prompts": [
-                {"index": p.index, "text": p.text, "scene_prompt": p.scene_prompt}
+                {
+                    "index": p.index,
+                    "text": p.text,
+                    "scene_prompt": p.scene_prompt,
+                    "motion_prompt": p.motion_prompt,
+                }
                 for p in paragraphs
             ],
         })
+
+    # ------------------------------------------------------------------
+    # v7.2 R8 质量闸钩子覆写（para 目录布局 / 逐段参考图与关键帧同源）
+    # ------------------------------------------------------------------
+
+    def _scene_clip_path(self, scene: SceneTask, index: int) -> str:
+        return os.path.join(self.working_dir, f"para_{scene.index}", "video.mp4")
+
+    def _qc_scene_dir(self, scene: SceneTask, index: int) -> str:
+        return os.path.join(self.working_dir, f"para_{scene.index}")
+
+    def _qc_regen_refs(self, scene: SceneTask, index: int) -> List[str]:
+        # 与 _generate_videos 提交逻辑同源：关键帧模式锚定该段关键帧，
+        # 否则使用用户上传的逐段参考图（reference_images_map）
+        if (
+            self._keyframes_enabled()
+            and scene.keyframe_file
+            and os.path.exists(scene.keyframe_file)
+        ):
+            return [scene.keyframe_file]
+        return list(self._state.reference_images.get(str(scene.index), []) or [])
 
     async def _generate_videos(self) -> None:
         """为每个段落调用 Agnes Video API 生成视频（两阶段并行）。
@@ -426,11 +516,21 @@ class ManuscriptVideoPipeline(MultiScenePipeline):
             para_duration = max(int(math.ceil(duration_len(para.text) / estimate_chars_per_sec(para.text))), 3)
             # 逐段参考图（PRD 1.5）：用户上传图按段落 index 映射，用于 i2v 引导画面
             ref_images = self._state.reference_images.get(str(para.index), [])
+            # v7.1 关键帧模式开启：逐段视频锚定该段关键帧（关键帧已按优先级
+            # 消化用户参考图 / 视觉链，尺寸也已归一到视频分辨率）
+            if (
+                self._keyframes_enabled()
+                and para.keyframe_file
+                and os.path.exists(para.keyframe_file)
+            ):
+                ref_images = [para.keyframe_file]
 
             for retry in range(_SUBMIT_RETRIES):
                 try:
                     video_id = await self.video_api.submit_video(
-                        prompt=para.scene_prompt,
+                        # v7.1.1：关键帧模式优先用运动提示词（i2v 只描述动态），
+                        # 空串回退 scene_prompt（旧任务 / LLM 未返回 motion 时）
+                        prompt=para.motion_prompt or para.scene_prompt,
                         reference_image_paths=ref_images,
                         duration=para_duration,
                         width=self._state.video_width,

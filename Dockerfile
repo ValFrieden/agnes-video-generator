@@ -44,6 +44,10 @@ COPY . .
 
 EXPOSE 8765
 
+# Logikcheck Befund 5：宿主默认已改为 127.0.0.1（仅本机回环），容器必须显式
+# 监听全部网卡，否则端口映射无法转发流量。
+ENV HOST=0.0.0.0
+
 # 3.2：容器健康检查（python urllib 探活 /api/health，避免依赖 apt curl）
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8765/api/health', timeout=3).status==200 else 1)"
@@ -53,6 +57,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # 若要数据直接落盘到本机并随时导出，推荐用 docker-compose.yml 或 docker-run.sh（bind mount）。
 VOLUME ["/app/.working_dir", "/app/.agnes_config"]
 
-# server.py 内部以 host=0.0.0.0 port=8765 启动，容器外可访问
+# server.py 以 host=$HOST（容器内默认 0.0.0.0）port=8765 启动，容器外可访问
 # API Key 通过环境变量注入：-e AGNES_API_KEY=xxx（也可在 Web UI 配置）
 CMD ["python", "server.py"]

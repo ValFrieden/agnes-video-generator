@@ -2,8 +2,9 @@
 
 from core.audio import voices
 from core.audio.subtitle import SubtitleGenerator
-from core.audio.tts import EdgeTTSEngine, SilentTTSEngine, TTSEngine
+from core.audio.tts import EdgeTTSEngine, SilentTTSEngine, TTSEngine, WhisperSubtitleEngine
 
 __all__ = [
-    "TTSEngine", "EdgeTTSEngine", "SilentTTSEngine", "SubtitleGenerator", "voices",
+    "TTSEngine", "EdgeTTSEngine", "SilentTTSEngine", "WhisperSubtitleEngine",
+    "SubtitleGenerator", "voices",
 ]

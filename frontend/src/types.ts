@@ -20,6 +20,7 @@ export interface TaskState {
   prompt?: string
   manuscript_text?: string
   script_text?: string
+  poem_text?: string
   scene_count?: number
   paragraph_count?: number
   paragraphs?: unknown[]
@@ -49,6 +50,7 @@ export interface TaskListItem {
   prompt?: string
   manuscript_text?: string
   script_text?: string
+  poem_text?: string
   scene_count?: number
   paragraph_count?: number
   dir_name?: string
@@ -56,11 +58,16 @@ export interface TaskListItem {
   current_mode?: 'auto' | 'manual'
   current_checkpoint?: string
   awaiting_user?: boolean
+  // P2 项目概览：来自 task_state.json；旧任务为空串（按「未知日期」处理）
+  created_at?: string
+  updated_at?: string
 }
 
 export interface StepDef {
   key: string
   labelKey: string
+  /** v7.1：该步骤仅在 state 对应布尔字段为真时显示（如 keyframes → generate_keyframes） */
+  requires?: string
 }
 
 export interface Voice {
@@ -112,6 +119,19 @@ export interface Preset {
   name?: string
   created_at?: string
   kind?: 'system' | 'user'
+}
+
+// ── SYNTX 电影级摄像机预设 ──
+export interface CameraMovementPreset {
+  id: string
+  name_ru: string
+  name_en: string
+  category: 'dramatic' | 'dynamic' | 'perspective' | 'atmospheric'
+  category_ru: string
+  prompt_modifier: string
+  description_ru: string
+  description_en: string
+  icon: string
 }
 
 // ── 产物画廊（P1，纯只读）──

@@ -1,0 +1,14 @@
+{
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "args": ["-NoProfile"]
+    }
+  },
+  "antigravity.toolPermission": "always-proceed",
+  "antigravity.artifactReviewPolicy": "always-proceed",
+  "antigravity.agent.autoExecution": "always-proceed",
+  "antigravity.agent.reviewPolicy": "always-proceed",
+  "security.workspace.trust.untrustedFiles": "open"
+}

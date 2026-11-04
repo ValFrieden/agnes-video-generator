@@ -158,6 +158,7 @@ cp .env.example .env    # 然后编辑其中的 AGNES_API_KEY
 
 - **[核心功能](docs/public/features.zh.md)** — 多种创作模式、完全免费的 AI 模型链、AI 旁白配音与智能字幕、灵活的创作控制、生产级可靠性与多语言 Web UI。
 - **[快速开始](docs/public/getting-started.zh.md)** — 4 种部署方式：手动（`start.sh`）、Docker、npm（`npx free-short-video`）、AI Agent 辅助。
+- **[新手完全指南](docs/public/beginner_guide.md)** — 手把手从零到第一条视频：在线站直用、本地部署、首次生成。
 - **[使用说明](docs/public/usage.zh.md)** — 配置 API Key、选择视频模式、断点续传、三种串联模式，以及日志与输出目录。
 - **[项目架构](docs/public/architecture.zh.md)** — 项目结构与技术栈。
 - **[API 接口](docs/public/api.zh.md)** — 完整 REST 接口列表（进度经任务状态轮询获取，无 WebSocket）。

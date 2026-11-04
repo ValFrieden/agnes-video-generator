@@ -64,5 +64,20 @@ def test_safe_workspace_path_default_root_allows_absolute(tmp_path):
     assert result == abs_target
 
 
+@pytest.mark.skipif(os.name != "nt", reason="盘符仅 Windows 存在")
+def test_safe_workspace_path_default_root_allows_other_drive(tmp_path):
+    # Windows：realpath("/") 只是当前盘符根，其他盘上的路径也必须放行
+    target = os.path.realpath(str(tmp_path))
+    if os.path.splitdrive(target)[0].lower() == os.path.splitdrive(os.getcwd())[0].lower():
+        pytest.skip("tmp_path 与当前工作目录在同一盘符")
+    assert safe_workspace_path(target) == target
+
+
+def test_safe_workspace_path_default_root_still_normalizes(tmp_path):
+    # 默认根下仍做 realpath 规范化（.. 段被消解）
+    target = os.path.join(str(tmp_path), "a", "..", "b.txt")
+    assert safe_workspace_path(target) == os.path.join(os.path.realpath(str(tmp_path)), "b.txt")
+
+
 def test_unsafe_path_error_is_value_error():
     assert issubclass(UnsafePathError, ValueError)

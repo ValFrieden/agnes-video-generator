@@ -1,0 +1,54 @@
+{"at": "2026-10-27T21:02:49", "account": "first", "shot": "S01", "action": "approved", "credits": 20, "balance_before": null, "balance_after": null, "note": "nachgetragen aus der Sitzung"}
+{"at": "2026-10-27T21:02:49", "account": "second", "shot": "S01", "action": "approved", "credits": 20, "balance_before": null, "balance_after": null, "note": "nachgetragen aus der Sitzung"}
+{"at": "2026-10-27T21:02:49", "account": "second", "shot": "S01", "action": "approved", "credits": 20, "balance_before": null, "balance_after": null, "note": "nachgetragen aus der Sitzung"}
+{"at": "2026-10-27T21:02:49", "account": "second", "shot": "S02", "action": "approved", "credits": 20, "balance_before": null, "balance_after": null, "note": "nachgetragen aus der Sitzung"}
+{"at": "2026-10-27T21:02:49", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 990, "note": "live gelesen nach S02"}
+{"at": "2026-10-27T22:00:30", "account": "second", "shot": "S03", "action": "approved", "credits": 20, "balance_before": 990, "balance_after": 970, "note": ""}
+{"at": "2026-10-27T22:05:06", "account": "second", "shot": "S03", "action": "approved", "credits": 20, "balance_before": 970, "balance_after": 950, "note": ""}
+{"at": "2026-10-27T22:08:43", "account": "second", "shot": "S03", "action": "approved", "credits": 20, "balance_before": 950, "balance_after": 930, "note": ""}
+{"at": "2026-10-27T22:14:19", "account": "second", "shot": "S04", "action": "approved", "credits": 20, "balance_before": 930, "balance_after": 910, "note": ""}
+{"at": "2026-10-27T22:18:07", "account": "second", "shot": "S05", "action": "approved", "credits": 20, "balance_before": 910, "balance_after": 890, "note": ""}
+{"at": "2026-10-27T22:22:07", "account": "second", "shot": "S06", "action": "approved", "credits": 20, "balance_before": 890, "balance_after": 870, "note": ""}
+{"at": "2026-10-27T22:26:06", "account": "second", "shot": "S07", "action": "approved", "credits": 20, "balance_before": 870, "balance_after": 850, "note": ""}
+{"at": "2026-10-28T08:26:00", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 850, "note": ""}
+{"at": "2026-10-28T08:28:16", "account": "second", "shot": "S08", "action": "approved", "credits": 20, "balance_before": 850, "balance_after": 830, "note": ""}
+{"at": "2026-10-28T08:32:17", "account": "second", "shot": "S09", "action": "approved", "credits": 20, "balance_before": 830, "balance_after": 810, "note": ""}
+{"at": "2026-10-28T08:34:49", "account": "second", "shot": "S09", "action": "approved", "credits": 20, "balance_before": 810, "balance_after": 790, "note": ""}
+{"at": "2026-10-28T08:41:08", "account": "second", "shot": "S10", "action": "approved", "credits": 20, "balance_before": 790, "balance_after": 770, "note": ""}
+{"at": "2026-10-28T08:47:57", "account": "second", "shot": "S11", "action": "approved", "credits": 20, "balance_before": 770, "balance_after": 750, "note": ""}
+{"at": "2026-10-28T08:54:03", "account": "second", "shot": "S12", "action": "approved", "credits": 20, "balance_before": 750, "balance_after": 730, "note": ""}
+{"at": "2026-10-28T08:58:13", "account": "second", "shot": "S12", "action": "approved", "credits": 20, "balance_before": 730, "balance_after": 710, "note": ""}
+{"at": "2026-10-28T09:05:21", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 710, "note": ""}
+{"at": "2026-10-28T09:07:21", "account": "second", "shot": "S12", "action": "approved", "credits": 15, "balance_before": 710, "balance_after": 695, "note": ""}
+{"at": "2026-10-28T09:11:09", "account": "second", "shot": "S12", "action": "approved", "credits": 10, "balance_before": 695, "balance_after": 685, "note": ""}
+{"at": "2026-10-28T09:17:26", "account": "second", "shot": "S12", "action": "approved", "credits": 10, "balance_before": 685, "balance_after": 675, "note": ""}
+{"at": "2026-10-28T09:21:53", "account": "second", "shot": "S12", "action": "approved", "credits": 10, "balance_before": 675, "balance_after": 665, "note": ""}
+{"at": "2026-10-30T10:25:04", "account": "second", "shot": "S13", "action": "approved", "credits": 12, "balance_before": 665, "balance_after": 653, "note": ""}
+{"at": "2026-10-30T10:31:46", "account": "second", "shot": "S14", "action": "approved", "credits": 12, "balance_before": 653, "balance_after": 641, "note": ""}
+{"at": "2026-10-30T10:36:35", "account": "second", "shot": "S15", "action": "approved", "credits": 20, "balance_before": 641, "balance_after": 621, "note": ""}
+{"at": "2026-10-30T11:00:30", "account": "second", "shot": "S16", "action": "approved", "credits": 20, "balance_before": 621, "balance_after": 601, "note": ""}
+{"at": "2026-10-30T11:12:07", "account": "second", "shot": "S17", "action": "approved", "credits": 20, "balance_before": 601, "balance_after": 581, "note": ""}
+{"at": "2026-10-30T11:16:02", "account": "second", "shot": "S17", "action": "approved", "credits": 20, "balance_before": 581, "balance_after": 561, "note": ""}
+{"at": "2026-10-30T11:23:48", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 631, "note": ""}
+{"at": "2026-10-30T11:24:33", "account": "second", "shot": "S17", "action": "approved", "credits": 20, "balance_before": 631, "balance_after": 611, "note": ""}
+{"at": "2026-10-30T11:30:59", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 611, "note": ""}
+{"at": "2026-10-30T11:43:35", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 611, "note": ""}
+{"at": "2026-10-30T11:46:31", "account": "second", "shot": "S18", "action": "approved", "credits": 20, "balance_before": 611, "balance_after": 591, "note": ""}
+{"at": "2026-10-30T11:57:59", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 591, "note": ""}
+{"at": "2026-10-30T12:02:03", "account": "second", "shot": "S19", "action": "approved", "credits": 12, "balance_before": 591, "balance_after": 579, "note": ""}
+{"at": "2026-10-30T12:08:49", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 579, "note": ""}
+{"at": "2026-10-30T12:17:42", "account": "second", "shot": "S20", "action": "approved", "credits": 12, "balance_before": 579, "balance_after": 567, "note": ""}
+{"at": "2026-10-30T13:11:14", "account": "second", "shot": "S21", "action": "approved", "credits": 20, "balance_before": 567, "balance_after": 547, "note": ""}
+{"at": "2026-10-30T13:45:37", "account": "second", "shot": "S22", "action": "approved", "credits": 12, "balance_before": 547, "balance_after": 535, "note": ""}
+{"at": "2026-10-30T13:55:16", "account": "second", "shot": "S23", "action": "approved", "credits": 12, "balance_before": 535, "balance_after": 523, "note": ""}
+{"at": "2026-10-30T14:07:19", "account": "second", "shot": "S24", "action": "approved", "credits": 12, "balance_before": 523, "balance_after": 511, "note": ""}
+{"at": "2026-10-30T14:18:41", "account": "second", "shot": "S25", "action": "approved", "credits": 12, "balance_before": 511, "balance_after": 499, "note": ""}
+{"at": "2026-10-30T14:34:07", "account": "second", "shot": "S26", "action": "approved", "credits": 12, "balance_before": 499, "balance_after": 487, "note": ""}
+{"at": "2026-10-30T14:42:21", "account": "second", "shot": "S26B", "action": "approved", "credits": 20, "balance_before": 487, "balance_after": 467, "note": ""}
+{"at": "2026-10-30T14:44:39", "account": "second", "shot": "S26B", "action": "approved", "credits": 12, "balance_before": 467, "balance_after": 455, "note": ""}
+{"at": "2026-10-30T14:45:37", "account": "second", "shot": null, "action": "balance", "credits": 0, "balance_before": null, "balance_after": 455, "note": ""}
+{"at": "2026-10-30T14:50:28", "account": "second", "shot": "S26B", "action": "approved", "credits": 12, "balance_before": null, "balance_after": null, "note": "nachgetragen: Skript nach dem Absenden beendet, Abbuchung per Guthaben 467->455 belegt"}
+{"at": "2026-10-30T14:53:27", "account": "second", "shot": "S27", "action": "approved", "credits": 12, "balance_before": 455, "balance_after": 443, "note": ""}
+{"at": "2026-10-30T15:12:16", "account": "second", "shot": "S28", "action": "approved", "credits": 12, "balance_before": 443, "balance_after": 431, "note": ""}
+{"at": "2026-10-30T15:34:42", "account": "second", "shot": "S17", "action": "approved", "credits": 12, "balance_before": 431, "balance_after": 419, "note": ""}
+{"at": "2026-10-30T15:48:17", "account": "second", "shot": "S06", "action": "approved", "credits": 12, "balance_before": 419, "balance_after": 407, "note": ""}

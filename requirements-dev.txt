@@ -18,3 +18,8 @@ httpx2>=2.0.0
 
 # GA4 自动配置脚本（scripts/setup_ga4.py）所需，不进入生产镜像
 google-analytics-admin>=0.5.0
+
+# Google Flow Engine（core/api/google_flow_engine.py，nur lokale Skripte wie
+# run_spina_master_batch.py，不进入生产镜像）。Engine hängt per CDP an ein
+# laufendes Chrome, daher genügt der Treiber: kein `playwright install` nötig.
+playwright>=1.40.0,<2.0.0

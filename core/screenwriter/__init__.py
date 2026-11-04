@@ -281,6 +281,8 @@ def build_poetry_scene_prompt(
         poem, scene_count, scene_durations or [], total_duration, style)
     return {"system_prompt": system_prompt, "user_prompt": user_prompt}
 
+from .scenario_director import ScenarioDirector, ScenarioProject, CharacterProfile, SceneShot
+
 __all__ = [
     "Screenwriter",
     "AgnesChatAPI",
@@ -291,5 +293,10 @@ __all__ = [
     "ScreenwriterScenesMixin",
     "ScreenwriterCharactersMixin",
     "ScreenwriterStyleMixin",
+    "ScenarioDirector",
+    "ScenarioProject",
+    "CharacterProfile",
+    "SceneShot",
 ]
+
 

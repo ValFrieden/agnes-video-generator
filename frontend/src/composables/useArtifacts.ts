@@ -39,6 +39,7 @@ const stepLabelMap: Record<string, string> = {
   concatenate: 'cStepConcat',
   split_text: 'mStepSplit',
   scene_prompts: 'mStepScenePrompts',
+  keyframes: 'mStepKeyframes',
   generate_anchor: 'aStepGenerateAnchor',
   clip_prompts: 'aStepClipPrompts',
   clip_gen: 'aStepClipGen',
@@ -79,8 +80,7 @@ function artifactLabel(art: Artifact): string {
 }
 
 function artifactIcon(art: Artifact): string {
-  const icons: Record<string, string> = { text: '📄', image: '🖼️', video: '🎬', audio: '🔊', json: '📋', subtitle: '💬' }
-  return icons[art.category] || '📄'
+  return art.category
 }
 
 function artifactFileUrl(art: Artifact): string {

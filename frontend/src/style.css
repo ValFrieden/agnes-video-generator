@@ -2,43 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-  /* ── Hallmark · genre: atmospheric · theme: Midnight (custom) · design-system: design.md ──
-   * theme-modes: dark (:root 默认) / light ([data-theme='light'] 同族反转) · toggle: system/light/dark
-   * 与官网 video-website token 体系完全一致，双主题共用 */
-
+  /* ── Studio Theme Tokens (Anti-Slop Clean Studio Dark / Light) ── */
   :root {
-    --color-paper:    oklch(13% 0.012 55);
-    --color-paper-2:  oklch(17% 0.014 55);
-    --color-paper-3:  oklch(22% 0.016 55);
-    --color-ink:      oklch(94% 0.008 65);
-    --color-ink-2:    oklch(78% 0.012 60);
-    --color-muted:    oklch(64% 0.014 60);
-    --color-rule:     oklch(30% 0.014 55);
-    --color-accent:   oklch(80% 0.14 75);
-    --color-accent-ink: oklch(20% 0.05 75);
-    --color-focus:    oklch(82% 0.16 75);
-    --color-danger:   oklch(66% 0.19 27);
-    --color-success:  oklch(80% 0.13 152);
-    --color-warning:  oklch(80% 0.13 75);
+    --color-paper:    #0F1115;
+    --color-paper-2:  #16181D;
+    --color-paper-3:  #1F232B;
+    --color-ink:      #F9FAFB;
+    --color-ink-2:    #D1D5DB;
+    --color-muted:    #8892B0;
+    --color-rule:     rgba(255, 255, 255, 0.08);
+    --color-accent:   #F59E0B;
+    --color-accent-ink: #0F1115;
+    --color-focus:    #F59E0B;
+    --color-danger:   #EF4444;
+    --color-success:  #10B981;
+    --color-warning:  #F59E0B;
+
+    /* Clean surfaces: no shadows on resting elements */
+    --neu-shadow-dark: transparent;
+    --neu-shadow-light: transparent;
+    --neu-shadow-deep: transparent;
+
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
   }
 
-  /* 亮色——同族反转：hue 55 暖灰家族 + accent 加深保证对比度（与官网一致） */
+  /* 亮色 Studio Light */
   [data-theme='light'] {
-    --color-paper:    oklch(97% 0.008 60);
-    --color-paper-2:  oklch(100% 0.004 60);
-    --color-paper-3:  oklch(93% 0.01 60);
-    --color-ink:      oklch(22% 0.016 55);
-    --color-ink-2:    oklch(43% 0.016 55);
-    --color-muted:    oklch(55% 0.016 55);
-    --color-rule:     oklch(87% 0.012 60);
-    --color-accent:   oklch(52% 0.13 75);
-    --color-accent-ink: oklch(98% 0.008 75);
-    --color-focus:    oklch(48% 0.15 75);
-    --color-danger:   oklch(50% 0.19 27);
-    --color-success:  oklch(50% 0.13 152);
-    --color-warning:  oklch(52% 0.13 75);
+    --color-paper:    #F9FAFB;
+    --color-paper-2:  #FFFFFF;
+    --color-paper-3:  #F3F4F6;
+    --color-ink:      #111827;
+    --color-ink-2:    #374151;
+    --color-muted:    #6B7280;
+    --color-rule:     rgba(0, 0, 0, 0.08);
+    --color-accent:   #D97706;
+    --color-accent-ink: #FFFFFF;
+    --color-focus:    #D97706;
+    --color-danger:   #DC2626;
+    --color-success:  #059669;
+    --color-warning:  #D97706;
+
+    --neu-shadow-dark: transparent;
+    --neu-shadow-light: transparent;
+    --neu-shadow-deep: transparent;
   }
 
   /* ── Base Animations（fade only，atmospheric）── */
@@ -66,74 +73,114 @@
     border-radius: 4px;
   }
 
-  /* ── Card Surface（paper-2 + rule 边框，无玻璃、无 glow）── */
+  /* ── Studio Card Surface (Flat, 1px Border, Anti-Slop) ── */
   .glass-card {
     background: var(--color-paper-2);
     border: 1px solid var(--color-rule);
-    transition: border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+    border-radius: 0.75rem;
+    box-shadow: none;
+    transition: border-color var(--dur-short) var(--ease-out);
   }
   .glass-card:hover {
-    border-color: color-mix(in oklab, var(--color-accent) 30%, var(--color-rule));
-    background: var(--color-paper-3);
-    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--color-rule) 60%, var(--color-accent));
   }
 
-  /* ── Primary Button（琥珀金填充，无渐变无 glow）── */
+  /* ── Studio Primary Button (Flat Solid Fill) ── */
   .glow-btn {
     position: relative;
     overflow: hidden;
     background: var(--color-accent);
     color: var(--color-accent-ink);
     font-weight: 600;
-    transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-short) var(--ease-out);
+    border-radius: 0.5rem;
+    box-shadow: none;
+    transition: opacity var(--dur-micro) var(--ease-out);
   }
   .glow-btn:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--color-accent) 90%, white 10%);
-    transform: translateY(-1px);
+    opacity: 0.92;
+  }
+  .glow-btn:active:not(:disabled) {
+    opacity: 0.85;
   }
   .glow-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* ── Input ── */
+  /* ── Studio Input (Clean 1px Border) ── */
   .glass-input {
     background: var(--color-paper);
     border: 1px solid var(--color-rule);
-    transition: border-color var(--dur-short) var(--ease-out), box-shadow var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
+    border-radius: 0.5rem;
+    box-shadow: none;
+    transition: border-color var(--dur-short) var(--ease-out);
   }
   .glass-input:focus {
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-accent) 30%, transparent);
+    box-shadow: 0 0 0 1px var(--color-accent);
+    outline: none;
     background: var(--color-paper);
   }
 
-  /* ── Tabs（选中 = accent 面，非渐变）── */
+  /* ── Studio Tabs ── */
   .tab-active {
-    background: color-mix(in oklab, var(--color-accent) 15%, var(--color-paper-3));
-    border: 1px solid color-mix(in oklab, var(--color-accent) 50%, transparent);
+    background: var(--color-paper-3);
+    border: 1px solid color-mix(in oklab, var(--color-accent) 40%, transparent);
     color: var(--color-accent);
+    font-weight: 600;
+    box-shadow: none;
   }
   .tab-inactive {
-    background: var(--color-paper-2);
+    background: transparent;
     color: var(--color-muted);
-    border: 1px solid var(--color-rule);
+    border: 1px solid transparent;
+    box-shadow: none;
   }
   .tab-inactive:hover {
-    background: var(--color-paper-3);
-    border-color: var(--color-rule);
-    color: var(--color-ink-2);
+    color: var(--color-ink);
+    background: var(--color-paper-2);
   }
 
-  .tab-badge {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 0 6px;
-    border-radius: 999px;
-    font-size: 10px;
-    line-height: 1.7;
-    vertical-align: middle;
-    background: var(--color-paper);
-    color: var(--color-accent);
-    border: 1px solid color-mix(in oklab, var(--color-accent) 45%, transparent);
+  /* ── Clean Studio Primitives ── */
+  .neu-raised {
+    background: var(--color-paper-2);
+    border: 1px solid var(--color-rule);
+    border-radius: 0.75rem;
+    box-shadow: none;
+    transition: border-color var(--dur-short) var(--ease-out);
   }
+  .neu-raised:hover {
+    border-color: color-mix(in oklab, var(--color-rule) 60%, var(--color-accent));
+  }
+  .neu-sunken {
+    background: var(--color-paper);
+    border: 1px solid var(--color-rule);
+    border-radius: 0.75rem;
+    box-shadow: none;
+  }
+  .neu-pill {
+    border-radius: 9999px;
+    background: var(--color-paper-2);
+    border: 1px solid var(--color-rule);
+    box-shadow: none;
+  }
+  .neu-pill:hover {
+    border-color: var(--color-accent);
+  }
+  .neu-pill:active, .neu-pill-active {
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+  }
+  .neu-dial {
+    border-radius: 9999px;
+    background: var(--color-paper-2);
+    border: 1px solid var(--color-rule);
+    box-shadow: none;
+  }
+  .neu-dial:hover {
+    border-color: var(--color-accent);
+  }
+
+  /* ── Tabular figures ── */
+  .num { font-variant-numeric: tabular-nums; }
+  td.num, th.num { text-align: right; }
 
   /* ── Progress Bar（accent 纯色）── */
   .progress-glow {
@@ -320,38 +367,47 @@
     overflow-wrap: anywhere;
   }
 
-  /* ── Design tokens 工具类（Tailwind CDN 不识别自定义 token，手动补齐）── */
-  .text-ink { color: var(--color-ink); }
-  .text-ink-2 { color: var(--color-ink-2); }
-  .text-muted { color: var(--color-muted); }
-  .text-accent { color: var(--color-accent); }
-  .text-accent-ink { color: var(--color-accent-ink); }
-  .text-rule { color: var(--color-rule); }
-  .hover\:text-ink:hover { color: var(--color-ink); }
-  .hover\:text-ink-2:hover { color: var(--color-ink-2); }
-  .hover\:text-accent:hover { color: var(--color-accent); }
-  .bg-paper { background-color: var(--color-paper); }
-  .bg-paper-2 { background-color: var(--color-paper-2); }
-  .bg-paper-3 { background-color: var(--color-paper-3); }
-  .bg-accent { background-color: var(--color-accent); }
-  .hover\:bg-paper-2:hover { background-color: var(--color-paper-2); }
-  .hover\:bg-paper-3:hover { background-color: var(--color-paper-3); }
-  .border-rule { border-color: var(--color-rule); }
-  .border-rule\/30 { border-color: color-mix(in oklab, var(--color-rule) 30%, transparent); }
-  .border-rule\/40 { border-color: color-mix(in oklab, var(--color-rule) 40%, transparent); }
-  /* 透明度变体工具（Tailwind JIT 不识别自定义 token 的 /n 修饰符，手动补齐） */
+  /* ── Design tokens 透明度变体（/n）──
+   * 基础 token 类（text-ink / bg-paper-2 / border-rule …）由 tailwind.config.js
+   * 的 colors 映射生成；此处仅手动补齐 /n 透明度变体——Tailwind 3 对纯 CSS
+   * 变量颜色不支持 opacity 修饰符（会丢透明度），且这些规则位于 @tailwind
+   * utilities 之后，同名时以这里的 color-mix 结果为准 */
+  .text-muted\/50 { color: color-mix(in oklab, var(--color-muted) 50%, transparent); }
+  .text-muted\/70 { color: color-mix(in oklab, var(--color-muted) 70%, transparent); }
+  .text-ink\/5 { color: color-mix(in oklab, var(--color-ink) 5%, transparent); }
+  .text-ink\/10 { color: color-mix(in oklab, var(--color-ink) 10%, transparent); }
   .bg-paper\/30 { background-color: color-mix(in oklab, var(--color-paper) 30%, transparent); }
   .bg-paper\/50 { background-color: color-mix(in oklab, var(--color-paper) 50%, transparent); }
+  .bg-paper\/60 { background-color: color-mix(in oklab, var(--color-paper) 60%, transparent); }
   .bg-paper\/70 { background-color: color-mix(in oklab, var(--color-paper) 70%, transparent); }
+  .bg-paper-2\/20 { background-color: color-mix(in oklab, var(--color-paper-2) 20%, transparent); }
   .bg-paper-2\/30 { background-color: color-mix(in oklab, var(--color-paper-2) 30%, transparent); }
   .bg-paper-2\/40 { background-color: color-mix(in oklab, var(--color-paper-2) 40%, transparent); }
   .bg-paper-2\/50 { background-color: color-mix(in oklab, var(--color-paper-2) 50%, transparent); }
+  .bg-paper-2\/70 { background-color: color-mix(in oklab, var(--color-paper-2) 70%, transparent); }
+  .bg-paper-3\/50 { background-color: color-mix(in oklab, var(--color-paper-3) 50%, transparent); }
+  .bg-paper-3\/60 { background-color: color-mix(in oklab, var(--color-paper-3) 60%, transparent); }
+  .bg-paper-3\/70 { background-color: color-mix(in oklab, var(--color-paper-3) 70%, transparent); }
   .bg-accent\/5 { background-color: color-mix(in oklab, var(--color-accent) 5%, transparent); }
   .bg-accent\/10 { background-color: color-mix(in oklab, var(--color-accent) 10%, transparent); }
   .bg-accent\/15 { background-color: color-mix(in oklab, var(--color-accent) 15%, transparent); }
-  .hover\:bg-paper-2\/40:hover { background-color: color-mix(in oklab, var(--color-paper-2) 40%, transparent); }
-  .border-accent\/40 { border-color: color-mix(in oklab, var(--color-accent) 40%, transparent); }
+  .bg-accent\/25 { background-color: color-mix(in oklab, var(--color-accent) 25%, transparent); }
+  .bg-ink\/70 { background-color: color-mix(in oklab, var(--color-ink) 70%, transparent); }
+  .border-rule\/30 { border-color: color-mix(in oklab, var(--color-rule) 30%, transparent); }
+  .border-rule\/40 { border-color: color-mix(in oklab, var(--color-rule) 40%, transparent); }
+  .border-rule\/50 { border-color: color-mix(in oklab, var(--color-rule) 50%, transparent); }
+  .border-rule\/60 { border-color: color-mix(in oklab, var(--color-rule) 60%, transparent); }
   .border-accent\/20 { border-color: color-mix(in oklab, var(--color-accent) 20%, transparent); }
+  .border-accent\/40 { border-color: color-mix(in oklab, var(--color-accent) 40%, transparent); }
+  .border-accent\/50 { border-color: color-mix(in oklab, var(--color-accent) 50%, transparent); }
+  .border-accent\/70 { border-color: color-mix(in oklab, var(--color-accent) 70%, transparent); }
+  .hover\:bg-paper-2\/30:hover { background-color: color-mix(in oklab, var(--color-paper-2) 30%, transparent); }
+  .hover\:bg-paper-2\/40:hover { background-color: color-mix(in oklab, var(--color-paper-2) 40%, transparent); }
+  .hover\:bg-paper-2\/70:hover { background-color: color-mix(in oklab, var(--color-paper-2) 70%, transparent); }
+  .hover\:bg-accent\/25:hover { background-color: color-mix(in oklab, var(--color-accent) 25%, transparent); }
+  .hover\:bg-accent\/90:hover { background-color: color-mix(in oklab, var(--color-accent) 90%, transparent); }
+  .hover\:border-accent\/40:hover { border-color: color-mix(in oklab, var(--color-accent) 40%, transparent); }
+  .focus\:border-accent\/70:focus { border-color: color-mix(in oklab, var(--color-accent) 70%, transparent); }
   /* 状态色透明度变体（Tailwind 默认色 + /n，JIT 未生成的补齐） */
   .bg-amber-500\/10 { background-color: color-mix(in srgb, #f59e0b 10%, transparent); }
   .bg-amber-500\/20 { background-color: color-mix(in srgb, #f59e0b 20%, transparent); }
@@ -365,10 +421,67 @@
   .border-red-800\/60 { border-color: color-mix(in srgb, #991b1b 60%, transparent); }
   .bg-red-700\/50 { background-color: color-mix(in srgb, #b91c1c 50%, transparent); }
   .bg-red-700\/80 { background-color: color-mix(in srgb, #b91c1c 80%, transparent); }
-  .text-danger { color: var(--color-danger); }
-  .text-success { color: var(--color-success); }
-  .text-warning { color: var(--color-warning); }
-  .placeholder-muted::placeholder { color: var(--color-muted); }
+
+  /* ── Semantische Status-Klassen（主题自适应：直接用 token + color-mix，
+     * 取代组件里手写的 raw Tailwind 色（bg-green-900/text-green-300 等）——
+     * 那些在亮色下要么对比度不足、要么深底深字不可读）── */
+  .panel-danger {
+    background: color-mix(in oklab, var(--color-danger) 10%, var(--color-paper-2));
+    border: 1px solid color-mix(in oklab, var(--color-danger) 35%, var(--color-rule));
+  }
+  .badge-danger,
+  .badge-success,
+  .badge-warning,
+  .badge-info,
+  .badge-neutral {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .badge-danger  { background: color-mix(in oklab, var(--color-danger) 15%, transparent); color: var(--color-danger); border-color: color-mix(in oklab, var(--color-danger) 30%, transparent); }
+  .badge-success { background: color-mix(in oklab, var(--color-success) 15%, transparent); color: var(--color-success); border-color: color-mix(in oklab, var(--color-success) 30%, transparent); }
+  .badge-warning { background: color-mix(in oklab, var(--color-warning) 15%, transparent); color: var(--color-warning); border-color: color-mix(in oklab, var(--color-warning) 30%, transparent); }
+  .badge-info    { background: color-mix(in oklab, var(--color-accent) 15%, transparent); color: var(--color-accent); border-color: color-mix(in oklab, var(--color-accent) 30%, transparent); }
+  .badge-neutral { background: color-mix(in oklab, var(--color-ink-2) 12%, transparent); color: var(--color-ink-2); border-color: color-mix(in oklab, var(--color-rule) 70%, transparent); }
+
+  .btn-danger {
+    background: var(--color-danger);
+    color: #fff;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: filter var(--dur-micro) var(--ease-out);
+  }
+  .btn-danger:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger-soft {
+    background: color-mix(in oklab, var(--color-danger) 12%, var(--color-paper-2));
+    color: var(--color-danger);
+    border: 1px solid color-mix(in oklab, var(--color-danger) 35%, var(--color-rule));
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: background-color var(--dur-micro) var(--ease-out);
+  }
+  .btn-danger-soft:hover:not(:disabled) { background: color-mix(in oklab, var(--color-danger) 22%, var(--color-paper-2)); }
+
+  .border-danger\/30 { border-color: color-mix(in oklab, var(--color-danger) 30%, transparent); }
+
+  /* 代码块：固定深底 + 浅绿字（终端风格，双主题下都可读） */
+  .code-block {
+    display: block;
+    background: rgba(0, 0, 0, 0.4);
+    color: #86efac;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
 
   /* 亮色下：Tailwind 语义浅色文字在浅底上对比度不足，加深为语义 token */
   [data-theme='light'] .text-green-400,

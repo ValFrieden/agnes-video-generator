@@ -32,7 +32,9 @@ from models.task import (
     ManualConfig,
     ManuscriptVideoTask,
     PoetryVideoTask,
+    SceneTask,
     SimpleVideoTask,
+    StepStatus,
     SubtitleConfig,
     SubtitleStyle,
     TaskType,
@@ -47,6 +49,10 @@ router = APIRouter(tags=["task-creation"])
 
 # 上传文件允许的扩展名白名单（拒绝任意后缀，杜绝路径穿越）
 _ALLOWED_UPLOAD_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".mp4", ".mov", ".webm"}
+
+# Logikcheck Befund 6：上传体积上限。此前 ``await upload.read()`` 无上限地把整个
+# 请求体读进内存，超大文件（或并发多个）会耗尽服务器内存。
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
 def _parse_scene_durations_json(scene_durations_json: str) -> list:
@@ -74,7 +80,8 @@ def _build_manual_config(execution_mode: str, pause_points: str) -> ManualConfig
 
     Args:
         execution_mode: "auto"（默认）或 "manual"。
-        pause_points: JSON 数组字符串（可选暂停点集合）；空/缺省且 manual 时 = 全部检查点。
+        pause_points: JSON 数组字符串（可选暂停点集合）；未传/空串时且 manual = 全部检查点。
+                      显式传入 "[]" 时保留空列表（Logikcheck Befund 5：不强制覆盖为全部检查点）。
 
     Raises:
         HTTPException: execution_mode 非法或 pause_points 含非法值。
@@ -87,18 +94,22 @@ def _build_manual_config(execution_mode: str, pause_points: str) -> ManualConfig
     if execution_mode == "auto":
         return ManualConfig()
 
-    try:
-        points = json.loads(pause_points) if pause_points else []
-    except Exception:
-        raise HTTPException(
-            status_code=422,
-            detail=translate("validation.pause_points_not_list", None),
-        )
-    if not isinstance(points, list):
-        raise HTTPException(
-            status_code=422,
-            detail=translate("validation.pause_points_not_list", None),
-        )
+    if pause_points and pause_points.strip():
+        try:
+            points = json.loads(pause_points)
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail=translate("validation.pause_points_not_list", None),
+            )
+        if not isinstance(points, list):
+            raise HTTPException(
+                status_code=422,
+                detail=translate("validation.pause_points_not_list", None),
+            )
+    else:
+        # 未传 pause_points 时回退全部检查点（PRD §4.3）
+        points = list(ALL_CHECKPOINTS)
 
     valid = set(ALL_CHECKPOINTS)
     invalid = [p for p in points if p not in valid]
@@ -112,8 +123,80 @@ def _build_manual_config(execution_mode: str, pause_points: str) -> ManualConfig
                 options=ALL_CHECKPOINTS,
             ),
         )
-    # 空 = 全部检查点暂停（PRD §4.3）
-    return ManualConfig(enabled=True, pause_points=points or list(ALL_CHECKPOINTS))
+    return ManualConfig(enabled=True, pause_points=points)
+
+
+def _seed_creative_preview(state: CreativeVideoTask, dir_name: str, payload: dict) -> None:
+    """Logikcheck Befund 3: bestätigte Ein-Klick-Vorschau als fertige Schritt-Artefakte einsäen.
+
+    Schreibt ``story.txt`` / ``script.json`` vor und markiert ``step_story`` /
+    ``step_script`` als COMPLETED (Szenenliste + Dauern-Zuordnung identisch zu
+    ``_step_script``); die bestätigte Narration landet in ``state.narrations``.
+    Die vorhandene Überspring-Logik der Pipeline (``_step_story`` /
+    ``_step_script`` / ``_step_generate_narrations``) greift dadurch unverändert —
+    das fertige Video entspricht exakt der zuvor angezeigten Vorschau statt sie
+    nicht-deterministisch neu zu generieren.
+
+    Raises:
+        HTTPException: 422 bei unbrauchbarer Payload oder Szenenzahl-Mismatch.
+    """
+    story = payload.get("story")
+    scenes = payload.get("scenes")
+    if (
+        not isinstance(story, str) or not story.strip()
+        or not isinstance(scenes, list) or not scenes
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.preview_payload_invalid", None),
+        )
+    if len(scenes) != state.scene_count:
+        raise HTTPException(
+            status_code=422,
+            detail=translate(
+                "validation.preview_scene_count_mismatch", None,
+                expected=state.scene_count, actual=len(scenes),
+            ),
+        )
+
+    task_dir = safe_join(helpers.get_working_dir(), dir_name)
+    os.makedirs(task_dir, exist_ok=True)
+    story_path = os.path.join(task_dir, "story.txt")
+    script_path = os.path.join(task_dir, "script.json")
+    with open(story_path, "w", encoding="utf-8") as f:
+        f.write(story)
+    with open(script_path, "w", encoding="utf-8") as f:
+        json.dump(scenes, f, ensure_ascii=False, indent=2)
+
+    state.story_file = story_path
+    state.script_file = script_path
+    state.step_story = StepStatus.COMPLETED
+    state.step_script = StepStatus.COMPLETED
+
+    # Dauern-Zuordnung identisch zu _step_script (auffüllen/stutzen)
+    durations = list(state.scene_durations) if state.scene_durations else []
+    if not durations:
+        durations = [int(state.video_duration)] * len(scenes)
+    elif len(durations) < len(scenes):
+        while len(durations) < len(scenes):
+            durations.append(durations[-1])
+    elif len(durations) > len(scenes):
+        durations = durations[: len(scenes)]
+    state.scene_durations = durations
+    state.scene_count = len(scenes)
+    state.scenes = [
+        SceneTask(index=i, duration=durations[i] if i < len(durations) else 5)
+        for i in range(len(scenes))
+    ]
+
+    narration = payload.get("narration")
+    if isinstance(narration, str) and len(narration.strip()) > 5:
+        state.narrations = [narration.strip()]
+
+    logger.info(
+        "[Creative] Preview payload seeded: story=%d chars, scenes=%d, narration=%s",
+        len(story), len(scenes), "yes" if state.narrations else "no",
+    )
 
 
 def _build_subtitle_config(
@@ -151,13 +234,23 @@ async def _save_upload_file(upload: UploadFile, upload_dir: str, prefix: str) ->
 
     扩展名取自白名单：客户端 filename 中夹带的任意后缀一律拒绝，
     再经 ``safe_join`` 锚定到 upload_dir 内，杜绝路径穿越（S2083）。
+    读取按 ``_MAX_UPLOAD_BYTES`` 封顶：超限抛 413，不完整落盘。
     """
     ext = (os.path.splitext(upload.filename)[1] or ".png").lower()
     if ext not in _ALLOWED_UPLOAD_EXTS:
         ext = ".png"
+    data = await upload.read(_MAX_UPLOAD_BYTES + 1)
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=translate(
+                "validation.upload_too_large", get_current_lang(),
+                max_mb=_MAX_UPLOAD_BYTES // (1024 * 1024),
+            ),
+        )
     os.makedirs(upload_dir, exist_ok=True)
     upload_path = safe_join(upload_dir, f"{prefix}{ext}")
-    await write_bytes(upload_path, await upload.read())
+    await write_bytes(upload_path, data)
     return upload_path
 
 
@@ -174,6 +267,8 @@ async def create_simple_task(
     reference_image: UploadFile = File(None),
     end_frame_image: UploadFile = File(None),
     video_size: Optional[str] = Form(None),
+    camera_movement: Optional[str] = Form(None),
+    draft_mode: bool = Form(False),
 ):
     """创建简单视频任务（类型 1）。"""
     api_key = get_api_key()
@@ -232,6 +327,12 @@ async def create_simple_task(
         ui_language=get_current_lang(),
     )
 
+    if camera_movement:
+        from core.screenwriter.camera_presets import apply_camera_movement_to_prompt
+        state.prompt = apply_camera_movement_to_prompt(state.prompt, camera_movement)
+        state.camera_movement = camera_movement
+    state.draft_mode = draft_mode
+
     upload_dir = helpers.get_upload_dir()
     # 处理参考图上传（L4: 用 UUID 替代客户端文件名，避免路径穿越）
     if reference_image and reference_image.filename:
@@ -244,8 +345,10 @@ async def create_simple_task(
     app_state.active_pipelines[task_id] = pipeline
 
     tm = TaskManager(task_id, dir_name=dir_name)
+    # Logikcheck Befund 8：QUEUED 直接随 create 一次性落盘，取代原来的
+    # create + mark_task_queued 两次写盘（后台协程不会再重复写）。
+    state.status = StepStatus.QUEUED
     tm.create(state)
-    deps.mark_task_queued(tm, lang=state.ui_language)
     app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
     logger.info(f"[Simple] Task created: {task_id}, mode={mode}, duration={duration}s (queued)")
     return {"ok": True, "task_id": task_id, "dir_name": dir_name}
@@ -264,6 +367,9 @@ async def create_creative_task(
     scene_count: int = Form(3),
     uniform_duration: bool = Form(True),
     scene_durations_json: str = Form("[5,5,5]"),
+    # Logikcheck Befund 3: bestätigte Ein-Klick-Vorschau (story/scenes/narration)
+    # optional mitgeben, damit das Video die gezeigten Szenen wiederverwendet
+    preview_json: str = Form(""),
     reference_image: UploadFile = File(None),
     end_frame_images: List[UploadFile] = File(None),
     scene_reference_images: List[UploadFile] = File(None),
@@ -289,6 +395,9 @@ async def create_creative_task(
     # v6.0 手动模式
     execution_mode: str = Form("auto"),
     pause_points: str = Form(""),
+    # ── SYNTX 电影级摄像机与 Draft 模式 ──
+    camera_movement: Optional[str] = Form(None),
+    draft_mode: bool = Form(False),
 ):
     """创建创意长视频任务（类型 2）。"""
     api_key = get_api_key()
@@ -319,6 +428,23 @@ async def create_creative_task(
         scene_durations = _parse_scene_durations_json(scene_durations_json)
     else:
         scene_durations = []
+
+    # Logikcheck Befund 3: Vorschau-Payload früh validieren (JSON-Anomalien
+    # lassen den Task gar nicht erst anlegen)
+    preview_payload = None
+    if preview_json.strip():
+        try:
+            preview_payload = json.loads(preview_json)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=422,
+                detail=translate("validation.preview_payload_invalid", None),
+            )
+        if not isinstance(preview_payload, dict):
+            raise HTTPException(
+                status_code=422,
+                detail=translate("validation.preview_payload_invalid", None),
+            )
 
     task_id = uuid.uuid4().hex[:12]
     name = creative_name.strip() if creative_name else f"video_{task_id}"
@@ -358,6 +484,8 @@ async def create_creative_task(
         manual_config=_build_manual_config(execution_mode, pause_points),
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
+        camera_movement=camera_movement or "",
+        draft_mode=draft_mode,
     )
 
     logger.info(
@@ -391,12 +519,18 @@ async def create_creative_task(
             state.scene_reference_images = saved_scene_refs
             logger.info(f"[Pipeline] Saved {len(saved_scene_refs)} user scene reference images for task {task_id}")
 
+    # Logikcheck Befund 3: bestätigte Vorschau einsäen, bevor die Pipeline startet
+    if preview_payload:
+        _seed_creative_preview(state, dir_name, preview_payload)
+
     pipeline = deps.create_pipeline_for_type(TaskType.CREATIVE, api_key, task_id, dir_name)
     app_state.active_pipelines[task_id] = pipeline
 
     tm = TaskManager(task_id, dir_name=dir_name)
+    # Logikcheck Befund 8：QUEUED 直接随 create 一次性落盘，取代原来的
+    # create + mark_task_queued 两次写盘（后台协程不会再重复写）。
+    state.status = StepStatus.QUEUED
     tm.create(state)
-    deps.mark_task_queued(tm, lang=state.ui_language)
     app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
     logger.info("[Creative] Task created: %s, idea=%s... (queued)",
                 safe_log(task_id), safe_log(idea[:40]))
@@ -415,6 +549,10 @@ async def create_manuscript_task(
     video_width: int = Form(768),
     video_height: int = Form(1152),
     video_duration: int = Form(10),
+    # v7.1 关键帧模式（I2V-first）：逐段先生成关键帧静图再 i2v 动画
+    generate_keyframes: bool = Form(False),
+    # v7.2 R8 质量闸（opt-in）：生成后逐段免费 VLM 检查 + FAIL 自动重生成一次
+    qc_enabled: bool = Form(False),
     # v2.0 音频配置
     audio_enabled: bool = Form(True),
     audio_voice: str = Form("zh-CN-XiaoxiaoNeural"),
@@ -516,6 +654,8 @@ async def create_manuscript_task(
         video_width=video_width,
         video_height=video_height,
         video_duration=video_duration,
+        generate_keyframes=generate_keyframes,
+        qc_enabled=qc_enabled,
         audio_config=audio_config,
         subtitle_config=subtitle_config,
         manual_config=_build_manual_config(execution_mode, pause_points),
@@ -527,8 +667,10 @@ async def create_manuscript_task(
     app_state.active_pipelines[task_id] = pipeline
 
     tm = TaskManager(task_id, dir_name=dir_name)
+    # Logikcheck Befund 8：QUEUED 直接随 create 一次性落盘，取代原来的
+    # create + mark_task_queued 两次写盘（后台协程不会再重复写）。
+    state.status = StepStatus.QUEUED
     tm.create(state)
-    deps.mark_task_queued(tm, lang=state.ui_language)
     app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
     logger.info(f"[Manuscript] Task created: {task_id}, text_len={len(manuscript_text)} (queued)")
     return {"ok": True, "task_id": task_id, "dir_name": dir_name}
@@ -543,6 +685,10 @@ async def create_poetry_task(
     video_width: int = Form(768),
     video_height: int = Form(1152),
     video_duration: int = Form(30),
+    # v7.1 关键帧模式（I2V-first）：逐场景先生成关键帧静图再 i2v 动画
+    generate_keyframes: bool = Form(False),
+    # v7.2 R8 质量闸（opt-in）：生成后逐场景免费 VLM 检查 + FAIL 自动重生成一次
+    qc_enabled: bool = Form(False),
     # ── 场景配置（与创意视频完全一致）──
     duration_source: str = Form("manual"),
     scene_count: int = Form(3),
@@ -634,6 +780,8 @@ async def create_poetry_task(
         video_width=video_width,
         video_height=video_height,
         video_duration=video_duration,
+        generate_keyframes=generate_keyframes,
+        qc_enabled=qc_enabled,
         duration_source=duration_source,
         scene_count=scene_count,
         uniform_duration=uniform_duration,
@@ -649,8 +797,10 @@ async def create_poetry_task(
     app_state.active_pipelines[task_id] = pipeline
 
     tm = TaskManager(task_id, dir_name=dir_name)
+    # Logikcheck Befund 8：QUEUED 直接随 create 一次性落盘，取代原来的
+    # create + mark_task_queued 两次写盘（后台协程不会再重复写）。
+    state.status = StepStatus.QUEUED
     tm.create(state)
-    deps.mark_task_queued(tm, lang=state.ui_language)
     app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
     logger.info("[Poetry] Task created: %s, poem=%r (queued)",
                 safe_log(task_id), safe_log(poem_text[:20]))
@@ -740,8 +890,10 @@ async def create_anchor_task(
     app_state.active_pipelines[task_id] = pipeline
 
     tm = TaskManager(task_id, dir_name=dir_name)
+    # Logikcheck Befund 8：QUEUED 直接随 create 一次性落盘，取代原来的
+    # create + mark_task_queued 两次写盘（后台协程不会再重复写）。
+    state.status = StepStatus.QUEUED
     tm.create(state)
-    deps.mark_task_queued(tm, lang=state.ui_language)
     app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
     logger.info(f"[Anchor] Task created: {task_id}, script_len={len(script_text)} (queued)")
     return {"ok": True, "task_id": task_id, "dir_name": dir_name}
@@ -803,6 +955,9 @@ async def create_task_legacy(
         # v6.0 手动模式：旧端点语义为自动模式
         execution_mode="auto",
         pause_points="",
+        # Logikcheck Befund 3: keine Vorschau beim Legacy-Endpunkt (Form()-Default
+        # wäre bei Direktaufruf ein Objekt, kein String)
+        preview_json="",
     )
 
 

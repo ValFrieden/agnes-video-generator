@@ -5,6 +5,9 @@ import type { GalleryItem } from '@/types'
 
 const items = ref<GalleryItem[]>([])
 const loading = ref(false)
+// Logikcheck Befund 10: Ladefehler sichtbar machen — ohne Fehlerzustand sieht
+// ein fehlgeschlagenes Erstladen aus wie eine leere Galerie.
+const loadError = ref(false)
 const filter = ref<'all' | 'video' | 'image'>('all')
 const status = ref<'all' | 'completed' | 'failed'>('all')
 let timer: ReturnType<typeof setInterval> | null = null
@@ -14,11 +17,13 @@ async function loadGallery() {
   if (inFlight) return
   inFlight = true
   loading.value = true
+  loadError.value = false
   try {
     const d = await api.getGallery({ filter: filter.value, status: status.value })
     items.value = (d && d.items) || []
   } catch {
-    /* 保留旧列表，静默重试 */
+    // Alte Liste behalten, Fehler aber als Zustand melden (Retry-Knopf im Panel)
+    loadError.value = true
   } finally {
     loading.value = false
     inFlight = false
@@ -62,6 +67,7 @@ export function useGallery() {
   return {
     items,
     loading,
+    loadError,
     filter,
     status,
     loadGallery,

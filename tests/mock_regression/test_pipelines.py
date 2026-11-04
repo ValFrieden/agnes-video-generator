@@ -526,6 +526,51 @@ class TestPoetryVideoPipeline(BasePipelineTest):
         # video_duration=30 均分 3 段 → 每段 10s
         assert all(s.duration == 10 for s in st.scenes), [s.duration for s in st.scenes]
 
+    @pytest.mark.asyncio
+    async def test_poetry_frame_chaining(self, temp_workdir, monkeypatch):
+        """v7.1.2 帧链式生成（AGNES_SCENE_FRAME_CHAINING=1）：
+        串行生成，场景 i+1 以场景 i 成片末帧为唯一参考提交（Last→First Frame），
+        末帧缓存落盘 ``scene_{i}/last_frame.png``。"""
+        from core.pipelines.poetry_video import PoetryVideoPipeline
+        monkeypatch.setenv("AGNES_SCENE_FRAME_CHAINING", "1")
+        state = await self._make_state()
+        pipeline = PoetryVideoPipeline(
+            api_key="mock_key", task_id="test_task_chain", dir_name=temp_workdir,
+        )
+        assert pipeline._frame_chaining_enabled(), "env flag must engage chaining"
+
+        submit_calls: list[dict] = []
+        orig_submit = pipeline.video_api.submit_video
+
+        async def _recording_submit(**kwargs):
+            submit_calls.append(dict(kwargs))
+            return await orig_submit(**kwargs)
+
+        pipeline.video_api.submit_video = _recording_submit
+
+        final_video = await pipeline.run(state)
+
+        assert state.status == StepStatus.COMPLETED
+        assert os.path.exists(final_video)
+        # 场景 1 无参考（t2v）；场景 2+ 链式参考 = 上一场景末帧（唯一参考）
+        assert len(submit_calls) >= 2, submit_calls
+        assert not submit_calls[0]["reference_image_paths"]
+        for i in range(1, len(submit_calls)):
+            refs = submit_calls[i]["reference_image_paths"]
+            assert refs and len(refs) == 1, f"scene {i}: refs={refs}"
+            assert refs[0].endswith("last_frame.png"), refs
+            assert os.path.exists(refs[0]), refs
+            assert f"scene_{i - 1}" in refs[0], refs
+        # 每个已生成场景都留有末帧缓存（续传链条的载体）
+        for i in range(len(submit_calls)):
+            assert os.path.exists(
+                os.path.join(temp_workdir, f"scene_{i}", "last_frame.png")
+            ), f"scene_{i}/last_frame.png missing"
+        logger.info(
+            "  ✓ frame chaining: %d scenes, last→first refs verified",
+            len(submit_calls),
+        )
+
 
 class TestPoetryScenePrompt(BasePipelineTest):
     """诗歌分镜提示词：每场景时长表达 + 与程序内 LLM 提示词一致。"""

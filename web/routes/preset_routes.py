@@ -42,6 +42,18 @@ async def list_presets():
     }
 
 
+@router.get("/api/presets/camera-movements")
+def list_camera_movement_presets():
+    """返回 20 种专业电影级镜头运镜预设（SYNTX / LTX Studio 标准）。"""
+    from core.screenwriter.camera_presets import get_all_camera_presets
+    presets = get_all_camera_presets()
+    return {
+        "ok": True,
+        "count": len(presets),
+        "presets": [p.model_dump() for p in presets],
+    }
+
+
 @router.post("/api/presets")
 async def save_preset(name: str = Form(...), prompt: str = Form(...)):
     """保存一条用户自定义预设。

@@ -1,0 +1,19 @@
+seq01|5|Static locked camera, no camera movement. The still painting gently comes alive: a red backlight flashes on the paper heart once, then settles into a steady dim glow
+seq02|15|Static locked camera, no camera movement. The still painting gently comes alive: the paper heart sways barely on its thread, lantern lights flicker gently, the cutout layers perfectly still
+seq03|10|Static locked camera, no camera movement. The still painting gently comes alive: the figures' shadows tremble faintly, the heart pulses red, all figures perfectly still
+seq04|10|Static locked camera, no camera movement. The still painting gently comes alive: the red underlight breathes slowly, the long shadows stretch and soften subtly
+seq05|10|Static locked camera, no camera movement. The still painting gently comes alive: a faint glint runs along the paper knife strip, the heart pulses, everything else still
+seq06|15|Static locked camera, no camera movement. The still painting gently comes alive: paper flame tongues flicker with warm light, the figures stay frozen
+seq07|5|Static locked camera, no camera movement. The still painting gently comes alive: the paper heart swings slowly like a pendulum in the blue emptiness
+seq08|15|Static locked camera, no camera movement. The still painting gently comes alive: the lighthouse light dot twinkles, the layered paper waves shimmer faintly
+seq09|15|Static locked camera, no camera movement. The still painting gently comes alive: warm light waves roll slowly across the paper layers, the golden studs glimmer
+seq10|10|Static locked camera, no camera movement. The still painting gently comes alive: the hero cutout head lifts almost imperceptibly, the warm light holds steady
+seq11|15|Static locked camera, no camera movement. The still painting gently comes alive: the paper sea layers shimmer, the paper moon glows steady, glitter drifts slowly
+seq12a|10|Static locked camera, no camera movement. The still painting gently comes alive: the lighthouse shines, sparkles glitter on the paper waves, the heart sways gently
+seq12b|10|Static locked camera, no camera movement. The still painting gently comes alive: the sparkles keep glittering, the lighthouse light breathes in a slow rhythm
+seq13|15|Static locked camera, no camera movement. The still painting gently comes alive: amber light warms slowly over the empty street, the heart sways gently above
+seq14|10|Static locked camera, no camera movement. The still painting gently comes alive: only the red pulse of the paper heart beats in the darkness
+seq15a|15|Static locked camera, no camera movement. The still painting gently comes alive: golden light waves rise slowly from the paper sun behind the layers
+seq15b|15|Static locked camera, no camera movement. The still painting gently comes alive: the golden light keeps rising in slow waves, the theater brightening
+seq16|10|Static locked camera, no camera movement. The still painting gently comes alive: the whole theater glows warm, the golden heart pulses above the stage
+seq17|10|Static locked camera, no camera movement. The still painting gently comes alive: the light fades layer by layer, the heart gives two last pulses, then blackness

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { t } from '@/i18n'
 import { appState } from '@/store'
 import { useProgress } from '@/composables/useProgress'
 import { useArtifacts } from '@/composables/useArtifacts'
 import { useNavigation } from '@/composables/useNavigation'
+import { useCompletionNotify } from '@/composables/useCompletionNotify'
+import { etaForTask, formatDuration } from '@/utils/progressEta'
 import ProgressHeader from './ProgressHeader.vue'
 import StepTimeline from './StepTimeline.vue'
 import ArtifactCard from './ArtifactCard.vue'
@@ -20,6 +22,7 @@ const {
   steps,
   stepStates,
   taskFailed,
+  taskNotFound,
   failedMessage,
   liveFailedStep,
   awaitingCheckpoint,
@@ -39,6 +42,18 @@ const {
 } = useArtifacts()
 
 const { goBack } = useNavigation()
+
+// P2 完成通知：任务在后台跑完时提醒用户（需用户显式开启）
+const { permission: notifyPermission, enabled: notifyEnabled, enable: enableNotify, disable: disableNotify, notify: notifyCompletion } = useCompletionNotify()
+watch(taskFailed, (failed) => {
+  if (!failed) return
+  notifyCompletion(appState.progressTaskId || '', false, failedMessage.value || '')
+})
+watch(progressPct, (pct, prev) => {
+  if (pct >= 100 && (prev ?? 0) < 100 && !taskFailed.value) {
+    notifyCompletion(appState.progressTaskId || '', true, '')
+  }
+})
 
 // 产物流按执行顺序排列（steps 顺序优先，未知 step 保持后端相对顺序）
 const orderedGroups = computed(() => {
@@ -98,9 +113,26 @@ async function onRetryTask() {
   if (taskId) await retryFailedTask(taskId)
 }
 
+// Logikcheck Befund 2：任务不存在时提供回列表出口（hash 写入后由
+// hashchange 路由接管，正确停止轮询并挂载列表）
+function goToTaskList() {
+  location.hash = '#/list'
+}
+
 // ── 任务信息展示（优化 v6.1：展示用户输入提示词与各项配置）──
 const taskInfo = ref<any>(null)
 const taskInfoOpen = ref(true)
+
+// P1 剩余时间：由 created_at + 当前进度线性外推（见 utils/progressEta.ts）。
+// 进度太低 / 旧任务无时间戳时估算函数返回 insufficient，这里就不显示——不猜。
+const eta = computed(() =>
+  etaForTask({ created_at: taskInfo.value?.created_at } as any, progressPct.value),
+)
+const etaText = computed(() =>
+  eta.value.state === 'estimating' && eta.value.remainingSec !== null
+    ? formatDuration(eta.value.remainingSec)
+    : '',
+)
 
 // 各任务类型：输入提示词字段 → i18n label
 const INPUT_FIELDS: Record<string, { field: string; label: string }[]> = {
@@ -171,13 +203,20 @@ const reportFailedStep = computed(
   () => liveFailedStep.value || taskInfo.value?.current_step || '',
 )
 
+// A11y：图片放大弹窗支持 Escape 关闭（配合 role="dialog"）
+function onModalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && imageModalUrl.value) closeImageModal()
+}
+
 onMounted(async () => {
   const taskId = appState.progressTaskId
+  window.addEventListener('keydown', onModalKeydown)
   if (!taskId) return
   taskInfo.value = await mountProgressPage(taskId, appState.currentDirName)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', onModalKeydown)
   unmountProgressPage()
 })
 </script>
@@ -187,22 +226,9 @@ onUnmounted(() => {
     <ProgressHeader />
 
     <div class="max-w-6xl mx-auto px-4 py-6 lg:flex lg:gap-6">
-      <!-- 左侧：支持项目卡片（置顶，与首页一致）+ 环节状态列表（宽屏） -->
+      <!-- 左侧：环节状态列表（宽屏） -->
       <aside class="hidden lg:block w-[240px] shrink-0">
         <div class="sticky top-[120px]">
-          <div class="sidebar-card">
-            <div class="stitle">{{ t('adSupportTitle') }}</div>
-            <p class="text-muted text-xs leading-relaxed mb-2">{{ t('adSupportDesc') }}</p>
-            <a href="https://github.com/lcy362/agnes-video-generator" target="_blank" rel="noopener">{{ t('adStar') }}</a>
-            <p class="text-muted text-xs px-1 -mt-0.5 mb-1">{{ t('adStarDesc') }}</p>
-            <a href="https://github.com/lcy362/flint" target="_blank" rel="noopener" class="wrap">{{ t('adSkewStar') }}</a>
-            <p class="text-muted text-xs px-1 -mt-0.5 mb-1">{{ t('adSkewStarDesc') }}</p>
-            <a href="https://video.lichuanyang.top" target="_blank" rel="noopener">{{ t('adAdblock') }}</a>
-            <p class="text-muted text-xs px-1 -mt-0.5 mb-1">{{ t('adAdblockDesc') }}</p>
-            <a href="https://video.lichuanyang.top" target="_blank" rel="noopener">{{ t('adClick') }}</a>
-            <p class="text-muted text-xs px-1 -mt-0.5 mb-1">{{ t('adClickDesc') }}</p>
-            <p class="text-muted text-xs mt-2 leading-relaxed">{{ t('adThanks') }}</p>
-          </div>
           <StepTimeline @locate="scrollToStep" />
         </div>
       </aside>
@@ -215,32 +241,77 @@ onUnmounted(() => {
         </div>
 
         <!-- 状态区 -->
-        <div class="glass-card rounded-2xl p-5 mb-4">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-muted">{{ t('progress') }}</span>
-            <span class="text-sm text-accent font-medium">{{ progressPct }}%</span>
+        <div class="neu-card rounded-3xl p-6 mb-5 border border-rule/30">
+          <div class="flex items-center justify-between mb-2.5">
+            <span class="text-sm font-medium text-muted">{{ t('progress') }}</span>
+            <span class="flex items-center gap-2">
+              <span
+                v-if="etaText"
+                class="text-xs text-muted"
+                role="status"
+                aria-live="polite"
+              >{{ t('etaRemaining').replace('{time}', etaText) }}</span>
+              <span class="text-sm text-accent font-bold tabular-nums">{{ progressPct }}%</span>
+            </span>
           </div>
-          <div class="w-full bg-paper-2/50 rounded-full h-2.5 overflow-hidden">
-            <div class="bg-accent h-2.5 rounded-full transition-all duration-500" :style="{ width: progressPct + '%' }"></div>
+          <!-- P2 完成通知开关：浏览器需用户手势才能申请权限，故放在进度区显眼处 -->
+          <div v-if="notifyPermission !== 'unsupported'" class="flex items-center gap-2 mb-3">
+            <button
+              v-if="!notifyEnabled"
+              type="button"
+              class="text-[11px] px-3 py-1 rounded-xl neu-raised hover:neu-sunken text-ink-2 hover:text-ink transition flex items-center gap-1.5"
+              :disabled="notifyPermission === 'denied'"
+              @click="enableNotify"
+            >
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span>{{ notifyPermission === 'denied' ? t('notifyBlocked') : t('notifyEnable') }}</span>
+            </button>
+            <button
+              v-else
+              type="button"
+              class="text-[11px] px-3 py-1 rounded-xl neu-sunken text-success hover:text-ink transition flex items-center gap-1.5"
+              @click="disableNotify"
+            >
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span>{{ t('notifyOn') }}</span>
+            </button>
+          </div>
+          <!-- P1 a11y：轮询更新的进度对屏幕阅读器也要可感知（role=progressbar） -->
+          <div
+            class="w-full neu-sunken rounded-full h-3.5 p-0.5 overflow-hidden"
+            role="progressbar"
+            :aria-valuenow="progressPct"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-label="t('progress')"
+          >
+            <div class="bg-accent h-full rounded-full transition-all duration-500 shadow-sm" :style="{ width: progressPct + '%' }"></div>
           </div>
 
           <!-- 失败信息 -->
-          <div v-if="taskFailed" class="mt-4 p-4 bg-red-950 border border-red-800 rounded-lg space-y-2">
-            <p class="text-red-400 font-medium">{{ t('genFailed') }}</p>
+          <div v-if="taskFailed" class="mt-4 p-4 panel-danger rounded-lg space-y-2" role="alert">
+            <p class="text-danger font-medium">{{ t('genFailed') }}</p>
             <p class="text-muted text-xs">{{ failedMessage || t('genFailedMsg') }}</p>
             <!-- v6.1 问题反馈：重试引导（偶发故障优先断点续传自愈，多次失败再上报） -->
-            <div class="pt-2 border-t border-red-800/60 space-y-2">
+            <div class="pt-2 border-t border-danger/30 space-y-2">
               <!-- 引导文案：网络/域名类 → 自查环境；确定性故障 → 建议直接反馈；其余 → 断点续传自愈 -->
-              <p class="text-xs leading-relaxed" :class="retryIneffective ? 'text-amber-400' : 'text-muted'">
+              <p class="text-xs leading-relaxed" :class="retryIneffective ? 'text-warning' : 'text-muted'">
                 {{ networkError ? t('fbNetworkHint') : deterministicError ? t('fbDeterministicHint') : t('fbRetryHint') }}
               </p>
               <div class="flex items-center gap-3 flex-wrap">
                 <button
-                  class="text-xs px-3 py-1.5 transition rounded-lg"
+                  class="text-xs px-3 py-1.5 transition rounded-lg flex items-center gap-1.5"
                   :class="retryIneffective ? 'bg-paper-2/40 border border-rule text-muted hover:text-ink-2' : 'bg-accent text-accent-ink hover:opacity-90'"
                   @click="onRetryTask"
                 >
-                  ↻ {{ t('fbRetryBtn') }}
+                  <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>{{ t('btnRetry') }}</span>
                 </button>
                 <span v-if="retryCount > 0" class="text-xs text-muted">{{ t('fbRetriedN').replace('{n}', String(retryCount)) }}</span>
               </div>
@@ -258,11 +329,34 @@ onUnmounted(() => {
               />
             </div>
           </div>
+          <!-- 任务不存在（已删除 / 链接失效）：明确终态 + 回列表入口 -->
+          <div v-else-if="taskNotFound" class="mt-4 p-4 panel-danger rounded-lg space-y-3" role="alert">
+            <p class="text-danger font-medium">{{ t('taskNotFound') }}</p>
+            <button
+              class="text-xs px-3 py-1.5 rounded-lg bg-paper-2/40 border border-rule text-ink-2 hover:text-ink transition"
+              @click="goToTaskList"
+            >
+              {{ t('tabList') }}
+            </button>
+          </div>
           <!-- 进度消息（HTML 渲染，来自后端安全文案） -->
-          <div v-else class="mt-4 text-sm text-muted" v-html="progressMessage"></div>
+          <!-- P1 a11y：轮询文案对屏幕阅读器播报，polite 避免打断用户操作 -->
+          <div
+            v-else
+            class="mt-4 text-sm text-muted"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            v-html="progressMessage"
+          ></div>
 
           <!-- 1.7：连接异常横幅（连续轮询失败 N 次后展示） -->
-          <div v-if="connectionLost" class="mt-3 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-400">
+          <div
+            v-if="connectionLost"
+            class="mt-3 rounded-lg panel-danger px-3 py-2 text-xs text-danger"
+            role="status"
+            aria-live="polite"
+          >
             {{ t('connLost') }}
           </div>
         </div>
@@ -309,9 +403,9 @@ onUnmounted(() => {
               @click="toggleCollapse(g.stepKey)"
             >
               <span class="text-sm transition-transform" :class="isCollapsed(g.stepKey) ? '' : 'rotate-90'">▸</span>
-              <span class="text-sm font-medium" :class="g.stepKey === checkpointGroup ? 'text-amber-400' : 'text-ink-2'">{{ t(stepLabelMap[g.stepKey] || g.stepKey) }}</span>
-              <span v-if="g.stepKey === checkpointGroup" class="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 shrink-0">⏸ {{ t('awaitingUser') }}</span>
-              <span class="text-xs text-muted">{{ g.items.length }} 项</span>
+              <span class="text-sm font-medium" :class="g.stepKey === checkpointGroup ? 'text-warning' : 'text-ink-2'">{{ t(stepLabelMap[g.stepKey] || g.stepKey) }}</span>
+              <span v-if="g.stepKey === checkpointGroup" class="badge-warning shrink-0">⏸ {{ t('awaitingUser') }}</span>
+              <span class="text-xs text-muted">{{ g.items.length }} {{ t('itemsUnit') }}</span>
               <span class="ml-auto text-xs text-muted">{{ isCollapsed(g.stepKey) ? t('ppExpand') : t('ppCollapse') }}</span>
             </button>
 
@@ -329,13 +423,29 @@ onUnmounted(() => {
         />
 
         <!-- 结果视频 -->
-        <div v-if="resultVideoVisible" class="mt-4 p-4 glass-card rounded-2xl">
-          <p class="text-green-400 text-sm font-medium mb-2">{{ t('videoComplete') }}</p>
-          <video :src="resultVideoSrc" controls class="w-full rounded-lg max-h-96"></video>
+        <div v-if="resultVideoVisible" class="mt-4 p-5 neu-card rounded-3xl border border-rule/30">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-3 h-3 rounded-full bg-success inline-block shadow-sm"></span>
+            <p class="text-success text-sm font-semibold">{{ t('videoComplete') }}</p>
+          </div>
+          <div class="neu-sunken rounded-2xl p-2 mb-4 bg-paper-3/40">
+            <video :src="resultVideoSrc" controls class="w-full rounded-xl max-h-96 shadow-sm"></video>
+          </div>
+          <!-- Logikcheck Befund 4：结果区提供下载出口（后端 download=1 走附件下发） -->
+          <div class="mt-3 flex items-center justify-between">
+            <a
+              :href="resultVideoSrc + '?download=1'"
+              download
+              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold neu-raised hover:neu-sunken text-accent transition glow-btn"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              {{ t('downloadVideo') }}
+            </a>
+          </div>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs">
-            <span>🎉</span>
+            <span class="w-2 h-2 rounded-full bg-success inline-block"></span>
             <a href="https://video.lichuanyang.top/learn" target="_blank" rel="noopener" class="text-accent hover:text-ink transition-colors">{{ t('doneTipTiktok') }}</a>
-            <span class="text-ink/10 select-none">·</span>
+            <span class="text-rule select-none">·</span>
             <a href="https://video.lichuanyang.top/learn" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">{{ t('doneTipMore') }}</a>
           </div>
         </div>
@@ -355,14 +465,21 @@ onUnmounted(() => {
             <a href="https://video.lichuanyang.top/learn" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">{{ t('appScenarios') }}</a>
             <a href="https://video.lichuanyang.top/zh/guides/free-ai-tools" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">{{ t('agentMoreTools') }}</a>
             <a href="https://github.com/lcy362/flint" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">{{ t('flintLinkLabel') }}</a>
-            <a href="https://github.com/lcy362/agnes-video-generator" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">📖 GitHub</a>
+            <a href="https://github.com/lcy362/agnes-video-generator" target="_blank" rel="noopener" class="text-muted hover:text-ink-2 transition-colors">GitHub</a>
           </div>
         </div>
       </main>
     </div>
 
     <!-- 图片放大弹窗 -->
-    <div v-if="imageModalUrl" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer" @click="closeImageModal">
+    <div
+      v-if="imageModalUrl"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="t('imagePreviewTitle')"
+      @click="closeImageModal"
+    >
       <img :src="imageModalUrl" class="max-w-[90vw] max-h-[90vh] rounded-lg" />
     </div>
   </div>

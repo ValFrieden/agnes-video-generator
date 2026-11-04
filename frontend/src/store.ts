@@ -3,13 +3,15 @@ import type { TaskType, VoiceCatalog, Workspace } from './types'
 
 // 全局应用状态（模块级 reactive，跨组件共享）
 export const appState = reactive({
-  // 顶层视图：创建 / 任务列表 / 产物画廊 / 简易模式 / 任务进度页
-  view: 'create' as 'create' | 'list' | 'simple' | 'gallery' | 'progress',
+  // 顶层视图：创建 / 任务列表 / 产物画廊 / 简易模式 / 知识库 / 任务进度页
+  view: 'create' as 'create' | 'list' | 'simple' | 'gallery' | 'knowledge' | 'progress',
   // 进度页当前任务（首次执行与任务列表进入复用同一页面）
   progressTaskId: null as string | null,
-  progressOrigin: 'create' as 'create' | 'list' | 'gallery',
-  // 任务类型 tab
+  progressOrigin: 'create' as 'create' | 'list' | 'gallery' | 'simple',
+  // 任务类型 tab（当前查看/运行中的任务类型）
   currentTaskType: 'creative' as TaskType | string,
+  // 创建面板中选中的任务类型 tab（Logikcheck Befund 10: 与 currentTaskType 分离，避免查看旧任务时意外篡改创建表单选择）
+  createTaskType: 'creative' as TaskType | string,
   // 运行中任务
   isTaskRunning: false,
   currentTaskId: null as string | null,

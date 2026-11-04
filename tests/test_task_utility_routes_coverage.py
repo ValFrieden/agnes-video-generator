@@ -360,13 +360,27 @@ class TestResume:
         assert len(launched) == 1
         assert "t1" in app_state.active_pipelines
 
-    def test_resume_replaces_stopped(self, client, monkeypatch):
+    def test_resume_replaces_stopped_while_still_queued(self, client, monkeypatch):
+        # Eine gestoppte Aufgabe in der Warteschlange hält keinen Slot und schreibt
+        # nichts: Ersetzen ist harmlos (die alte bricht beim Slot-Erwerb ab).
         _reset_state(monkeypatch, states={"t1": _Tasks.simple})
         _patch_runtime(monkeypatch)
         app_state.active_pipelines["t1"] = _FakePipeline(stopped=True)
+        app_state._queued_tasks["t1"] = 1
         resp = client.post("/api/tasks/t1/resume")
         assert resp.status_code == 200
         assert "t1" in app_state.active_pipelines
+
+    def test_resume_refused_while_stopped_pipeline_still_runs(self, client, monkeypatch):
+        # Logikcheck Befund 7: Resume ersetzte eine gestoppte, aber noch laufende
+        # Pipeline, danach schrieben zwei Pipelines in denselben Ordner.
+        _reset_state(monkeypatch, states={"t1": _Tasks.simple})
+        _patch_runtime(monkeypatch)
+        old = _FakePipeline(stopped=True)
+        app_state.active_pipelines["t1"] = old
+        resp = client.post("/api/tasks/t1/resume")
+        assert resp.status_code == 409
+        assert app_state.active_pipelines["t1"] is old
 
 
 # ═══════════════════════════════════════════════════
@@ -503,10 +517,19 @@ class TestMode:
 
 class TestSweep:
     def _sweep(self, monkeypatch, fake_return, protect_set_default):
-        monkeypatch.setattr(
-            artifacts_mod, "sweep_stale_tasks",
-            lambda age_days=7, protect_statuses=None: dict(fake_return),
-        )
+        # Logikcheck Befund 1: das echte sweep_stale_tasks erhält active_task_ids
+        # und filtert VOR dem Löschen — der Stub bildet genau diesen Kontrakt ab.
+        captured = {}
+
+        def _fake(age_days=7, protect_statuses=None, active_task_ids=None):
+            captured["active_task_ids"] = active_task_ids
+            out = dict(fake_return)
+            if active_task_ids:
+                out["swept"] = [d for d in out["swept"] if d not in active_task_ids]
+            return out
+
+        self.captured_sweep_kwargs = captured
+        monkeypatch.setattr(artifacts_mod, "sweep_stale_tasks", _fake)
         monkeypatch.setattr(
             artifacts_mod, "_DEFAULT_PROTECT_STATUSES", protect_set_default
         )
@@ -523,8 +546,11 @@ class TestSweep:
         resp = client.post("/api/tasks/sweep")
         body = resp.json()
         assert resp.status_code == 200
-        assert body["swept"] == ["stale"]  # act/que 被活跃保护过滤
+        # act/que 被活跃保护过滤
+        assert body["swept"] == ["stale"]
         assert set(body["protected"]) == {"p1", "act", "que"}
+        # 活跃集合在删除前传给 sweep（而非事后剔除）
+        assert self.captured_sweep_kwargs["active_task_ids"] == {"act", "que"}
 
     def test_sweep_none_protect(self, client, monkeypatch):
         _reset_state(monkeypatch)

@@ -4,11 +4,16 @@ import { t, currentLang } from '@/i18n'
 import { appState } from '@/store'
 import { useVoice } from '@/composables/useVoice'
 import { useTaskSubmit } from '@/composables/useTaskSubmit'
+import { useDraft } from '@/composables/useDraft'
 import { copyText } from '@/utils/clipboard'
 import * as api from '@/api'
 import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import SubtitleConfig from '@/components/shared/SubtitleConfig.vue'
 import PresetPicker from '@/components/presets/PresetPicker.vue'
+import AspectPicker from '@/components/shared/AspectPicker.vue'
+import StylePresetChips from '@/components/shared/StylePresetChips.vue'
+import NeuStepper from '@/components/shared/NeuStepper.vue'
+import NeuSwitch from '@/components/shared/NeuSwitch.vue'
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -25,12 +30,41 @@ const form = reactive({
   scenePrompts: '',
   style: '',
   resolution: '768x1152',
+  // v7.1 关键帧模式（I2V-first）：逐场景先出关键帧静图再 i2v 动画
+  keyframes: false,
+  // v7.2 R8 质量闸：生成后逐场景免费 VLM 检查 + FAIL 自动重生成一次
+  qc: false,
 })
 
 const promptPanelVisible = ref(false)
 const promptSystem = ref('')
 const promptUser = ref('')
 const copyBtnText = ref('')
+
+// Logikcheck Befund 6: Entwurf wie im Kreativformular lokal sichern —
+// Aufgabentyp-Wechsel (unmount) und Seiten-Reload verlieren sonst lange Texte.
+const draft = useDraft('poetry')
+;(() => {
+  const d = draft.load()
+  if (!d) return
+  if (typeof d.name === 'string') form.name = d.name
+  if (typeof d.poem === 'string') form.poem = d.poem
+  if (typeof d.sceneCount === 'number') form.sceneCount = d.sceneCount
+  if (typeof d.uniform === 'boolean') form.uniform = d.uniform
+  if (typeof d.uniformDuration === 'number') form.uniformDuration = d.uniformDuration
+  if (Array.isArray(d.independentDurations)) form.independentDurations = d.independentDurations
+  if (typeof d.scenePrompts === 'string') form.scenePrompts = d.scenePrompts
+  if (typeof d.style === 'string') form.style = d.style
+  if (typeof d.resolution === 'string') form.resolution = d.resolution
+  if (typeof d.keyframes === 'boolean') form.keyframes = d.keyframes
+  if (typeof d.qc === 'boolean') form.qc = d.qc
+})()
+draft.autoSave(form, (v) => ({
+  name: v.name, poem: v.poem, sceneCount: v.sceneCount,
+  uniform: v.uniform, uniformDuration: v.uniformDuration,
+  independentDurations: v.independentDurations, scenePrompts: v.scenePrompts,
+  style: v.style, resolution: v.resolution, keyframes: v.keyframes, qc: v.qc,
+}))
 
 function parseResolution(val: string) {
   const [w, h] = val.split('x').map(Number)
@@ -102,6 +136,8 @@ async function submitPoetry() {
       fd.append('video_width', String(res.width))
       fd.append('video_height', String(res.height))
       fd.append('video_duration', '30')
+      fd.append('generate_keyframes', String(form.keyframes))
+      fd.append('qc_enabled', String(form.qc))
 
       fd.append('duration_source', 'manual')
       fd.append('scene_count', String(form.sceneCount))
@@ -135,6 +171,8 @@ async function submitPoetry() {
       return fd
     },
     extraEvent: ev,
+    // Erfolgreich abgeschickt → Entwurf nicht wiederherstellen
+    onSuccess: () => draft.clear(),
   })
 }
 </script>
@@ -159,13 +197,13 @@ async function submitPoetry() {
       <div class="mb-4 p-4 rounded-xl bg-paper-2/30 border border-rule/50">
         <h3 class="text-sm font-medium text-accent mb-3">{{ t('sceneConfig') }}</h3>
         <p class="text-xs text-muted mb-3">{{ t('sourceManualHint') }}</p>
-        <div class="mb-3">
-          <label class="block text-xs text-muted mb-1">{{ t('sceneCount') }}</label>
-          <input v-model.number="form.sceneCount" type="number" min="1" max="30" class="w-24 glass-input rounded-lg px-3 py-2 text-sm text-ink" />
+        <div class="mb-4">
+          <label class="block text-xs text-muted font-medium mb-1.5">{{ t('sceneCount') }}</label>
+          <NeuStepper v-model="form.sceneCount" :min="1" :max="30" />
         </div>
         <div class="mb-3">
-          <label class="block text-xs text-muted mb-1.5">{{ t('durationMode') }}</label>
-          <div class="flex gap-2 mb-2">
+          <label class="block text-xs text-muted font-medium mb-2">{{ t('durationMode') }}</label>
+          <div class="flex gap-2 mb-3">
             <label class="flex items-center gap-2 text-sm text-muted cursor-pointer">
               <input v-model="form.uniform" type="radio" :value="true" class="text-accent" />
               <span>{{ t('uniformDuration') }}</span>
@@ -176,14 +214,12 @@ async function submitPoetry() {
             </label>
           </div>
           <div v-if="form.uniform">
-            <input v-model.number="form.uniformDuration" type="number" min="2" max="30" class="w-24 glass-input rounded-lg px-3 py-2 text-sm text-ink" />
-            <span class="text-xs text-muted ml-1">{{ t('seconds') }}</span>
+            <NeuStepper v-model="form.uniformDuration" :min="2" :max="30" :unit="t('seconds') || 's'" />
           </div>
           <div v-else class="space-y-2">
-            <div v-for="i in form.sceneCount" :key="i" class="flex items-center gap-2 mb-1.5">
-              <span class="text-xs text-muted w-12">{{ t('scene_') }}{{ i }}</span>
-              <input v-model.number="form.independentDurations[i - 1]" type="number" min="2" max="30" class="w-20 glass-input rounded-lg px-3 py-1.5 text-sm text-ink" />
-              <span class="text-xs text-muted">{{ t('seconds') }}</span>
+            <div v-for="i in form.sceneCount" :key="i" class="flex items-center gap-3 mb-1.5">
+              <span class="text-xs text-muted w-14">{{ t('scene_') }} {{ i }}</span>
+              <NeuStepper v-model="form.independentDurations[i - 1]" :min="2" :max="30" :unit="t('seconds') || 's'" />
             </div>
           </div>
         </div>
@@ -211,9 +247,10 @@ async function submitPoetry() {
       </div>
 
       <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('visualStyle') }}</label>
+        <label class="block text-sm text-muted font-medium mb-1.5">{{ t('visualStyle') }}</label>
+        <StylePresetChips v-model="form.style" class="mb-2" />
         <div class="flex items-center gap-2">
-          <input v-model="form.style" class="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
+          <input v-model="form.style" :placeholder="t('visualStyle')" class="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
           <PresetPicker v-model="form.style" />
         </div>
       </div>
@@ -222,15 +259,27 @@ async function submitPoetry() {
     <!-- Advanced Config -->
     <div class="glass-card rounded-2xl p-6 mb-4">
       <h2 class="text-lg font-semibold text-accent mb-4">{{ t('advancedSettings') }}</h2>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-        <div>
-          <label class="block text-sm text-muted mb-1.5">{{ t('resolution') }}</label>
-          <select v-model="form.resolution" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
-            <option value="768x1152">{{ t('resPortrait') }}</option>
-            <option value="1280x720">{{ t('resLandscape') }}</option>
-            <option value="1024x1024">{{ t('resSquare') }}</option>
-          </select>
+      <div class="mb-5">
+        <label class="block text-sm text-muted font-medium mb-2">{{ t('resolution') }}</label>
+        <AspectPicker v-model="form.resolution" />
+      </div>
+
+      <!-- v7.1 关键帧模式（I2V-first） -->
+      <div class="mb-3 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+        <div class="mr-4">
+          <span class="block text-sm text-ink-2 font-medium">{{ t('kfToggleLabel') }}</span>
+          <span class="block text-xs text-muted mt-0.5 leading-relaxed">{{ t('kfToggleHint') }}</span>
         </div>
+        <NeuSwitch v-model="form.keyframes" />
+      </div>
+
+      <!-- v7.2 R8 质量闸（opt-in） -->
+      <div class="mb-2 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
+        <div class="mr-4">
+          <span class="block text-sm text-ink-2 font-medium">{{ t('qcToggleLabel') }}</span>
+          <span class="block text-xs text-muted mt-0.5 leading-relaxed">{{ t('qcToggleHint') }}</span>
+        </div>
+        <NeuSwitch v-model="form.qc" />
       </div>
     </div>
 

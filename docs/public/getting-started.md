@@ -171,3 +171,5 @@ The agent will read `AGENTS.md` (a comprehensive deployment guide) and handle: e
 > "Run the deployment verification checks."
 
 The agent will execute the 4-layer checklist from `AGENTS.md` (connectivity → static analysis → endpoint testing → subtitle feature) and report results.
+
+> 📖 Looking for a more hands-on beginner walkthrough (zero to first video)? See the [Beginner's Guide (中文)](beginner_guide.md).

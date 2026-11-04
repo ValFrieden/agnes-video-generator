@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, Form, HTTPException
 
 from core.config import api_key_missing_msg, get_api_key
-from core.i18n_backend import translate
+from core.i18n_backend import get_current_lang, translate
 from core.pipelines import ALL_CHECKPOINTS, compute_current_checkpoint
 from core.task_manager import TaskManager
 from models.task import (
@@ -78,6 +78,7 @@ async def list_tasks(limit: int = 0, offset: int = 0, status: str = ""):
             # 诗歌视频
             elif isinstance(state, PoetryVideoTask):
                 t["poem_text"] = state.poem_text[:100] if state.poem_text else ""
+                t["scene_count"] = state.scene_count or len(state.scenes or [])
             # 简单图片
             elif isinstance(state, SimpleImageTask):
                 t["prompt"] = state.prompt[:100] if state.prompt else ""
@@ -262,6 +263,17 @@ async def resume_task(task_id: str):
         if task_id in app_state.active_pipelines:
             existing = app_state.active_pipelines[task_id]
             if existing._stop_event.is_set():
+                # Logikcheck Befund 7: Eine gestoppte Pipeline, die ihren Slot schon hält,
+                # läuft bis zum nächsten sicheren Punkt weiter. Sie jetzt zu ersetzen ließe
+                # zwei Pipelines in denselben Ordner schreiben. Nur wenn sie noch in der
+                # Warteschlange steht, ist Ersetzen harmlos: sie bricht beim Slot-Erwerb ab.
+                if task_id not in app_state._queued_tasks:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=translate(
+                            "task.still_stopping", get_current_lang(),
+                        ),
+                    )
                 logger.info("[Resume] Replacing stopped pipeline for task %s",
                             safe_log(task_id))
                 del app_state.active_pipelines[task_id]
@@ -276,6 +288,32 @@ async def resume_task(task_id: str):
 
         if state.status == StepStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="Task is already completed")
+
+        # Logikcheck Befund 1：简单图片任务是同步生成的（image_routes），没有对应
+        # 流水线——放行会让 create_pipeline_for_type 落入默认分支启动错误的
+        # CreativeVideoPipeline。明确拒绝，前端对 image 类型也只展示「查看」。
+        if state.task_type == TaskType.IMAGE:
+            raise HTTPException(
+                status_code=400,
+                detail=translate(
+                    "task.image_no_resume",
+                    getattr(state, "ui_language", "") or "zh",
+                ),
+            )
+
+        # Logikcheck Befund 2: ein ausstehender manueller Prüfpunkt darf vom
+        # generischen Resume nicht übersprungen werden — übersprungene Schritte
+        # erreichen _maybe_pause nie, die Freigabe würde still umgangen.
+        # Freigabe ausschließlich über den dedizierten Checkpoint-Endpunkt.
+        mc = getattr(state, "manual_config", None)
+        if mc is not None and mc.enabled and mc.current_checkpoint:
+            raise HTTPException(
+                status_code=409,
+                detail=translate(
+                    "task.resume_blocked_checkpoint",
+                    getattr(state, "ui_language", "") or "zh",
+                ),
+            )
 
         logger.info("[Resume] Starting resume for task %s, type=%s, status=%s",
                     safe_log(task_id), state.task_type, state.status)
@@ -392,6 +430,10 @@ async def switch_task_mode(task_id: str, mode: str = Form(...)):
     was_paused = mc.enabled and state.status == StepStatus.PENDING and bool(mc.current_checkpoint)
     mc.pause_points = []
     mc.current_checkpoint = ""
+    # Logikcheck Befund 5: enabled mit deaktivieren — die Liste berechnet den
+    # angezeigten Modus aus genau diesem Feld, sonst bleibt das „Manuell"-Badge
+    # stehen, obwohl fortan automatisch läuft.
+    mc.enabled = False
     tm.update_state(
         manual_config=mc,
         current_status="resumed",
@@ -431,8 +473,14 @@ async def sweep_stale_tasks_endpoint(age_days: int = 7, protect: str = ""):
             protect_set = {
                 StepStatus(s.strip()) for s in protect.split(",") if s.strip()
             }
-    result = sweep_stale_tasks(age_days=age_days, protect_statuses=protect_set)
-    result["swept"] = [d for d in result["swept"] if d not in active_ids]
+    result = sweep_stale_tasks(
+        age_days=age_days,
+        protect_statuses=protect_set,
+        # Logikcheck Befund 1: aktive Aufgaben VOR dem Löschen übergeben — der
+        # bisherige Filter griff erst nach dem Löschen und kosmetisierte nur die
+        # Antwort, während ein Verzeichnis bereits entfernt sein konnte.
+        active_task_ids=active_ids,
+    )
     result["protected"] = result["protected"] + sorted(active_ids)
     logger.info(f"[Cleanup] Sweep finished: swept={result['swept']}, "
                 f"protected={len(result['protected'])}, errors={len(result['errors'])}")

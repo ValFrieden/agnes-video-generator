@@ -72,6 +72,8 @@ def conf_file(tmp_path, monkeypatch):
     """将 CONFIG_FILE 指向临时目录，返回写配置辅助函数。"""
     monkeypatch.setattr(config, "CONFIG_DIR", str(tmp_path))
     monkeypatch.setattr(config, "CONFIG_FILE", str(tmp_path / "config.json"))
+    # 隔离项目根 .env：_collect_env_keys 会直接读取 .env 中的真实 Key
+    monkeypatch.setattr(config, "_dotenv_value", lambda var: "")
 
     def write(payload: dict):
         (tmp_path / "config.json").write_text(
