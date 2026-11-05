@@ -10,12 +10,19 @@ const isHovered = ref(false)
 </script>
 
 <template>
-  <span class="relative inline-flex items-center ml-1 group" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
+  <span
+    class="relative inline-flex items-center ml-1 group"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
+  >
     <button
       type="button"
-      class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-muted hover:text-ink hover:bg-paper-3 transition border border-rule/60"
+      class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] text-muted hover:text-ink hover:bg-paper-3 transition border border-rule/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
       :aria-label="title || text"
-      tabindex="0"
+      :aria-expanded="isHovered"
+      @focus="isHovered = true"
+      @blur="isHovered = false"
+      @click.stop="isHovered = !isHovered"
     >
       ?
     </button>

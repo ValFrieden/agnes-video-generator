@@ -393,7 +393,12 @@ initCollapse()
           <button class="text-xs text-accent hover:text-ink transition whitespace-nowrap cursor-pointer" @click="openAddProvider()">
             {{ t('providerAddBtn') }}
           </button>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('apikey')">
+          <button
+            class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer"
+            :aria-label="t('collapse')"
+            :aria-expanded="!collapsed.apikey"
+            @click="toggleConfigPanel('apikey')"
+          >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
           </button>
         </div>
@@ -687,7 +692,12 @@ initCollapse()
         <h2 class="text-lg font-semibold text-accent">{{ t('modelTitle') }}</h2>
         <div class="flex items-center gap-2">
           <span class="text-xs px-2 py-1 rounded-full bg-paper-2 text-muted">{{ t('modelSyncIdle') }}</span>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('model')">
+          <button
+            class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer"
+            :aria-label="t('collapse')"
+            :aria-expanded="!collapsed.model"
+            @click="toggleConfigPanel('model')"
+          >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
           </button>
         </div>
@@ -846,7 +856,12 @@ initCollapse()
           <span :class="appState.activeWorkspace ? 'badge-success' : 'text-xs px-2 py-1 rounded-full bg-paper-2 text-muted'">
             {{ appState.activeWorkspace ? t('workspaceActive') : t('workspaceNone') }}
           </span>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('workspace')">
+          <button
+            class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer"
+            :aria-label="t('collapse')"
+            :aria-expanded="!collapsed.workspace"
+            @click="toggleConfigPanel('workspace')"
+          >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
           </button>
         </div>
@@ -920,7 +935,12 @@ initCollapse()
           <span :class="gaOptOut ? 'badge-success' : 'text-xs px-2 py-1 rounded-full bg-paper-2 text-muted'">
             {{ gaOptOut ? t('gaStatOff') : t('gaStatOn') }}
           </span>
-          <button class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer" @click="toggleConfigPanel('privacy')">
+          <button
+            class="text-xs text-muted hover:text-ink-2 transition px-2 py-1 rounded cursor-pointer"
+            :aria-label="t('collapse')"
+            :aria-expanded="!collapsed.privacy"
+            @click="toggleConfigPanel('privacy')"
+          >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
           </button>
         </div>

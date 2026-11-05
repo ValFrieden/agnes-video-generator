@@ -101,7 +101,7 @@ function onMainBtn(task: TaskListItem) {
     <div
       v-for="task in tasks"
       :key="task.task_id"
-      class="neu-raised rounded-2xl p-4 flex items-center justify-between transition-all hover:translate-y-[-1px] border border-rule/20 mb-3"
+      class="neu-raised rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all hover:translate-y-[-1px] border border-rule/20 mb-3"
     >
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-1.5">
@@ -120,7 +120,7 @@ function onMainBtn(task: TaskListItem) {
         <p class="text-xs text-muted mt-0.5">{{ task.task_id }}{{ taskExtra(task) }}</p>
         <p v-if="taskDesc(task)" class="text-xs text-muted mt-1 truncate max-w-sm">{{ taskDesc(task) }}</p>
       </div>
-      <div class="flex items-center gap-2.5 ml-4 shrink-0">
+      <div class="flex flex-wrap items-center gap-2 md:gap-2.5 md:ml-4 shrink-0">
         <span class="text-xs px-2.5 py-1 rounded-full neu-sunken font-medium" :class="statusTextCls(task.status || '')">
           {{ t(statusLabelKey(task.status || '')) }}
         </span>

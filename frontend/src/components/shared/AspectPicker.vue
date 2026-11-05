@@ -41,12 +41,15 @@ function getRatioClass(ratio?: string): string {
 </script>
 
 <template>
-  <div class="grid grid-cols-3 gap-2 sm:gap-3">
+  <div class="grid grid-cols-3 gap-2 sm:gap-3" role="radiogroup" aria-label="Aspect ratio">
     <button
       v-for="opt in options"
       :key="opt.value"
       type="button"
-      class="group relative flex flex-col items-center justify-center p-3 rounded-2xl text-center transition-all duration-200 cursor-pointer"
+      role="radio"
+      :aria-checked="modelValue === opt.value"
+      :aria-label="t(opt.label || '') + ' ' + (opt.ratio || '')"
+      class="group relative flex flex-col items-center justify-center p-3 rounded-2xl text-center transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       :class="
         modelValue === opt.value
           ? 'neu-sunken border border-accent/40 text-accent ring-1 ring-accent/30'

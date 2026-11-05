@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { t, tf } from '@/i18n'
 import { useToast } from '@/composables/useToast'
+import { useModalA11y } from '@/composables/useModalA11y'
 
 interface SearchItem {
   document_id?: number
@@ -174,6 +175,8 @@ function closeModal() {
   activeDoc.value = null
 }
 
+const { containerRef: docModalRef } = useModalA11y(isModalOpen, closeModal)
+
 function getCategoryColor(category: string): string {
   // P0: vorher rohe Tailwind-Palette (purple-400/blue-400/neutral-300) — im hellen
   // Thema zu blass. Jetzt semantische Badge-Klassen aus style.css, die aus den
@@ -299,6 +302,7 @@ onMounted(() => {
         <button
           v-if="searchQuery"
           class="absolute right-3.5 top-3 text-muted hover:text-ink text-sm px-1.5 py-0.5 rounded transition flex items-center justify-center cursor-pointer"
+          :aria-label="t('clear')"
           @click="searchQuery = ''; results = []; hasSearched = false"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -464,7 +468,11 @@ onMounted(() => {
     <!-- Document Preview Modal -->
     <div
       v-if="isModalOpen"
+      ref="docModalRef"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="activeDoc?.title || t('knowledgeDocViewerTitle')"
       @click.self="closeModal"
     >
       <div class="glass-card rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl border border-rule/50 bg-paper-2">
@@ -481,6 +489,7 @@ onMounted(() => {
           </div>
           <button
             class="text-muted hover:text-ink text-sm p-1.5 rounded-lg hover:bg-paper-3 transition cursor-pointer flex items-center justify-center"
+            :aria-label="t('close')"
             @click="closeModal"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>

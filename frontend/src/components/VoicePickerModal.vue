@@ -43,28 +43,40 @@ const selectedVoiceName = computed(() => {
           :value="query"
           type="text"
           :placeholder="t('searchVoice')"
+          :aria-label="t('searchVoice')"
           @input="onVoiceSearch(($event.target as HTMLInputElement).value)"
         />
       </div>
-      <div class="vp-tabs">
+      <div class="vp-tabs" role="tablist" :aria-label="t('selectVoice')">
         <div
           v-for="g in appState.voiceCatalog?.languages || []"
           :key="g.code"
-          class="vp-tab"
+          class="vp-tab focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           :class="{ active: g.code === activeLang }"
+          role="tab"
+          tabindex="0"
+          :aria-selected="g.code === activeLang"
           @click="activeLang = g.code"
+          @keydown.enter.prevent="activeLang = g.code"
+          @keydown.space.prevent="activeLang = g.code"
         >
           {{ g.label }}<span class="vp-count">{{ g.count }}</span>
         </div>
       </div>
-      <div class="vp-grid">
+      <div class="vp-grid" role="listbox" :aria-label="t('selectVoice')">
         <div v-if="!filteredVoices.length" class="vp-empty">{{ t('voiceEmpty') }}</div>
         <div
           v-for="v in filteredVoices"
           :key="v.id"
-          class="vp-card"
+          class="vp-card focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           :class="{ selected: v.id === selectedId }"
+          role="option"
+          tabindex="0"
+          :aria-selected="v.id === selectedId"
+          :aria-label="v.name + ', ' + v.region"
           @click="selectVoice(v.id)"
+          @keydown.enter.prevent="selectVoice(v.id)"
+          @keydown.space.prevent="selectVoice(v.id)"
         >
           <div class="vp-card-top">
             <span class="vp-card-name">{{ v.name }}</span>

@@ -25,9 +25,16 @@ function toggle() {
 
 <template>
   <div
-    class="inline-flex items-center justify-between gap-3 cursor-pointer select-none"
+    role="switch"
+    :tabindex="disabled ? -1 : 0"
+    :aria-checked="modelValue"
+    :aria-label="label || hint || undefined"
+    :aria-disabled="disabled"
+    class="inline-flex items-center justify-between gap-3 cursor-pointer select-none rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     :class="{ 'opacity-50 cursor-not-allowed': disabled }"
     @click="toggle"
+    @keydown.space.prevent="toggle"
+    @keydown.enter.prevent="toggle"
   >
     <div v-if="label || hint">
       <div v-if="label" class="text-sm font-medium text-ink-2">{{ label }}</div>

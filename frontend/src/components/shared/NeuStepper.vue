@@ -38,12 +38,17 @@ function onInput(e: Event) {
 </script>
 
 <template>
-  <div class="inline-flex items-center gap-1.5 p-1 rounded-2xl neu-sunken border border-rule/40 select-none">
+  <div
+    role="group"
+    aria-label="Numeric stepper"
+    class="inline-flex items-center gap-1.5 p-1 rounded-2xl neu-sunken border border-rule/40 select-none"
+  >
     <!-- Decrement Button (-) -->
     <button
       type="button"
-      class="w-8 h-8 rounded-xl neu-raised flex items-center justify-center text-sm font-bold text-ink-2 hover:text-ink transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+      class="w-8 h-8 rounded-xl neu-raised flex items-center justify-center text-sm font-bold text-ink-2 hover:text-ink transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       :disabled="modelValue <= min"
+      aria-label="Decrease"
       @click="dec"
     >
       −
@@ -56,6 +61,11 @@ function onInput(e: Event) {
         :value="modelValue"
         :min="min"
         :max="max"
+        role="spinbutton"
+        :aria-valuenow="modelValue"
+        :aria-valuemin="min"
+        :aria-valuemax="max"
+        aria-label="Value"
         class="w-12 bg-transparent text-center text-sm font-semibold text-ink focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         @change="onInput"
       />
@@ -65,8 +75,9 @@ function onInput(e: Event) {
     <!-- Increment Button (+) -->
     <button
       type="button"
-      class="w-8 h-8 rounded-xl neu-raised flex items-center justify-center text-sm font-bold text-ink-2 hover:text-ink transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+      class="w-8 h-8 rounded-xl neu-raised flex items-center justify-center text-sm font-bold text-ink-2 hover:text-ink transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       :disabled="modelValue >= max"
+      aria-label="Increase"
       @click="inc"
     >
       +

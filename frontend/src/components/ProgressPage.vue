@@ -480,7 +480,7 @@ onUnmounted(() => {
       :aria-label="t('imagePreviewTitle')"
       @click="closeImageModal"
     >
-      <img :src="imageModalUrl" class="max-w-[90vw] max-h-[90vh] rounded-lg" />
+      <img :src="imageModalUrl" :alt="t('imagePreviewTitle')" class="max-w-[90vw] max-h-[90vh] rounded-lg" />
     </div>
   </div>
 </template>

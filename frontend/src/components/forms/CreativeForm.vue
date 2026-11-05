@@ -214,13 +214,13 @@ async function submitCreative() {
       <h2 class="text-lg font-semibold text-accent mb-4">{{ t('creativeSettings') }}</h2>
 
       <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('taskName') }}</label>
-        <input v-model="form.name" :placeholder="t('taskNamePlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
+        <label class="block text-sm text-muted mb-1.5" for="cr-name">{{ t('taskName') }}</label>
+        <input id="cr-name" v-model="form.name" :placeholder="t('taskNamePlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
       </div>
 
       <div class="mb-4">
-        <label class="block text-sm text-muted mb-1.5">{{ t('ideaLabel') }} (idea) <span class="text-red-400">*</span></label>
-        <textarea v-model="form.idea" rows="4" :placeholder="t('ideaPlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm resize-y text-ink placeholder-muted"></textarea>
+        <label class="block text-sm text-muted mb-1.5" for="cr-idea">{{ t('ideaLabel') }} (idea) <span class="text-red-400">*</span></label>
+        <textarea id="cr-idea" v-model="form.idea" rows="4" :placeholder="t('ideaPlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm resize-y text-ink placeholder-muted"></textarea>
       </div>
 
       <!-- Scene Config -->
@@ -273,12 +273,12 @@ async function submitCreative() {
 
       <div class="mb-4">
         <div class="flex items-center justify-between mb-1.5">
-          <label class="block text-sm text-muted font-medium">{{ t('visualStyle') }}</label>
+          <label class="block text-sm text-muted font-medium" for="cr-style">{{ t('visualStyle') }}</label>
           <InfoTooltip text="Задайте художественный стиль сцен: кинематограф, аниме, 3D анимация, живопись или фотореализм." />
         </div>
         <StylePresetChips v-model="form.style" class="mb-2" />
         <div class="flex items-center gap-2">
-          <input v-model="form.style" :placeholder="t('visualStyle')" class="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
+          <input id="cr-style" v-model="form.style" :placeholder="t('visualStyle')" class="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
           <PresetPicker v-model="form.style" />
         </div>
       </div>
@@ -306,8 +306,8 @@ async function submitCreative() {
           </div>
           <p class="text-[11px] text-zinc-400 mt-0.5">Генерация контактных листов (25/50/75%) перед чистовым рендером. Позволяет отсеять брак без перерасхода ресурсов.</p>
         </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" v-model="form.draftMode" class="sr-only peer" />
+        <label for="cr-draft-mode" class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="cr-draft-mode" v-model="form.draftMode" class="sr-only peer" />
           <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
         </label>
       </div>
@@ -324,10 +324,10 @@ async function submitCreative() {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <label class="block text-sm text-muted font-medium">{{ t('chainingMode') }}</label>
+            <label class="block text-sm text-muted font-medium" for="cr-chaining">{{ t('chainingMode') }}</label>
             <InfoTooltip text="Keyframes: сцепка по конечному кадру предыдущей сцены. Ti2vid: text+image в видео. None: независимые сцены." />
           </div>
-          <select v-model="form.chaining" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
+          <select id="cr-chaining" v-model="form.chaining" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
             <option value="keyframes">{{ t('modeKeyframes') }}</option>
             <option value="ti2vid">{{ t('modeTi2vid') }}</option>
             <option value="none">{{ t('modeNone') }}</option>
@@ -397,6 +397,7 @@ async function submitCreative() {
     <button
       class="w-full py-3.5 bg-accent text-accent-ink hover:bg-accent/90 rounded-xl text-base font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed glow-btn"
       :disabled="submitting"
+      :aria-busy="submitting"
       @click="submitCreative"
     >
       {{ submitting ? t('submitting') : t('startGenerate') }}

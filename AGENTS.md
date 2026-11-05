@@ -24,6 +24,7 @@
 >   2. **必须附带参考图**：在向视频模型（Veo / Google Flow / Agnes Video）提交任务时，**绝对禁止纯文字跑视频（No pure Text-to-Video）**！必须强制附加对应分镜的静态图（Image-to-Video）以及主角的参考图/角色卡！
 >   3. **主角样貌绝不漂移**：主角 Valeri 的形象必须严格锁定（高加索人种 / 浅色皮肤 / 棕发 / 灰绿眼 / 胡茬 / 无眼镜 / 闭嘴），绝不允许生成其他肤色或样貌漂移的随意角色！
 >   4. **单段确认流程**：严格单段生成，展示 25%/50%/75% 关键帧质检图，用户批准后再推进下一段！
+>   5. **绝对风格锁定（Absolute Style Invariance / Запрет смены стиля）**：严禁在同一个视频/项目中跨风格跳跃！若视频以真人实拍电影质感（35mm Cinematic Live-Action, Kodak Vision3 500T, authentic human actor）开篇，则全片所有角色、道具与场景**必须 100% 保持真人实拍电影风格**，绝对严禁在中途切换为卡通、手绘、2D 动画、动漫或 3D CGI！所有镜头必须处于同一个真实物理视觉宇宙！
 > - **剧本与分镜标准（Scenario Director）**：`core/screenwriter/scenario_director.py` + `scripts/create_scenario.py` + `.agents/rules/scenario_writing_standard.md`（Studiovity / LTX Studio 工业级标准：3幕 Beat Sheet + BPM 音乐对齐 + 角色 50 词锚点 + 镜头景别/运镜/光影清单）
 > - **连续性锁与剧本自检标准（Continuity Lock）**：`.agents/rules/scenario_continuity_standard.md`（身份 vs 状态分离 + 最小名词短语锁 + `SCN-00…11` 确定性自检）。实现：`scenario_director.py` 的 `ContinuityLock` / `format_continuity_lock_block` / `review_project`；UI 入口：`frontend/src/components/ScenarioStudioPanel.vue`（创建页 → 创意类型下方，消费 `POST /api/scenario/generate`）；QC 接触单（25/50/75%）由 `core/quality/qc.py:build_contact_sheet` + `MultiScenePipeline._write_all_contact_sheets` 生成，产物 ID `qa_trio`
 > - **第三方技能（vendored）**：来源与许可证见 `.agents/skills/THIRD_PARTY_NOTICES.md`。`short-drama*`（11 个）取自 `zenstory-ai/drama-skills`（MIT，v0.10.0），**非废弃文件，勿删**；升级须整批重新导入，不要就地改

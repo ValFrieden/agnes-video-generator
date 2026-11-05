@@ -56,33 +56,35 @@ async function onSwitchAuto() {
 
 <template>
   <header class="sticky top-0 z-40 bg-paper/90 backdrop-blur-md border-b border-rule/30 neu-raised">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-      <button
-        class="flex items-center gap-1.5 text-sm font-medium text-ink-2 hover:text-accent transition rounded-xl px-3 py-1.5 neu-raised hover:neu-sunken"
-        @click="onBack"
-      >
-        <span class="text-base leading-none">←</span>
-        <span class="text-xs">{{ t('progressBack') }}</span>
-      </button>
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+        <button
+          class="flex items-center gap-1.5 text-sm font-medium text-ink-2 hover:text-accent transition rounded-xl px-2.5 py-1.5 neu-raised hover:neu-sunken shrink-0"
+          @click="onBack"
+        >
+          <span class="text-base leading-none">←</span>
+          <span class="text-xs">{{ t('progressBack') }}</span>
+        </button>
 
-      <a
-        href="#"
-        class="flex items-center gap-1.5 text-sm text-accent hover:text-ink transition rounded-xl px-3 py-1.5 neu-raised hover:neu-sunken"
-        @click.prevent="onHome"
-      >
-        <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-        <span class="text-xs">{{ t('goHome') }}</span>
-      </a>
+        <a
+          href="#"
+          class="flex items-center gap-1.5 text-sm text-accent hover:text-ink transition rounded-xl px-2.5 py-1.5 neu-raised hover:neu-sunken shrink-0"
+          @click.prevent="onHome"
+        >
+          <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-xs hidden sm:inline">{{ t('goHome') }}</span>
+        </a>
 
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="text-xs px-2.5 py-0.5 rounded-full neu-sunken text-accent font-medium shrink-0">
-          {{ t(typeLabelKey[appState.currentTaskType] || '') || appState.currentTaskType }}
-        </span>
-        <span class="text-sm font-semibold truncate text-ink">{{ t('task_') }}: {{ taskId }}</span>
-        <span v-if="dirName" class="text-xs text-muted font-mono truncate hidden md:inline px-2 py-0.5 rounded-full neu-sunken">{{ dirName }}</span>
+        <div class="flex items-center gap-2 min-w-0 truncate">
+          <span class="text-xs px-2.5 py-0.5 rounded-full neu-sunken text-accent font-medium shrink-0">
+            {{ t(typeLabelKey[appState.currentTaskType] || '') || appState.currentTaskType }}
+          </span>
+          <span class="text-xs sm:text-sm font-semibold truncate text-ink">{{ t('task_') }}: {{ taskId }}</span>
+          <span v-if="dirName" class="text-xs text-muted font-mono truncate hidden lg:inline px-2 py-0.5 rounded-full neu-sunken">{{ dirName }}</span>
+        </div>
       </div>
 
-      <div class="ml-auto flex items-center gap-2.5 shrink-0">
+      <div class="flex items-center gap-2 shrink-0">
         <LangSwitcher compact />
         <span class="text-xs px-2.5 py-1 rounded-full neu-sunken font-medium" :class="statusInfo.cls">
           {{ t(statusInfo.key) }}

@@ -137,13 +137,18 @@ function triggerBrowse() {
     <!-- Empty: Drag & Drop Area -->
     <div
       v-else
-      class="bg-paper-2/40 border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200"
+      role="button"
+      tabindex="0"
+      :aria-label="title || t('chooseImage')"
+      class="bg-paper-2/40 border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       :class="
         isDragging
           ? 'border-accent ring-1 ring-accent/30'
           : 'border-rule hover:border-accent/60'
       "
       @click="triggerBrowse"
+      @keydown.enter.prevent="triggerBrowse"
+      @keydown.space.prevent="triggerBrowse"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
       @drop.prevent="onDrop"

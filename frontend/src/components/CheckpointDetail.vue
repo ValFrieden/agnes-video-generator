@@ -6,6 +6,7 @@ import * as api from '@/api'
 import { useTasks } from '@/composables/useTasks'
 import { useProgress } from '@/composables/useProgress'
 import { useToast } from '@/composables/useToast'
+import { useModalA11y } from '@/composables/useModalA11y'
 import { copyText } from '@/utils/clipboard'
 
 const props = defineProps<{ taskId: string; checkpoint: string }>()
@@ -268,6 +269,8 @@ function closeEditModal() {
   editModalOpen.value = false
 }
 
+const { containerRef: editModalRef } = useModalA11y(editModalOpen, closeEditModal)
+
 function toggleCompare(id: string) {
   compareMap.value[id] = !compareMap.value[id]
 }
@@ -440,7 +443,15 @@ function artLabel(a: any): string {
   </div>
 
   <!-- 在线编辑弹窗 -->
-  <div v-if="editModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" @click.self="closeEditModal">
+  <div
+    v-if="editModalOpen"
+    ref="editModalRef"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+    role="dialog"
+    aria-modal="true"
+    :aria-label="t('editModalTitle')"
+    @click.self="closeEditModal"
+  >
     <div class="w-full max-w-3xl max-h-[85vh] flex flex-col glass-card rounded-2xl overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3 border-b border-rule/50 bg-paper-2/50">
         <h3 class="text-sm font-semibold text-ink-2">{{ t('editModalTitle') }} · {{ checkpointLabel }}</h3>
