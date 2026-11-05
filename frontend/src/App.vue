@@ -181,7 +181,7 @@ async function autoReconnectRunningTask() {
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="font-bold text-base sm:text-lg tracking-tight text-ink">Agnes Studio</span>
+              <h1 class="font-bold text-base sm:text-lg tracking-tight text-ink">Agnes Studio</h1>
               <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/25">AI Video</span>
             </div>
             <p class="text-[11px] text-muted hidden sm:block -mt-0.5">{{ t('subtitle') }}</p>

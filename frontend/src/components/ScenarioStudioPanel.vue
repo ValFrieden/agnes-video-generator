@@ -188,7 +188,7 @@ function applyToCreativeForm() {
             :class="issue.severity === 'blocker' ? 'text-danger' : 'text-warning'"
           >
             <span class="font-mono font-medium">{{ issue.rule_id }}</span>
-            · {{ issue.location }} — {{ issue.detail }}
+            · {{ issue.location }}: {{ issue.detail }}
             <span class="text-muted">→ {{ issue.fix_hint }}</span>
           </li>
         </ul>

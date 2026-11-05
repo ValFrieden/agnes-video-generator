@@ -25,7 +25,7 @@ const { containerRef } = useModalA11y(pickerVisible, closeVoicePicker)
 
 const selectedVoiceName = computed(() => {
   const v = appState.voiceIndex[selectedId.value as string]
-  return v ? `${v.name}（${v.region}）` : (selectedId.value || '—')
+  return v ? `${v.name}（${v.region}）` : (selectedId.value || '-')
 })
 </script>
 

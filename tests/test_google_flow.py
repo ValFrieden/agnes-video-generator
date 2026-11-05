@@ -82,6 +82,9 @@ class FakeLocator:
     def last(self):
         return self
 
+    def locator(self, selector):
+        return self
+
 
 class FakeCard:
     """``flow-permission-message``-Attrappe: liefert Optionen nach aria-label."""
@@ -91,7 +94,13 @@ class FakeCard:
         self._clicks = clicks
 
     def locator(self, selector):
-        label = selector.split('aria-label="')[1].rstrip('"]')
+        import re
+        m = re.search(r'aria-label[*~|]?="([^"]+)"', selector)
+        if m:
+            label = m.group(1)
+        else:
+            m = re.search(r':has-text\("([^"]+)"\)', selector)
+            label = m.group(1) if m else selector
         return FakeLocator(
             visible=label in self._available,
             attrs=dict(self._available.get(label, {})),
@@ -121,7 +130,7 @@ class FakePage:
         return self.body_text
 
     def locator(self, selector):
-        if selector == "flow-permission-message":
+        if any(tok in selector for tok in ("flow-permission-message", "choice-container", "radiogroup")):
             return self._card
         if selector == "flow-chat-bubble":
             return FakeLocator(visible=True, name="bubble")

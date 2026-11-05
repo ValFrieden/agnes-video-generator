@@ -374,7 +374,7 @@ onUnmounted(() => {
             <div v-for="f in taskInputs" :key="f.field" class="space-y-1">
               <div class="text-xs text-muted">{{ t(f.label) }}</div>
               <p class="text-sm text-ink-2 bg-paper-2/30 rounded-lg px-3 py-2 whitespace-pre-wrap break-words leading-relaxed">
-                {{ taskInfo[f.field] || '—' }}
+                {{ taskInfo[f.field] || '-' }}
               </p>
             </div>
 
@@ -382,7 +382,7 @@ onUnmounted(() => {
             <div v-if="taskConfigs.length" class="flex flex-wrap gap-x-6 gap-y-2 pt-1">
               <div v-for="c in taskConfigs" :key="c.field" class="flex items-center gap-1.5 text-xs">
                 <span class="text-muted">{{ t(c.label) }}:</span>
-                <span class="text-ink-2 font-mono">{{ c.fmt ? c.fmt(taskInfo[c.field]) : (taskInfo[c.field] || '—') }}</span>
+                <span class="text-ink-2 font-mono">{{ c.fmt ? c.fmt(taskInfo[c.field]) : (taskInfo[c.field] || '-') }}</span>
               </div>
             </div>
           </div>

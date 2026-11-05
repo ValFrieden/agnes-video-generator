@@ -475,11 +475,11 @@ initCollapse()
               >{{ t('providerInUse') }}</span>
             </div>
             <p class="text-xs text-muted font-mono truncate mt-0.5">
-              {{ p.provider === 'agnes' ? displayDomain() : (p.base_url || '—') }}
+              {{ p.provider === 'agnes' ? displayDomain() : (p.base_url || '-') }}
             </p>
             <p class="text-xs text-muted font-mono truncate">
               <template v-if="p.provider === 'agnes'">{{ agnesApiKeyText() }}</template>
-              <template v-else>{{ t('providerApiKeyLabel') }}: {{ p.api_key || '—' }}</template>
+              <template v-else>{{ t('providerApiKeyLabel') }}: {{ p.api_key || '-' }}</template>
             </p>
           </div>
           <div class="flex items-center gap-2 ml-3">
@@ -682,7 +682,7 @@ initCollapse()
           <span v-if="appState.models.text || appState.models.image || appState.models.video" class="text-muted">
             {{ t('modelTagText') }} {{ appState.models.text }} {{ t('modelTagImage') }} {{ appState.models.image }} {{ t('modelTagVideo') }} {{ appState.models.video }}
           </span>
-          <span v-else class="text-muted">—</span>
+          <span v-else class="text-muted">-</span>
         </span>
       </div>
       <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>

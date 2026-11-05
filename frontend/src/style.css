@@ -73,6 +73,28 @@
     border-radius: 4px;
   }
 
+  /* ── Antislop R-39: Accessible Semantics & Interaction Affordances ── */
+  a[href],
+  button,
+  summary,
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  [role="button"],
+  [role="tab"],
+  [role="switch"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   /* ── Studio Card Surface (Flat, 1px Border, Anti-Slop) ── */
   .glass-card {
     background: var(--color-paper-2);

@@ -683,12 +683,16 @@ class TestCleanupRegression:
         fake_removed = []
 
         def fake_isfile(p):
+            if p.startswith(str(wd)):
+                return orig_isfile(p)
             # 项目根下报告/日志视为存在（不真在仓库创建文件）
             if p.startswith(_REG_PROJECT_ROOT + os.sep):
                 return True
             return orig_isfile(p)
 
         def fake_remove(p):
+            if p.startswith(str(wd)):
+                return orig_remove(p)
             if p.startswith(_REG_PROJECT_ROOT + os.sep):
                 fake_removed.append(p)  # 假装删除，不触碰仓库文件
                 return None

@@ -79,7 +79,7 @@ async function onSwitchAuto() {
           <span class="text-xs px-2.5 py-0.5 rounded-full neu-sunken text-accent font-medium shrink-0">
             {{ t(typeLabelKey[appState.currentTaskType] || '') || appState.currentTaskType }}
           </span>
-          <span class="text-xs sm:text-sm font-semibold truncate text-ink">{{ t('task_') }}: {{ taskId }}</span>
+          <h1 class="text-xs sm:text-sm font-semibold truncate text-ink">{{ t('task_') }}: {{ taskId }}</h1>
           <span v-if="dirName" class="text-xs text-muted font-mono truncate hidden lg:inline px-2 py-0.5 rounded-full neu-sunken">{{ dirName }}</span>
         </div>
       </div>

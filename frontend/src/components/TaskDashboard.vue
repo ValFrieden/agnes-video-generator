@@ -70,7 +70,7 @@ function barHeight(count: number): string {
       <div class="p-3">
         <div class="text-xs text-muted mb-1">{{ t('dbSuccessRate') }}</div>
         <div class="text-2xl font-semibold tabular-nums" :class="successRate === null ? 'text-muted' : successRate >= 80 ? 'text-success' : 'text-warning'">
-          {{ successRate === null ? '—' : successRate + '%' }}
+          {{ successRate === null ? '-' : successRate + '%' }}
         </div>
       </div>
     </div>

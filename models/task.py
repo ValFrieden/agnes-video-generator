@@ -270,6 +270,13 @@ class SimpleVideoTask(BaseTaskState):
     prompt: str = ""
     mode: VideoMode = VideoMode.T2V
     reference_image: str = ""
+    generate_music: bool = False
+    music_prompt: str = ""
+    music_style: str = ""
+    instrumental: bool = False
+    suno_model: str = "V6"
+    trim_start_sec: float = 0.0
+    trim_end_sec: float = 0.0
     generate_music: bool = False  # 是否通过 Suno AI 自动生成背景音乐/歌曲
     music_prompt: str = ""        # 音乐生成提示词
     music_style: str = ""         # 音乐风格标签或预设
@@ -473,6 +480,13 @@ class MusicVideoTask(BaseTaskState):
     scene_count: int = 6
     scene_durations: List[int] = Field(default_factory=list)
     reference_image: str = ""
+    generate_music: bool = False
+    music_prompt: str = ""
+    music_style: str = ""
+    instrumental: bool = False
+    suno_model: str = "V6"
+    trim_start_sec: float = 0.0
+    trim_end_sec: float = 0.0
 
 
 class PoetryVideoTask(BaseTaskState):

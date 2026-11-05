@@ -81,7 +81,7 @@ def test_anchor_progress_constants():
     assert _PROGRESS_CLIP_GEN_START == 0.28
     assert _PROGRESS_CLIP_GEN_DONE == 0.55
     assert _PROGRESS_AUDIO_START == 0.55
-    assert _PROGRESS_AUDIO_DONE == 0.28  # 历史回退值，收敛时保持不变
+    assert _PROGRESS_AUDIO_DONE == 0.60
     assert _PROGRESS_SUBTITLE_START == 0.65
     assert _PROGRESS_SUBTITLE_DONE == 0.75
     assert _PROGRESS_CONCAT_START == 0.80

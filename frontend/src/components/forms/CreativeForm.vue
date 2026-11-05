@@ -316,7 +316,7 @@ async function submitCreative() {
       <div class="mb-5">
         <div class="flex items-center justify-between mb-2">
           <label class="block text-sm text-muted font-medium">{{ t('resolution') }}</label>
-          <InfoTooltip text="Формат кадра для ваших видео: 9:16 подходит для TikTok и Reels, 16:9 — для YouTube и горизонтальных экранов, 1:1 — для постов." />
+          <InfoTooltip text="Формат кадра для ваших видео: 9:16 подходит для TikTok и Reels, 16:9 для YouTube и горизонтальных экранов, 1:1 для постов." />
         </div>
         <AspectPicker v-model="form.resolution" />
       </div>

@@ -105,7 +105,7 @@
   "providerIntroTitle": "关于第三方供应商",
   "providerIntroGuide": "📖 免费模型 API Key 获取与配置图文教程",
   "providerIntroFree": "现已支持接入其他厂商的免费模型（付费模型当然也可以使用，但没有必要）。",
-  "providerIntroText": "文本模型当前推荐 AMD Radeon Cloud —— AMD 官方免费模型 API。",
+  "providerIntroText": "文本模型当前推荐 AMD Radeon Cloud, AMD 官方免费模型 API。",
   "providerIntroAmdEntry": "领取入口：登录 Token Factory 的 Public Free Model APIs 即可获取 Key（手机号 / 邮箱 / GitHub 登录均可，无需绑定银行卡）。",
   "providerIntroAmdEndpoint": "协议选择「OpenAI 兼容」，Base URL 填：",
   "providerIntroAmdModels": "免费共享端点提供多个主流模型（如 DeepSeek-V4-Flash、Qwen3.8-Flash-Next、MiniCPM5-1B），一个 Key 通用全部模型，具体以页面实际展示为准。",

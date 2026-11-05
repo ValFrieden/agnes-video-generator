@@ -484,8 +484,8 @@ async def create_creative_task(
         manual_config=_build_manual_config(execution_mode, pause_points),
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
-        camera_movement=camera_movement or "",
-        draft_mode=draft_mode,
+        camera_movement=(camera_movement if isinstance(camera_movement, str) else "") or "",
+        draft_mode=draft_mode if isinstance(draft_mode, bool) else False,
     )
 
     logger.info(
@@ -958,6 +958,8 @@ async def create_task_legacy(
         # Logikcheck Befund 3: keine Vorschau beim Legacy-Endpunkt (Form()-Default
         # wäre bei Direktaufruf ein Objekt, kein String)
         preview_json="",
+        camera_movement="",
+        draft_mode=False,
     )
 
 
