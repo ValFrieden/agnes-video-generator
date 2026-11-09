@@ -1,4 +1,4 @@
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { appState } from '@/store'
 import * as api from '@/api'
 import { t, currentLang } from '@/i18n'
@@ -9,12 +9,69 @@ import type { Voice } from '@/types'
 const { showToast } = useToast()
 const { confirmAsync } = useConfirm()
 
-// 4 个任务的音色选择（c/m/a/p）
+export const DEFAULT_VOICES_BY_LANG: Record<string, string> = {
+  zh: 'zh-CN-XiaoxiaoNeural',
+  en: 'en-US-JennyNeural',
+  de: 'de-DE-KatjaNeural',
+  ru: 'ru-RU-SvetlanaNeural',
+  fr: 'fr-FR-DeniseNeural',
+  es: 'es-ES-ElviraNeural',
+  it: 'it-IT-ElsaNeural',
+  ja: 'ja-JP-NanamiNeural',
+  ko: 'ko-KR-SunHiNeural',
+  pt: 'pt-BR-FranciscaNeural',
+  nl: 'nl-NL-ColetteNeural',
+  id: 'id-ID-GadisNeural',
+  ms: 'ms-MY-YasminNeural',
+  ar: 'ar-SA-ZariyahNeural',
+  tr: 'tr-TR-EmelNeural',
+  vi: 'vi-VN-HoaiMyNeural',
+  th: 'th-TH-PremwadeeNeural',
+  tl: 'fil-PH-BlessicaNeural',
+  hi: 'hi-IN-SwaraNeural',
+  fa: 'fa-IR-DilaraNeural',
+  bn: 'bn-IN-TanishaaNeural',
+  ur: 'ur-PK-UzmaNeural',
+}
+
+export function getDefaultVoiceForLang(langCode: string): string {
+  const catalog = appState.voiceCatalog
+  if (catalog && Array.isArray(catalog.languages)) {
+    const grp = catalog.languages.find((g: any) => g.code === langCode)
+    if (grp && Array.isArray(grp.voices) && grp.voices.length > 0) {
+      return grp.voices[0].id
+    }
+  }
+  return DEFAULT_VOICES_BY_LANG[langCode] || 'zh-CN-XiaoxiaoNeural'
+}
+
+// 任务的音色选择（c/m/a/p/s），按当前界面语言动态初始化
+const initialVoice = getDefaultVoiceForLang(currentLang.value)
 export const voiceSelections = reactive<Record<string, string>>({
-  c: 'zh-CN-XiaoxiaoNeural',
-  m: 'zh-CN-XiaoxiaoNeural',
-  a: 'zh-CN-XiaoxiaoNeural',
-  p: 'zh-CN-XiaoxiaoNeural',
+  c: initialVoice,
+  m: initialVoice,
+  a: initialVoice,
+  p: initialVoice,
+  s: initialVoice,
+})
+
+// 用户是否显式手动挑选了音色（手动挑选后切语言不覆盖；未挑选时跟随语言变化）
+const userCustomizedVoices = reactive<Record<string, boolean>>({
+  c: false,
+  m: false,
+  a: false,
+  p: false,
+  s: false,
+})
+
+// 监听语言切换：未手动自定义的音色自动随语言更新，防止 cross-script 422 报错
+watch(currentLang, (newLang) => {
+  const def = getDefaultVoiceForLang(newLang)
+  ;(['c', 'm', 'a', 'p', 's'] as const).forEach((k) => {
+    if (!userCustomizedVoices[k]) {
+      voiceSelections[k] = def
+    }
+  })
 })
 
 // picker 弹窗状态
@@ -174,6 +231,7 @@ async function confirmVoiceSelection() {
     if (!ok) return
   }
   voiceSelections[pickerTask.value] = selectedId.value
+  userCustomizedVoices[pickerTask.value] = true
   closeVoicePicker()
 }
 
@@ -189,6 +247,7 @@ export function useVoice() {
     voiceIndex,
     activeGroup,
     filteredVoices,
+    getDefaultVoiceForLang,
     voiceName,
     voiceDescription,
     initVoiceSelector,

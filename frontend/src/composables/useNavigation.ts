@@ -4,12 +4,21 @@ import { appState } from '@/store'
 // hash 规则：'#/progress/<taskId>' | '#/list' | '#/gallery' | '#/simple' | '#/create'
 
 export function useNavigation() {
-  // 打开任务详情页：始终在新标签页打开，原页面（主页）保持不变
+  // 打开任务详情页：优先在新标签页打开；若被浏览器弹窗拦截则退化为同页导航
   function goProgress(taskId: string, origin: 'create' | 'list' | 'gallery' | 'simple' = 'create') {
     // 来源标记不跨标签页传递（新标签页内默认回主页），仅在当前页记录
     appState.progressOrigin = origin
     const url = location.pathname + location.search + '#/progress/' + encodeURIComponent(taskId)
-    window.open(url, '_blank', 'noopener')
+    let win: Window | null = null
+    try {
+      win = window.open(url, '_blank', 'noopener')
+    } catch {
+      win = null
+    }
+    // 拦截防护：异步调用后浏览器拦截弹窗时，直接在当前页面切换，防止用户停留在空白表单
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      goProgressInPage(taskId)
+    }
   }
 
   // 同页打开任务详情（自动恢复场景用，避免自动重连时无限开新标签页）

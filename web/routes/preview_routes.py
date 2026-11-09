@@ -36,7 +36,8 @@ router = APIRouter(tags=["preview"])
 
 # content_lang 白名单（v0.2 修订 #5）：不再有"未知语言静默默认阿拉伯语"。
 # 语言指令只对已知可可靠跟随的语言生效；越界直接 422。
-_CONTENT_LANG_LABELS = {"ar": "Arabic", "en": "English"}
+from web.helpers import _LANG_LABELS_EN
+_CONTENT_LANG_LABELS = _LANG_LABELS_EN
 
 # ── 进程内并发上限（PRD 1.1a）──
 # preview 不经 WeightedSemaphore 流水线门控，若不加防护，一个循环脚本可以在

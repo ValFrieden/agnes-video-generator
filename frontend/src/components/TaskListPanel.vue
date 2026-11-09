@@ -60,9 +60,14 @@ function isCompleted(task: TaskListItem): boolean {
   return task.status === 'completed'
 }
 
+function isFailed(task: TaskListItem): boolean {
+  return task.status === 'failed'
+}
+
 function mainBtnLabel(task: TaskListItem): string {
   if (isCompleted(task)) return t('btnView')
   if (isRunning(task)) return t('btnViewProgress')
+  if (isFailed(task)) return t('btnView')
   // Logikcheck Befund 2: wartende Prüfpunkt-Aufgaben prüfen statt fortsetzen
   if (task.awaiting_user) return t('btnReviewCheckpoint')
   // Logikcheck Befund 1: Bild-Aufträge sind synchron — kein Resume möglich
@@ -73,6 +78,7 @@ function mainBtnLabel(task: TaskListItem): string {
 function onMainBtn(task: TaskListItem) {
   if (isCompleted(task)) viewTask(task.task_id)
   else if (isRunning(task)) viewRunningTask(task.task_id)
+  else if (isFailed(task)) viewTask(task.task_id)
   else if (task.awaiting_user) {
     // Logikcheck Befund 2: zur Prüfung/Freigabe öffnen — der generische Resume
     // würde den manuellen Prüfpunkt still überspringen (Backend blockt mit 409).
@@ -133,9 +139,16 @@ function onMainBtn(task: TaskListItem) {
         >
           {{ task.current_mode === 'manual' ? t('switchToAuto') : t('switchToManual') }}
         </button>
-        <!-- Logikcheck Befund 6: Nur zeigen wenn Hauptaktion nicht bereits 'Ansehen' ist und nicht auf Prüfpunkt gewartet wird -->
+        <!-- Für fehlgeschlagene Aufgaben: Fortsetzen als sekundäre Aktion; für pausierte: Ansehen -->
         <button
-          v-if="!isCompleted(task) && !isRunning(task) && !task.awaiting_user && task.task_type !== 'image'"
+          v-if="isFailed(task) && task.task_type !== 'image'"
+          class="text-xs px-3 py-1.5 neu-raised hover:neu-sunken rounded-xl transition text-ink-2"
+          @click="resumeTask(task.task_id)"
+        >
+          {{ t('btnResume') }}
+        </button>
+        <button
+          v-else-if="!isCompleted(task) && !isRunning(task) && !task.awaiting_user && task.task_type !== 'image'"
           class="text-xs px-3 py-1.5 neu-raised hover:neu-sunken rounded-xl transition text-ink-2"
           @click="viewTask(task.task_id)"
         >

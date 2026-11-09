@@ -120,6 +120,10 @@ function initCollapse() {
       collapsed[k] = manual
     }
   })
+  // Logikcheck Befund 10: Wenn noch kein Key konfiguriert ist, Bereich sofort aufklappen
+  if (!appState.apiKeySource) {
+    collapsed.apikey = false
+  }
 }
 
 function toggleConfigPanel(section: string) {

@@ -147,6 +147,9 @@ onUnmounted(() => {
 })
 
 async function autoReconnectRunningTask() {
+  const h = location.hash || ''
+  // Wenn der Nutzer explizit #/create aufgerufen hat, nicht zwangsweise entführen
+  if (h === '#/create') return
   try {
     const d = await fetch('/api/tasks').then((r) => r.json())
     const running = (d.tasks || []).find((t: any) => t.status === 'running' || t.status === 'queued')

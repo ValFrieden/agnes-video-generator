@@ -12,6 +12,7 @@
 | [troubleshooting.md](troubleshooting.md) | симптом → причина → решение (включая «ничего не происходит») | когда что-то не работает |
 | [frontend-design-standards.md](frontend-design-standards.md) | дизайн-стандарты UI, палитра Studio Dark/Amber, правила иконок и аудит 0 FAIL | перед правками фронтенда |
 | [syntx-directing-methodology.md](syntx-directing-methodology.md) | режиссерский стандарт SYNTX FAMILY: 20 камер, 3-фазный таймлайн, инерция и стабилизаторы | перед генерацией промптов и сценариев |
+| [music-video-algorithm.md](music-video-algorithm.md) | алгоритм музыкального клипа: 20 шагов, чек-лист, текст и музыка, монтаж под бит, референсы и право; заметки в `research/music-video-2026-11/` | перед любым новым клипом, тритментом, таблицей шотов и монтажом |
 
 Подробная передача текущей работы: [../HANDOFF_masha_clip.md](../HANDOFF_masha_clip.md). Правила клипа: `ПРАВИЛА_КЛИПА.md` в корне. Сценарий: `С днём рождения, Маша — сценарий клипа (Google Flow).md`.
 

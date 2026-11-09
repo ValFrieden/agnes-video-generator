@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { t } from '@/i18n'
+import { t, currentLang } from '@/i18n'
 import { appState } from '@/store'
 import { useVoice } from '@/composables/useVoice'
 import { useTaskSubmit, collectAudioSubtitleFields } from '@/composables/useTaskSubmit'
@@ -66,7 +66,7 @@ async function submitManuscript() {
       fd.append('qc_enabled', String(form.qc))
 
       const sc = subtitleRef.value
-      collectAudioSubtitleFields(fd, sc, voiceSelections, 'm')
+      collectAudioSubtitleFields(fd, sc, voiceSelections, 'm', currentLang.value)
 
       // v6.0 手动模式：执行模式 + 暂停点
       fd.append('execution_mode', appState.execMode)

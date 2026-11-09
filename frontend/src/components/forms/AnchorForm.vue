@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { t } from '@/i18n'
+import { t, currentLang } from '@/i18n'
 import { appState } from '@/store'
 import { useVoice } from '@/composables/useVoice'
 import { useTaskSubmit, collectAudioSubtitleFields } from '@/composables/useTaskSubmit'
@@ -70,7 +70,7 @@ async function submitAnchor() {
       fd.append('audio_source', form.audioSource)
 
       const sc = subtitleRef.value
-      collectAudioSubtitleFields(fd, sc, voiceSelections, 'a')
+      collectAudioSubtitleFields(fd, sc, voiceSelections, 'a', currentLang.value)
       // 特例：model 自带口型音频 → 强制关闭 TTS 旁白
       if (form.audioSource === 'model') fd.set('audio_enabled', 'false')
 
@@ -116,7 +116,7 @@ async function submitAnchor() {
           v-model="form.refImage"
           :title="t('anchorRefImage')"
           :hint="t('anchorRefImageHint')"
-          badge="Портрет диктора 🎙️"
+          :badge="t('anchorPhotoBadge') || 'Speaker 🎙️'"
           @change="(f) => form.refName = f ? f.name : ''"
         />
       </div>

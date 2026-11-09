@@ -803,5 +803,9 @@
   "notifyFailedTitle": "Aufgabe fehlgeschlagen",
   "etaRemaining": "≈ noch {time}",
   "scApplyToForm": "In Kreativ-Formular übernehmen",
-  "scApplied": "In Kreativ-Formular übernommen!"
+  "scApplied": "In Kreativ-Formular übernommen!",
+  "anchorPhotoBadge": "Sprecher-Porträt 🎙️",
+  "badgeStartFrame": "Startbild / Referenz",
+  "badgeEndFrame": "Endbild (End Frame)",
+  "badgeRefGen": "Referenz für Generierung"
 }

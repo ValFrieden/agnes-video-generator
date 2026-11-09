@@ -12,7 +12,7 @@ import AspectPicker from '@/components/shared/AspectPicker.vue'
 import NeuStepper from '@/components/shared/NeuStepper.vue'
 import NeuSwitch from '@/components/shared/NeuSwitch.vue'
 
-const { voiceSelections, voiceIndex, voiceName, voiceDescription, openVoicePicker, initVoiceSelector } = useVoice()
+const { voiceSelections, voiceIndex, voiceName, voiceDescription, openVoicePicker, initVoiceSelector, getDefaultVoiceForLang } = useVoice()
 const { showToast } = useToast()
 const { goProgress } = useNavigation()
 
@@ -37,13 +37,15 @@ const resolutions = [
   { value: '1024x1024', label: 'resSquare' },
 ]
 
-// preview-script 白名单仅 ar/en，默认按 UI 语言降级；实际配音语言由所选音色驱动
-const contentLang = computed(() => (currentLang.value === 'ar' ? 'ar' : 'en'))
+// Vorschau nutzt die aktuelle Nutzersprache; Backend unterstützt alle 22 Projektsprachen
+const contentLang = computed(() => currentLang.value)
 
-const currentVoiceId = computed(() => voiceSelections[VOICE_KEY] || 'zh-CN-XiaoxiaoNeural')
+const currentVoiceId = computed(() => voiceSelections[VOICE_KEY] || getDefaultVoiceForLang(currentLang.value))
 
 onMounted(async () => {
-  if (!voiceSelections[VOICE_KEY]) voiceSelections[VOICE_KEY] = 'zh-CN-XiaoxiaoNeural'
+  if (!voiceSelections[VOICE_KEY] || (voiceSelections[VOICE_KEY] === 'zh-CN-XiaoxiaoNeural' && currentLang.value !== 'zh')) {
+    voiceSelections[VOICE_KEY] = getDefaultVoiceForLang(currentLang.value)
+  }
   // 音色目录未加载时补齐（App 已初始化时跳过）
   if (!appState.voiceCatalog) {
     await initVoiceSelector()

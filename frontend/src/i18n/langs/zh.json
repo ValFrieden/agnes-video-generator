@@ -800,5 +800,9 @@
   "notifyFailedTitle": "任务失败",
   "etaRemaining": "≈ 剩余 {time}",
   "scApplyToForm": "应用到创意表单",
-  "scApplied": "已应用到创意表单！"
+  "scApplied": "已应用到创意表单！",
+  "anchorPhotoBadge": "播报员形象 🎙️",
+  "badgeStartFrame": "起始帧 / 参考图",
+  "badgeEndFrame": "尾帧 (End Frame)",
+  "badgeRefGen": "生成参考图"
 }

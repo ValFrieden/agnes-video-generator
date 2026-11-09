@@ -365,7 +365,7 @@ async function submitImage() {
           <DropzoneCard
             v-model="video.refImage"
             :title="t('refImageSimple')"
-            badge="Стартовый кадр / Референс"
+            :badge="t('badgeStartFrame') || 'Start / Ref'"
             @change="(f) => video.refName = f ? f.name : ''"
           />
           <p v-if="vmCaps.maxRefImages(currentVideoModel)" class="text-xs text-muted mt-1">{{ t('vmRefImagesHint') }} ≤ {{ vmCaps.maxRefImages(currentVideoModel) }}</p>
@@ -377,7 +377,7 @@ async function submitImage() {
           <DropzoneCard
             v-model="video.endImage"
             :title="t('endFrameImage')"
-            badge="Финальный кадр (End Frame)"
+            :badge="t('badgeEndFrame') || 'End Frame'"
             @change="(f) => video.endName = f ? f.name : ''"
           />
         </div>
@@ -451,7 +451,7 @@ async function submitImage() {
             v-model="image.refImage"
             :title="t('refImageSimple')"
             :hint="t('refImageHint')"
-            badge="Референс для генерации"
+            :badge="t('badgeRefGen') || 'Reference'"
             @change="(f) => image.refName = f ? f.name : ''"
           />
         </div>

@@ -800,5 +800,9 @@
   "notifyFailedTitle": "Task failed",
   "etaRemaining": "≈ {time} left",
   "scApplyToForm": "Apply to Creative Form",
-  "scApplied": "Applied to Creative Form!"
+  "scApplied": "Applied to Creative Form!",
+  "anchorPhotoBadge": "Speaker Portrait 🎙️",
+  "badgeStartFrame": "Start Frame / Reference",
+  "badgeEndFrame": "End Frame",
+  "badgeRefGen": "Generation Reference"
 }

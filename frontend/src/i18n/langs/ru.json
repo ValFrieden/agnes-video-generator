@@ -803,5 +803,9 @@
   "notifyFailedTitle": "Задача не выполнена",
   "etaRemaining": "≈ осталось {time}",
   "scApplyToForm": "Применить в форму креатива",
-  "scApplied": "Применено в форму креатива!"
+  "scApplied": "Применено в форму креатива!",
+  "anchorPhotoBadge": "Портрет диктора 🎙️",
+  "badgeStartFrame": "Стартовый кадр / Референс",
+  "badgeEndFrame": "Финальный кадр (End Frame)",
+  "badgeRefGen": "Референс для генерации"
 }
