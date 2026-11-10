@@ -34,8 +34,8 @@ function select(val: string) {
 function getRatioClass(ratio?: string): string {
   if (ratio === '9:16' || ratio?.includes('9:16')) return 'w-4 h-7'
   if (ratio === '16:9' || ratio?.includes('16:9')) return 'w-7 h-4'
-  if (ratio === '4:3' || ratio?.includes('4:3')) return 'w-6 h-4.5'
-  if (ratio === '3:4' || ratio?.includes('3:4')) return 'w-4.5 h-6'
+  if (ratio === '4:3' || ratio?.includes('4:3')) return 'w-6 h-[18px]'
+  if (ratio === '3:4' || ratio?.includes('3:4')) return 'w-[18px] h-6'
   return 'w-5 h-5' // 1:1
 }
 </script>

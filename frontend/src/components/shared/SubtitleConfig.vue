@@ -46,10 +46,15 @@ defineExpose({
 <template>
   <!-- Audio Config -->
   <div class="glass-card rounded-2xl p-6 mb-4">
-    <div class="collapse-header flex items-center justify-between" @click="toggleCollapse('audio')">
+    <button
+      type="button"
+      class="w-full collapse-header flex items-center justify-between text-left"
+      :aria-expanded="!collapsed.audio"
+      @click="toggleCollapse('audio')"
+    >
       <h2 class="text-lg font-semibold text-accent">{{ t('audioConfig') }}</h2>
       <span class="text-muted text-xs">{{ collapsed.audio ? '▶' : '▼' }}</span>
-    </div>
+    </button>
     <div v-show="!collapsed.audio" class="mt-4">
       <div class="mb-4 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
         <div>
@@ -78,10 +83,15 @@ defineExpose({
 
   <!-- Subtitle Config -->
   <div class="glass-card rounded-2xl p-6 mb-4">
-    <div class="collapse-header flex items-center justify-between" @click="toggleCollapse('subtitle')">
+    <button
+      type="button"
+      class="w-full collapse-header flex items-center justify-between text-left"
+      :aria-expanded="!collapsed.subtitle"
+      @click="toggleCollapse('subtitle')"
+    >
       <h2 class="text-lg font-semibold text-accent">{{ t('subtitleConfig') }}</h2>
       <span class="text-muted text-xs">{{ collapsed.subtitle ? '▶' : '▼' }}</span>
-    </div>
+    </button>
     <div v-show="!collapsed.subtitle" class="mt-4">
       <div class="mb-4 p-3 rounded-xl border border-rule/30 bg-paper-2/40 flex items-center justify-between">
         <div>

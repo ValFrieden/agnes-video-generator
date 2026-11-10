@@ -5,10 +5,15 @@ import { appState } from '@/store'
 import { useVoice } from '@/composables/useVoice'
 import { useTaskSubmit, collectAudioSubtitleFields } from '@/composables/useTaskSubmit'
 import { useDraft } from '@/composables/useDraft'
+import * as api from '@/api'
+import { useToast } from '@/composables/useToast'
 import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import SubtitleConfig from '@/components/shared/SubtitleConfig.vue'
 import AspectPicker from '@/components/shared/AspectPicker.vue'
 import NeuSwitch from '@/components/shared/NeuSwitch.vue'
+import LutSelector from '@/components/shared/LutSelector.vue'
+
+const { showToast } = useToast()
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -23,7 +28,27 @@ const form = reactive({
   keyframes: false,
   // v7.2 R8 质量闸：生成后逐段免费 VLM 检查 + FAIL 自动重生成一次
   qc: false,
+  lutId: '',
 })
+
+const splitPreviewLoading = ref(false)
+const splitPreview = ref<{ paragraphs: { index: number; text: string; est_duration_sec: number }[]; total_duration_sec: number } | null>(null)
+
+async function runPreviewSplit() {
+  if (!form.text.trim()) {
+    showToast(t('enterText'), 3000)
+    return
+  }
+  splitPreviewLoading.value = true
+  try {
+    const res = await api.previewManuscriptSplit(form.text.trim())
+    if (res?.ok) splitPreview.value = res
+  } catch (e: any) {
+    showToast(e?.message || t('failCreate'), 3500, 'error')
+  } finally {
+    splitPreviewLoading.value = false
+  }
+}
 
 const charCount = computed(() => form.text.length)
 
@@ -38,10 +63,11 @@ const draft = useDraft('manuscript')
   if (typeof d.resolution === 'string') form.resolution = d.resolution
   if (typeof d.keyframes === 'boolean') form.keyframes = d.keyframes
   if (typeof d.qc === 'boolean') form.qc = d.qc
+  if (typeof d.lutId === 'string') form.lutId = d.lutId
 })()
 draft.autoSave(form, (v) => ({
   name: v.name, text: v.text, resolution: v.resolution,
-  keyframes: v.keyframes, qc: v.qc,
+  keyframes: v.keyframes, qc: v.qc, lutId: v.lutId,
 }))
 
 function parseResolution(val: string) {
@@ -64,6 +90,7 @@ async function submitManuscript() {
       fd.append('video_height', String(res.height))
       fd.append('generate_keyframes', String(form.keyframes))
       fd.append('qc_enabled', String(form.qc))
+      if (form.lutId) fd.append('lut_id', form.lutId)
 
       const sc = subtitleRef.value
       collectAudioSubtitleFields(fd, sc, voiceSelections, 'm', currentLang.value)
@@ -107,12 +134,47 @@ async function submitManuscript() {
       <div class="mb-4">
         <label class="block text-sm text-muted mb-1.5">{{ t('manuscriptText') }} <span class="text-red-400">*</span></label>
         <textarea v-model="form.text" rows="10" :placeholder="t('manuscriptPlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm resize-y text-ink placeholder-muted font-mono"></textarea>
-        <p class="text-xs text-muted mt-1">{{ t('charCount') }}: {{ charCount }}</p>
+        <div class="flex flex-wrap items-center justify-between gap-2 mt-1.5">
+          <p class="text-xs text-muted">{{ t('charCount') }}: {{ charCount }}</p>
+          <button
+            type="button"
+            class="px-3 py-1 rounded-lg text-xs font-medium bg-paper-2 border border-rule text-ink-2 hover:text-ink hover:border-accent/50 transition disabled:opacity-50"
+            :disabled="splitPreviewLoading"
+            @click="runPreviewSplit"
+          >
+            {{ splitPreviewLoading ? t('loading') : t('msPreviewSplit') }}
+          </button>
+        </div>
+        <div v-if="splitPreview" class="mt-3 p-3.5 rounded-xl bg-paper border border-rule space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-accent">
+              {{ t('msSplitResult').replace('{n}', String(splitPreview.paragraphs.length)).replace('{s}', String(splitPreview.total_duration_sec)) }}
+            </span>
+            <button type="button" class="text-muted hover:text-ink text-xs" @click="splitPreview = null">{{ t('close') }}</button>
+          </div>
+          <div class="max-h-48 overflow-y-auto space-y-1.5">
+            <div
+              v-for="p in splitPreview.paragraphs"
+              :key="p.index"
+              class="p-2 rounded-lg bg-paper-2 border border-rule/60 text-xs"
+            >
+              <div class="flex justify-between text-muted mb-0.5">
+                <span class="font-semibold text-ink-2">#{{ p.index + 1 }}</span>
+                <span class="tabular-nums">~{{ p.est_duration_sec }}s</span>
+              </div>
+              <p class="text-ink-2 leading-relaxed">{{ p.text }}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="mb-5">
         <label class="block text-sm text-muted font-medium mb-2">{{ t('resolution') }}</label>
         <AspectPicker v-model="form.resolution" />
+      </div>
+
+      <div class="mb-4">
+        <LutSelector v-model="form.lutId" />
       </div>
 
       <!-- v7.1 关键帧模式（I2V-first） -->

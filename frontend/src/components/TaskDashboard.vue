@@ -6,17 +6,9 @@ import { computed } from 'vue'
 import { t } from '@/i18n'
 import { useTasks } from '@/composables/useTasks'
 import { computeActivity, computeTaskStats, computeTypeSlices } from '@/utils/taskStats'
+import { TYPE_LABEL_KEY_MAP } from '@/taskManifest'
 
 const { tasks } = useTasks()
-
-const TYPE_LABEL: Record<string, string> = {
-  creative: 'typeCreative',
-  manuscript: 'typeManuscript',
-  anchor: 'typeAnchor',
-  poetry: 'typePoetry',
-  simple: 'typeSimple',
-  image: 'typeImage',
-}
 
 const total = computed(() => tasks.value.length)
 const stats = computed(() => computeTaskStats(tasks.value))
@@ -27,7 +19,7 @@ const activeNow = computed(() => stats.value.activeNow)
 const byType = computed(() =>
   computeTypeSlices(tasks.value).map((slice) => ({
     ...slice,
-    labelKey: TYPE_LABEL[slice.key] || 'typeCreative',
+    labelKey: TYPE_LABEL_KEY_MAP[slice.key] || 'typeCreative',
   })),
 )
 

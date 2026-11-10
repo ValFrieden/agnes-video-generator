@@ -996,6 +996,32 @@ class BasePipeline(ABC):
                 os.replace(wm_output, video_path)
         return video_path
 
+    async def _apply_lut(self, video_path: str) -> str:
+        """可选 3D LUT 调色后处理（在水印前执行，失败不影响主流程）。"""
+        lut_id = (getattr(self._state, "lut_id", "") or "").strip() if self._state else ""
+        if not lut_id or not video_path or not os.path.exists(video_path):
+            return video_path
+        try:
+            from core.compositor.processor import VideoProcessor
+
+            lut_path = VideoProcessor.list_available_luts().get(lut_id)
+            if not lut_path or not os.path.exists(lut_path):
+                logger.warning("[Pipeline] Requested LUT '%s' not found, skipping", lut_id)
+                return video_path
+
+            lut_output = video_path + ".lut_tmp.mp4"
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                _ENCODING_EXECUTOR,
+                functools.partial(VideoProcessor.apply_lut, video_path, lut_path, lut_output),
+            )
+            if os.path.exists(lut_output):
+                os.replace(lut_output, video_path)
+                logger.info("[Pipeline] Applied 3D LUT '%s' to %s", lut_id, video_path)
+        except Exception as e:
+            logger.warning("[Pipeline] 3D LUT '%s' failed (fail-open): %s", lut_id, e)
+        return video_path
+
     @staticmethod
     async def run_ffmpeg_async(cmd: List[str], timeout: float = 30.0) -> None:
         """异步执行 ffmpeg 命令（不阻塞事件循环）。等价于 subprocess.run(check=True)。

@@ -325,7 +325,7 @@ function artLabel(a: any): string {
     <!-- 统一继续按钮：无论是否修改，均走同一 approve 逻辑（自动收集当前通道的修改产物） -->
     <div class="flex items-center justify-center mb-4">
       <button
-        class="text-sm px-7 py-2.5 neu-raised hover:neu-sunken bg-emerald-600/90 text-white font-semibold rounded-xl transition disabled:opacity-50 shadow-md glow-btn"
+        class="text-sm px-7 py-2.5 font-semibold rounded-xl transition disabled:opacity-50 glow-btn"
         :disabled="confirming"
         @click="continueTask"
       >
@@ -446,7 +446,7 @@ function artLabel(a: any): string {
   <div
     v-if="editModalOpen"
     ref="editModalRef"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+    class="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-black/70"
     role="dialog"
     aria-modal="true"
     :aria-label="t('editModalTitle')"

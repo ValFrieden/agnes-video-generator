@@ -372,11 +372,10 @@ initCollapse()
 <template>
   <!-- 供应商管理 -->
   <div class="glass-card rounded-2xl mb-6 overflow-hidden transition-all duration-300">
-    <div
+    <button
       v-if="collapsed.apikey"
-      class="flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition"
-      role="button"
-      tabindex="0"
+      type="button"
+      class="w-full flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition text-left"
       :aria-expanded="!collapsed.apikey"
       @click="toggleConfigPanel('apikey')"
     >
@@ -389,7 +388,7 @@ initCollapse()
         </span>
       </div>
       <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-    </div>
+    </button>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('providerManageTitle') }}</h2>
@@ -671,11 +670,11 @@ initCollapse()
   </teleport>
   <!-- 模型选择 -->
   <div class="glass-card rounded-2xl mb-6 overflow-hidden transition-all duration-300">
-    <div
+    <button
       v-if="collapsed.model"
-      class="flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition"
-      role="button"
-      tabindex="0"
+      type="button"
+      class="w-full flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition text-left"
+      :aria-expanded="!collapsed.model"
       @click="toggleConfigPanel('model')"
     >
       <div class="flex items-center gap-3">
@@ -690,7 +689,7 @@ initCollapse()
         </span>
       </div>
       <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-    </div>
+    </button>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('modelTitle') }}</h2>
@@ -834,11 +833,11 @@ initCollapse()
 
   <!-- 工作目录 -->
   <div class="glass-card rounded-2xl mb-6 overflow-hidden transition-all duration-300">
-    <div
+    <button
       v-if="collapsed.workspace"
-      class="flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition"
-      role="button"
-      tabindex="0"
+      type="button"
+      class="w-full flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition text-left"
+      :aria-expanded="!collapsed.workspace"
       @click="toggleConfigPanel('workspace')"
     >
       <div class="flex items-center gap-3">
@@ -852,7 +851,7 @@ initCollapse()
         </span>
       </div>
       <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-    </div>
+    </button>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('workspaceTitle') }}</h2>
@@ -912,11 +911,10 @@ initCollapse()
 
   <!-- 隐私设置（3.4：GA4 配置开关） -->
   <div class="glass-card rounded-2xl mb-6 overflow-hidden transition-all duration-300">
-    <div
+    <button
       v-if="collapsed.privacy"
-      class="flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition"
-      role="button"
-      tabindex="0"
+      type="button"
+      class="w-full flex items-center justify-between px-6 py-3 cursor-pointer hover:bg-paper-3 transition text-left"
       :aria-expanded="!collapsed.privacy"
       @click="toggleConfigPanel('privacy')"
     >
@@ -931,7 +929,7 @@ initCollapse()
         </span>
       </div>
       <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-    </div>
+    </button>
     <div v-else class="p-6 pt-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-accent">{{ t('privacyTitle') }}</h2>

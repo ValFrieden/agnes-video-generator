@@ -69,6 +69,7 @@ class SimpleVideoPipeline(BasePipeline):
             video_path = await self._submit_and_wait()
 
             # 水印后处理（共享实现；异步，避免阻塞事件循环）
+            video_path = await self._apply_lut(video_path)
             video_path = await self._apply_watermark(video_path)
 
             self._state.status = StepStatus.COMPLETED

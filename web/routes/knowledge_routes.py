@@ -21,7 +21,27 @@ router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 @router.get("/status")
 async def knowledge_status():
     """Возвращает статус готовности и статистику базы знаний проекта."""
-    return {"ok": True, "data": get_status()}
+    import json
+    import os
+    data = dict(get_status())
+    graph_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "graphify-out", "graph.json")
+    graph_nodes = None
+    graph_edges = None
+    if os.path.isfile(graph_path):
+        try:
+            with open(graph_path, "r", encoding="utf-8") as f:
+                g = json.load(f)
+            nodes = g.get("nodes")
+            links = g.get("links") or g.get("edges")
+            if isinstance(nodes, list):
+                graph_nodes = len(nodes)
+            if isinstance(links, list):
+                graph_edges = len(links)
+        except Exception:
+            pass
+    data["graph_nodes"] = graph_nodes
+    data["graph_edges"] = graph_edges
+    return {"ok": True, "data": data}
 
 
 @router.get("/search")

@@ -28,6 +28,7 @@ const SUBMIT_APIS: Record<string, (fd: FormData) => Promise<any>> = {
   manuscript: (fd) => api.submitManuscript(fd),
   anchor: (fd) => api.submitAnchor(fd),
   poetry: (fd) => api.submitPoetry(fd),
+  music_video: (fd) => api.submitMusicVideo(fd),
 }
 
 // Logikcheck Befund 10：提交前检查 API Key，缺 Key 时直接提示，而不是让任务

@@ -31,6 +31,7 @@ from models.task import (
     CreativeVideoTask,
     ManualConfig,
     ManuscriptVideoTask,
+    MusicVideoTask,
     PoetryVideoTask,
     SceneTask,
     SimpleVideoTask,
@@ -124,6 +125,21 @@ def _build_manual_config(execution_mode: str, pause_points: str) -> ManualConfig
             ),
         )
     return ManualConfig(enabled=True, pause_points=points)
+
+
+def _apply_draft_pause_to_manual(
+    manual_config: ManualConfig,
+    draft_mode: bool,
+    draft_checkpoints: list[str],
+) -> ManualConfig:
+    """Draft Mode（v7.2）：生成参考图/关键帧后、视频渲染前自动暂停供用户审查，避免空耗视频配额。"""
+    if not draft_mode or not draft_checkpoints:
+        return manual_config
+    pts = list(manual_config.pause_points) if manual_config.enabled else []
+    for cp in draft_checkpoints:
+        if cp in ALL_CHECKPOINTS and cp not in pts:
+            pts.append(cp)
+    return ManualConfig(enabled=True, pause_points=pts)
 
 
 def _seed_creative_preview(state: CreativeVideoTask, dir_name: str, payload: dict) -> None:
@@ -269,6 +285,8 @@ async def create_simple_task(
     video_size: Optional[str] = Form(None),
     camera_movement: Optional[str] = Form(None),
     draft_mode: bool = Form(False),
+    lut_id: str = Form(""),
+    reference_asset_id: str = Form(""),
 ):
     """创建简单视频任务（类型 1）。"""
     api_key = get_api_key()
@@ -332,11 +350,16 @@ async def create_simple_task(
         state.prompt = apply_camera_movement_to_prompt(state.prompt, camera_movement)
         state.camera_movement = camera_movement
     state.draft_mode = draft_mode
+    state.lut_id = lut_id.strip() if isinstance(lut_id, str) else ""
 
     upload_dir = helpers.get_upload_dir()
     # 处理参考图上传（L4: 用 UUID 替代客户端文件名，避免路径穿越）
     if reference_image and reference_image.filename:
         state.reference_image = await _save_upload_file(reference_image, upload_dir, f"{task_id}_ref")
+    elif isinstance(reference_asset_id, str) and reference_asset_id.strip():
+        resolved_asset = _resolve_asset_image_path(reference_asset_id)
+        if resolved_asset:
+            state.reference_image = resolved_asset
     # 处理尾帧图上传（keyframes 模式）
     if end_frame_image and end_frame_image.filename:
         state.end_frame_image = await _save_upload_file(end_frame_image, upload_dir, f"{task_id}_end")
@@ -398,6 +421,8 @@ async def create_creative_task(
     # ── SYNTX 电影级摄像机与 Draft 模式 ──
     camera_movement: Optional[str] = Form(None),
     draft_mode: bool = Form(False),
+    lut_id: str = Form(""),
+    reference_asset_id: str = Form(""),
 ):
     """创建创意长视频任务（类型 2）。"""
     api_key = get_api_key()
@@ -464,6 +489,18 @@ async def create_creative_task(
         subtitle_stroke_color, subtitle_stroke_width, subtitle_bg_color,
     )
 
+    creative_manual = _build_manual_config(execution_mode, pause_points)
+    if draft_mode:
+        # Draft Mode: pause after storyboard/end-frames (or character_ref/script when no end frames) before video render
+        has_ref = bool((reference_image and reference_image.filename) or (isinstance(reference_asset_id, str) and reference_asset_id.strip()))
+        if chaining_mode == "keyframes" or use_custom_end_frames or generate_end_frames_from_ref:
+            draft_cps = ["end_frame_gen"]
+        elif has_ref:
+            draft_cps = ["script"]
+        else:
+            draft_cps = ["character_ref"]
+        creative_manual = _apply_draft_pause_to_manual(creative_manual, True, draft_cps)
+
     state = CreativeVideoTask(
         task_id=task_id,
         creative_name=name,
@@ -481,11 +518,12 @@ async def create_creative_task(
         generate_end_frames_from_ref=generate_end_frames_from_ref,
         audio_config=audio_config,
         subtitle_config=subtitle_config,
-        manual_config=_build_manual_config(execution_mode, pause_points),
+        manual_config=creative_manual,
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
         camera_movement=(camera_movement if isinstance(camera_movement, str) else "") or "",
         draft_mode=draft_mode if isinstance(draft_mode, bool) else False,
+        lut_id=lut_id.strip() if isinstance(lut_id, str) else "",
     )
 
     logger.info(
@@ -498,6 +536,10 @@ async def create_creative_task(
     # 处理参考图上传（L4: 用 UUID 替代客户端文件名，避免路径穿越）
     if reference_image and reference_image.filename:
         state.reference_image = await _save_upload_file(reference_image, upload_dir, f"{task_id}_ref")
+    elif isinstance(reference_asset_id, str) and reference_asset_id.strip():
+        resolved_asset = _resolve_asset_image_path(reference_asset_id)
+        if resolved_asset:
+            state.reference_image = resolved_asset
 
     # P3: 处理自定义尾帧图片上传
     if use_custom_end_frames and end_frame_images:
@@ -573,6 +615,7 @@ async def create_manuscript_task(
     # v6.0 手动模式
     execution_mode: str = Form("auto"),
     pause_points: str = Form(""),
+    lut_id: str = Form(""),
 ):
     """创建稿件长视频任务（类型 3）。"""
     api_key = get_api_key()
@@ -661,6 +704,7 @@ async def create_manuscript_task(
         manual_config=_build_manual_config(execution_mode, pause_points),
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
+        lut_id=lut_id.strip() if isinstance(lut_id, str) else "",
     )
 
     pipeline = deps.create_pipeline_for_type(TaskType.MANUSCRIPT, api_key, task_id, dir_name)
@@ -704,6 +748,7 @@ async def create_poetry_task(
     # v6.0 手动模式
     execution_mode: str = Form("auto"),
     pause_points: str = Form(""),
+    lut_id: str = Form(""),
 ):
     """创建诗词视频任务（类型 6）。"""
     api_key = get_api_key()
@@ -791,6 +836,7 @@ async def create_poetry_task(
         manual_config=_build_manual_config(execution_mode, pause_points),
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
+        lut_id=lut_id.strip() if isinstance(lut_id, str) else "",
     )
 
     pipeline = deps.create_pipeline_for_type(TaskType.POETRY, api_key, task_id, dir_name)
@@ -832,6 +878,7 @@ async def create_anchor_task(
     # v6.0 手动模式
     execution_mode: str = Form("auto"),
     pause_points: str = Form(""),
+    lut_id: str = Form(""),
 ):
     """创建数字人口播任务（类型 4 / Phase 3）。"""
     api_key = get_api_key()
@@ -884,6 +931,7 @@ async def create_anchor_task(
         manual_config=_build_manual_config(execution_mode, pause_points),
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
+        lut_id=lut_id.strip() if isinstance(lut_id, str) else "",
     )
 
     pipeline = deps.create_pipeline_for_type(TaskType.ANCHOR, api_key, task_id, dir_name)
@@ -960,6 +1008,8 @@ async def create_task_legacy(
         preview_json="",
         camera_movement="",
         draft_mode=False,
+        lut_id="",
+        reference_asset_id="",
     )
 
 
@@ -993,3 +1043,116 @@ async def poetry_scene_prompt(
         total_duration=total_duration,
         style=style,
     )
+
+
+def _resolve_asset_image_path(asset_id: str) -> str:
+    """Resolve a workspace asset library ID to its stored image file path (empty if missing)."""
+    aid = (asset_id or "").strip()
+    if not aid:
+        return ""
+    try:
+        from web.routes.asset_routes import _assets_dir, _load_library
+        item = next((x for x in _load_library() if x.get("id") == aid), None)
+        if item and item.get("image_file"):
+            p = safe_join(_assets_dir(), item["image_file"])
+            if os.path.isfile(p):
+                return p
+    except Exception:
+        pass
+    return ""
+
+
+_ALLOWED_AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
+
+
+@router.post("/api/tasks/music-video")
+async def create_music_video_task(
+    song_title: str = Form(""),
+    visual_style: str = Form("Cinematic Music Video"),
+    bpm: int = Form(120),
+    scene_count: int = Form(6),
+    video_width: int = Form(768),
+    video_height: int = Form(1152),
+    generate_music: bool = Form(False),
+    music_prompt: str = Form(""),
+    music_style: str = Form(""),
+    instrumental: bool = Form(False),
+    suno_model: str = Form("V6"),
+    trim_start_sec: float = Form(0.0),
+    trim_end_sec: float = Form(0.0),
+    camera_movement: Optional[str] = Form(None),
+    lut_id: str = Form(""),
+    reference_asset_id: str = Form(""),
+    audio_file: UploadFile = File(None),
+    reference_image: UploadFile = File(None),
+    execution_mode: str = Form("auto"),
+    pause_points: str = Form(""),
+):
+    """创建音乐视频任务（类型 7 / Audio-First MV Pipeline）。"""
+    api_key = get_api_key()
+    if not api_key:
+        raise HTTPException(status_code=400, detail=api_key_missing_msg())
+
+    if bpm < 40 or bpm > 240:
+        raise HTTPException(status_code=422, detail="BPM must be between 40 and 240")
+    if scene_count < 2 or scene_count > 30:
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.scene_count_range", None, min=2, max=30),
+        )
+
+    task_id = uuid.uuid4().hex[:12]
+    name = song_title.strip() or f"mv_{task_id}"
+    dir_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{task_id}"
+    upload_dir = helpers.get_upload_dir()
+
+    saved_audio = ""
+    if audio_file and audio_file.filename:
+        ext = (os.path.splitext(audio_file.filename)[1] or ".mp3").lower()
+        if ext not in _ALLOWED_AUDIO_EXTS:
+            raise HTTPException(status_code=422, detail=f"Unsupported audio format: {ext}")
+        data = await audio_file.read(_MAX_UPLOAD_BYTES + 1)
+        if len(data) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Audio file too large")
+        saved_audio = safe_join(upload_dir, f"{task_id}_audio_{uuid.uuid4().hex[:8]}{ext}")
+        await write_bytes(saved_audio, data)
+
+    saved_ref = ""
+    if reference_image and reference_image.filename:
+        saved_ref = await _save_upload_file(reference_image, upload_dir, f"{task_id}_ref")
+    elif reference_asset_id.strip():
+        saved_ref = _resolve_asset_image_path(reference_asset_id)
+
+    state = MusicVideoTask(
+        task_id=task_id,
+        creative_name=name,
+        song_title=song_title.strip(),
+        visual_style=visual_style.strip() or "Cinematic Music Video",
+        bpm=bpm,
+        scene_count=scene_count,
+        video_width=video_width,
+        video_height=video_height,
+        audio_file=saved_audio,
+        reference_image=saved_ref,
+        generate_music=generate_music,
+        music_prompt=music_prompt.strip(),
+        music_style=music_style.strip(),
+        instrumental=instrumental,
+        suno_model=suno_model.strip() or "V6",
+        trim_start_sec=max(0.0, trim_start_sec),
+        trim_end_sec=max(0.0, trim_end_sec),
+        camera_movement=(camera_movement if isinstance(camera_movement, str) else "") or "",
+        lut_id=lut_id.strip() if isinstance(lut_id, str) else "",
+        manual_config=_build_manual_config(execution_mode, pause_points),
+        ui_language=get_current_lang(),
+    )
+
+    pipeline = deps.create_pipeline_for_type(TaskType.MUSIC_VIDEO, api_key, task_id, dir_name)
+    app_state.active_pipelines[task_id] = pipeline
+
+    tm = TaskManager(task_id, dir_name=dir_name)
+    state.status = StepStatus.QUEUED
+    tm.create(state)
+    app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
+    logger.info("[MusicVideo] Task created: %s, bpm=%d, scenes=%d (queued)", safe_log(task_id), bpm, scene_count)
+    return {"ok": True, "task_id": task_id, "dir_name": dir_name}

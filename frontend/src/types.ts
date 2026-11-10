@@ -1,6 +1,6 @@
 // 与后端 models/task.py 对齐的类型定义（仅前端需要的字段）
 
-export type TaskType = 'simple' | 'creative' | 'manuscript' | 'anchor' | 'poetry' | 'image'
+export type TaskType = 'simple' | 'creative' | 'manuscript' | 'anchor' | 'poetry' | 'music_video' | 'image'
 
 export interface TaskState {
   task_id: string
@@ -61,6 +61,8 @@ export interface TaskListItem {
   // P2 项目概览：来自 task_state.json；旧任务为空串（按「未知日期」处理）
   created_at?: string
   updated_at?: string
+  song_title?: string
+  bpm?: number
 }
 
 export interface StepDef {
@@ -145,4 +147,22 @@ export interface GalleryItem {
   title?: string
   media_url?: string
   thumb_url?: string | null
+}
+
+export interface LutPreset {
+  id: string
+  name: string
+  description: string
+  path?: string
+}
+
+export interface WorkspaceAsset {
+  id: string
+  name: string
+  kind: 'character' | 'style' | 'prop'
+  prompt: string
+  continuity_locks: string
+  image_file?: string
+  image_url?: string | null
+  created_at?: string
 }

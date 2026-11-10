@@ -44,6 +44,7 @@ from web.routes import (
     video_routes,
     voice_routes,
     workspace_routes,
+    asset_routes,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -232,6 +233,7 @@ app.include_router(gallery_routes.router)
 app.include_router(task_creation_routes.router)
 app.include_router(preview_routes.router)
 app.include_router(knowledge_routes.router)
+app.include_router(asset_routes.router)
 
 
 

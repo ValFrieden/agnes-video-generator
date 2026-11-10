@@ -53,20 +53,91 @@ _ARTIFACT_MEDIA_TYPES = {
 
 
 @router.get("/api/video/{task_id}")
-async def serve_video(task_id: str, download: bool = False):
+async def serve_video(task_id: str, download: bool = False, variant: str = ""):
     dir_name = helpers.find_dir_name(task_id)
     try:
         task_dir = safe_join(get_working_dir(), dir_name)
     except UnsafePathError:
         raise HTTPException(status_code=404, detail="Video not found")
-    video_path = os.path.join(task_dir, "final_video.mp4")
+    filename = "processed_video.mp4" if variant == "processed" else "final_video.mp4"
+    video_path = os.path.join(task_dir, filename)
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video not found")
     # Logikcheck Befund 4：download=1 时以附件形式下发（Content-Disposition: attachment），
     # 前端结果区的「下载视频」链接直接复用本端点。
     if download:
-        return FileResponse(video_path, media_type="video/mp4", filename=f"{task_id}.mp4")
+        dl_name = f"{task_id}_edited.mp4" if variant == "processed" else f"{task_id}.mp4"
+        return FileResponse(video_path, media_type="video/mp4", filename=dl_name)
     return FileResponse(video_path, media_type="video/mp4")
+
+
+@router.post("/api/tasks/{task_id}/postprocess")
+async def postprocess_task_video(
+    task_id: str,
+    start_sec: float = Form(0.0),
+    end_sec: float = Form(0.0),
+    lut_id: str = Form(""),
+    aspect: str = Form("keep"),
+):
+    """对已完成的成片执行轻量后处理（裁剪起止秒、3D LUT 调色、画幅裁切导出）。"""
+    import subprocess
+    from core.compositor.ffmpeg_tool import resolve_binary
+    from core.compositor.processor import VideoProcessor
+
+    dir_name = helpers.find_dir_name(task_id)
+    try:
+        task_dir = safe_join(get_working_dir(), dir_name)
+    except UnsafePathError:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    src_video = os.path.join(task_dir, "final_video.mp4")
+    if not os.path.isfile(src_video):
+        raise HTTPException(status_code=404, detail="Final video not found")
+
+    if start_sec < 0 or (end_sec > 0 and end_sec <= start_sec):
+        raise HTTPException(status_code=422, detail="Invalid trim range")
+    if aspect not in ("keep", "9:16", "16:9", "1:1"):
+        raise HTTPException(status_code=422, detail="Unsupported aspect ratio")
+
+    out_video = os.path.join(task_dir, "processed_video.mp4")
+
+    def _run_ffmpeg() -> None:
+        filters: list[str] = []
+        if aspect == "9:16":
+            filters.append("crop='min(iw,ih*9/16)':'min(ih,iw*16/9)'")
+        elif aspect == "16:9":
+            filters.append("crop='min(iw,ih*16/9)':'min(ih,iw*9/16)'")
+        elif aspect == "1:1":
+            filters.append("crop='min(iw,ih)':'min(iw,ih)'")
+
+        if lut_id.strip():
+            lut_path = VideoProcessor.list_available_luts().get(lut_id.strip())
+            if lut_path and os.path.isfile(lut_path):
+                lut_filter_path = lut_path.replace("\\", "/").replace(":", "\\:")
+                filters.append(f"lut3d='{lut_filter_path}'")
+
+        cmd = [resolve_binary("ffmpeg"), "-y"]
+        if start_sec > 0:
+            cmd += ["-ss", f"{start_sec:.3f}"]
+        if end_sec > start_sec:
+            cmd += ["-to", f"{end_sec:.3f}"]
+        cmd += ["-i", src_video]
+        if filters:
+            cmd += ["-vf", ",".join(filters)]
+        cmd += ["-c:v", "libx264", "-preset", "fast", "-c:a", "aac", "-movflags", "+faststart", out_video]
+        subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, check=True, timeout=300)
+
+    try:
+        await asyncio.to_thread(_run_ffmpeg)
+    except subprocess.CalledProcessError as e:
+        err = (e.stderr or b"").decode(errors="replace")[:300]
+        raise HTTPException(status_code=500, detail=f"FFmpeg postprocess failed: {err}")
+
+    return {
+        "ok": True,
+        "video_url": f"/api/video/{task_id}?variant=processed&t={int(os.path.getmtime(out_video))}",
+        "download_url": f"/api/video/{task_id}?variant=processed&download=1",
+    }
 
 
 @router.get("/api/tasks/{task_id}/artifacts")

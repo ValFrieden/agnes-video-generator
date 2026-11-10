@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { t, currentLang } from '@/i18n'
 import { appState } from '@/store'
+import { getLipsyncHealth } from '@/api'
 import { useVoice } from '@/composables/useVoice'
 import { useTaskSubmit, collectAudioSubtitleFields } from '@/composables/useTaskSubmit'
 import { useDraft } from '@/composables/useDraft'
@@ -9,6 +10,7 @@ import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import SubtitleConfig from '@/components/shared/SubtitleConfig.vue'
 import AspectPicker from '@/components/shared/AspectPicker.vue'
 import DropzoneCard from '@/components/shared/DropzoneCard.vue'
+import LutSelector from '@/components/shared/LutSelector.vue'
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -22,6 +24,17 @@ const form = reactive({
   script: '',
   resolution: '768x1344',
   audioSource: 'post_stitch' as 'post_stitch' | 'model' | 'lipsync',
+  lutId: '',
+})
+
+const lipsyncAvailable = ref<boolean | null>(null)
+onMounted(async () => {
+  try {
+    const res = await getLipsyncHealth()
+    lipsyncAvailable.value = !!res?.available
+  } catch {
+    lipsyncAvailable.value = false
+  }
 })
 
 const charCount = computed(() => form.script.length)
@@ -36,9 +49,10 @@ const draft = useDraft('anchor')
   if (typeof d.script === 'string') form.script = d.script
   if (typeof d.resolution === 'string') form.resolution = d.resolution
   if (d.audioSource === 'post_stitch' || d.audioSource === 'model' || d.audioSource === 'lipsync') form.audioSource = d.audioSource
+  if (typeof d.lutId === 'string') form.lutId = d.lutId
 })()
 draft.autoSave(form, (v) => ({
-  prompt: v.prompt, script: v.script, resolution: v.resolution, audioSource: v.audioSource,
+  prompt: v.prompt, script: v.script, resolution: v.resolution, audioSource: v.audioSource, lutId: v.lutId,
 }))
 
 function parseResolution(val: string) {
@@ -68,6 +82,7 @@ async function submitAnchor() {
       fd.append('video_height', String(res.height))
       if (form.refImage) fd.append('anchor_reference_image', form.refImage)
       fd.append('audio_source', form.audioSource)
+      if (form.lutId) fd.append('lut_id', form.lutId)
 
       const sc = subtitleRef.value
       collectAudioSubtitleFields(fd, sc, voiceSelections, 'a', currentLang.value)
@@ -154,13 +169,23 @@ async function submitAnchor() {
           </label>
           <label class="flex items-start gap-3 cursor-pointer group">
             <input v-model="form.audioSource" type="radio" name="a_audio_source" value="lipsync" class="mt-0.5 accent-blue-500" />
-            <div>
-              <span class="text-sm text-ink-2 group-hover:text-ink transition">LivePortrait Lip-Sync ✨</span>
-              <p class="text-xs text-muted mt-0.5">Синхронизация губ и мимики диктора под речь через нейросеть LivePortrait/EchoMimic</p>
+            <div class="flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm text-ink-2 group-hover:text-ink transition">{{ t('audioLipsync') }}</span>
+                <span
+                  v-if="lipsyncAvailable !== null"
+                  :class="lipsyncAvailable ? 'badge-success' : 'badge-warning'"
+                >
+                  {{ lipsyncAvailable ? t('lipsyncOnline') : t('lipsyncOffline') }}
+                </span>
+              </div>
+              <p class="text-xs text-muted mt-0.5">{{ t('audioLipsyncDesc') }}</p>
             </div>
           </label>
         </div>
       </div>
+
+      <LutSelector v-model="form.lutId" />
     </div>
 
     <!-- Audio & Subtitle（model 模式禁用音频） -->

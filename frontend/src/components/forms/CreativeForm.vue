@@ -15,6 +15,10 @@ import DropzoneCard from '@/components/shared/DropzoneCard.vue'
 import StylePresetChips from '@/components/shared/StylePresetChips.vue'
 import InfoTooltip from '@/components/shared/InfoTooltip.vue'
 import NeuStepper from '@/components/shared/NeuStepper.vue'
+import NeuSwitch from '@/components/shared/NeuSwitch.vue'
+import LutSelector from '@/components/shared/LutSelector.vue'
+import AssetLibraryPicker from '@/components/shared/AssetLibraryPicker.vue'
+import type { WorkspaceAsset } from '@/types'
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -32,6 +36,8 @@ const form = reactive({
   style: '',
   cameraMovement: '',
   draftMode: false,
+  lutId: '',
+  selectedAssetId: '',
   chaining: 'keyframes',
   resolution: '768x1152',
   refImage: null as File | null,
@@ -42,6 +48,13 @@ const form = reactive({
   // v5.0 优化 5：用户上传分镜场景图（按场景 index 对齐）
   sceneRefs: [] as File[],
 })
+
+const attachedScenario = ref<{
+  title: string
+  story: string
+  scenes: { title: string; prompt: string; voiceover: string; duration: number }[]
+  locks: string[]
+} | null>(null)
 
 function parseResolution(val: string) {
   const [w, h] = val.split('x').map(Number)
@@ -61,29 +74,67 @@ const draft = useDraft('creative')
   if (typeof d.uniformDuration === 'number') form.uniformDuration = d.uniformDuration
   if (Array.isArray(d.independentDurations)) form.independentDurations = d.independentDurations
   if (typeof d.style === 'string') form.style = d.style
+  if (typeof d.cameraMovement === 'string') form.cameraMovement = d.cameraMovement
+  if (typeof d.draftMode === 'boolean') form.draftMode = d.draftMode
+  if (typeof d.lutId === 'string') form.lutId = d.lutId
   if (typeof d.chaining === 'string') form.chaining = d.chaining
   if (typeof d.resolution === 'string') form.resolution = normalizeResolution(d.resolution)
 })()
 draft.autoSave(form, (v) => ({
   name: v.name, idea: v.idea, durationSource: v.durationSource, sceneCount: v.sceneCount,
   uniform: v.uniform, uniformDuration: v.uniformDuration,
-  independentDurations: v.independentDurations, style: v.style, chaining: v.chaining,
-  resolution: v.resolution,
+  independentDurations: v.independentDurations, style: v.style,
+  cameraMovement: v.cameraMovement, draftMode: v.draftMode, lutId: v.lutId,
+  chaining: v.chaining, resolution: v.resolution,
 }))
 
-// Logikcheck Befund 9: Drehbuch-Studio Szenario direkt in dieses Formular übernehmen
+// Full ScenarioStudio transfer: title, logline, style, shots, camera movements, continuity locks
 function onApplyScenario(e: CustomEvent) {
   const p = e.detail
   if (!p) return
   if (p.title) form.name = p.title
   if (p.logline) form.idea = p.logline
   if (p.style) form.style = p.style
+
+  const locks: string[] = Array.isArray(p.character?.continuity_locks)
+    ? p.character.continuity_locks.map((l: any) => `${l.key}: ${l.phrase}`).filter(Boolean)
+    : []
+
   if (Array.isArray(p.shots) && p.shots.length > 0) {
+    form.durationSource = 'manual'
     form.sceneCount = p.shots.length
     form.uniform = false
     form.independentDurations = p.shots.map((s: any) =>
       Math.max(2, Math.min(30, Math.round((s.end_time_s || 5) - (s.start_time_s || 0)) || 5)),
     )
+    const charLine = p.character
+      ? `${p.character.name || ''} (${p.character.role || ''}): ${p.character.appearance || ''} ${p.character.wardrobe || ''}`.trim()
+      : ''
+    const storyText = [p.logline || p.title || '', charLine, locks.length ? `Locks: ${locks.join('; ')}` : '']
+      .filter(Boolean)
+      .join('\n\n')
+    const mappedScenes = p.shots.map((s: any, idx: number) => ({
+      title: `${s.beat_type || 'Scene'} #${s.scene_number || idx + 1}`,
+      prompt: s.video_prompt || `${s.shot_size || ''}, ${s.camera_movement || ''}. ${s.action_description || ''} ${s.lighting_and_color || ''}`.trim(),
+      voiceover: s.narration || s.action_description || '',
+      duration: form.independentDurations[idx] || 5,
+    }))
+    attachedScenario.value = {
+      title: p.title || '',
+      story: storyText || p.logline || '',
+      scenes: mappedScenes,
+      locks,
+    }
+  }
+}
+
+function onSelectAsset(asset: WorkspaceAsset | null) {
+  form.selectedAssetId = asset ? asset.id : ''
+  if (asset) {
+    const extra = [asset.prompt, asset.continuity_locks].filter(Boolean).join('. ')
+    if (extra && !form.idea.includes(extra)) {
+      form.idea = form.idea.trim() ? `${form.idea.trim()}\n\n[${asset.name}: ${extra}]` : `[${asset.name}: ${extra}]`
+    }
   }
 }
 
@@ -140,7 +191,19 @@ async function submitCreative() {
       fd.append('style', form.style)
       if (form.cameraMovement) fd.append('camera_movement', form.cameraMovement)
       fd.append('draft_mode', String(form.draftMode))
+      if (form.lutId) fd.append('lut_id', form.lutId)
+      if (form.selectedAssetId) fd.append('reference_asset_id', form.selectedAssetId)
       fd.append('chaining_mode', form.chaining)
+      if (attachedScenario.value && attachedScenario.value.scenes.length === form.sceneCount) {
+        fd.append(
+          'preview_json',
+          JSON.stringify({
+            story: attachedScenario.value.story,
+            scenes: attachedScenario.value.scenes,
+            narration: attachedScenario.value.scenes.map((s) => s.voiceover).filter(Boolean).join('\n'),
+          }),
+        )
+      }
 
       fd.append('duration_source', form.durationSource)
       if (form.durationSource === 'manual') {
@@ -213,6 +276,34 @@ async function submitCreative() {
     <div class="glass-card rounded-2xl p-6 mb-4">
       <h2 class="text-lg font-semibold text-accent mb-4">{{ t('creativeSettings') }}</h2>
 
+      <!-- Attached Scenario Banner (from Scenario Studio) -->
+      <div
+        v-if="attachedScenario"
+        class="mb-4 p-3.5 rounded-xl border border-accent/40 bg-accent/10 flex flex-wrap items-start justify-between gap-2"
+      >
+        <div class="space-y-1 min-w-0 flex-1">
+          <p class="text-xs font-semibold text-accent">
+            {{ t('scAttachedBanner').replace('{n}', String(attachedScenario.scenes.length)) }}
+          </p>
+          <div v-if="attachedScenario.locks.length" class="flex flex-wrap gap-1">
+            <span
+              v-for="lk in attachedScenario.locks"
+              :key="lk"
+              class="text-[11px] px-2 py-0.5 rounded-full bg-paper border border-rule text-ink-2 font-mono"
+            >
+              {{ lk }}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="text-xs text-muted hover:text-ink px-2 py-1 rounded border border-rule bg-paper"
+          @click="attachedScenario = null"
+        >
+          {{ t('clear') }}
+        </button>
+      </div>
+
       <div class="mb-4">
         <label class="block text-sm text-muted mb-1.5" for="cr-name">{{ t('taskName') }}</label>
         <input id="cr-name" v-model="form.name" :placeholder="t('taskNamePlaceholder')" class="w-full glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted" />
@@ -274,7 +365,7 @@ async function submitCreative() {
       <div class="mb-4">
         <div class="flex items-center justify-between mb-1.5">
           <label class="block text-sm text-muted font-medium" for="cr-style">{{ t('visualStyle') }}</label>
-          <InfoTooltip text="Задайте художественный стиль сцен: кинематограф, аниме, 3D анимация, живопись или фотореализм." />
+          <InfoTooltip :text="t('tipVisualStyle')" />
         </div>
         <StylePresetChips v-model="form.style" class="mb-2" />
         <div class="flex items-center gap-2">
@@ -286,8 +377,8 @@ async function submitCreative() {
       <!-- 20 Cinematic Camera Movements (SYNTX AI) -->
       <div class="mb-4">
         <div class="flex items-center justify-between mb-1.5">
-          <label class="block text-sm text-muted font-medium">Кинематографическое движение камеры (SYNTX)</label>
-          <InfoTooltip text="20 операторских пресетов (Dolly In, Orbital Pan, Snorricam, Vertigo, Crane): задает физику и кинематографическую траекторию камеры." />
+          <label class="block text-sm text-muted font-medium">{{ t('cameraMovementLabel') }}</label>
+          <InfoTooltip :text="t('tipCameraMovement')" />
         </div>
         <CameraMovementPicker v-model="form.cameraMovement" />
       </div>
@@ -297,26 +388,23 @@ async function submitCreative() {
     <div class="glass-card rounded-2xl p-6 mb-4">
       <h2 class="text-lg font-semibold text-accent mb-4">{{ t('advancedSettings') }}</h2>
 
-      <!-- Draft Mode Toggle -->
-      <div class="mb-5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+      <!-- Draft Mode Toggle (pauses after storyboard/keyframes before video render) -->
+      <div class="mb-5 p-3.5 rounded-xl bg-accent/10 border border-accent/25 flex items-center justify-between gap-4">
         <div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-semibold text-amber-300">⚡ Черновой режим (Draft Mode)</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200">Экономия квот</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-semibold text-accent">{{ t('draftModeTitle') }}</span>
+            <span class="badge-info">{{ t('draftModeBadge') }}</span>
           </div>
-          <p class="text-[11px] text-zinc-400 mt-0.5">Генерация контактных листов (25/50/75%) перед чистовым рендером. Позволяет отсеять брак без перерасхода ресурсов.</p>
+          <p class="text-[11px] text-muted mt-1 leading-relaxed">{{ t('draftModeDesc') }}</p>
         </div>
-        <label for="cr-draft-mode" class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="cr-draft-mode" v-model="form.draftMode" class="sr-only peer" />
-          <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
-        </label>
+        <NeuSwitch v-model="form.draftMode" :label="t('draftModeTitle')" />
       </div>
 
       <!-- Visual Aspect Ratio -->
       <div class="mb-5">
         <div class="flex items-center justify-between mb-2">
           <label class="block text-sm text-muted font-medium">{{ t('resolution') }}</label>
-          <InfoTooltip text="Формат кадра для ваших видео: 9:16 подходит для TikTok и Reels, 16:9 для YouTube и горизонтальных экранов, 1:1 для постов." />
+          <InfoTooltip :text="t('tipAspectRatio')" />
         </div>
         <AspectPicker v-model="form.resolution" />
       </div>
@@ -325,7 +413,7 @@ async function submitCreative() {
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="block text-sm text-muted font-medium" for="cr-chaining">{{ t('chainingMode') }}</label>
-            <InfoTooltip text="Keyframes: сцепка по конечному кадру предыдущей сцены. Ti2vid: text+image в видео. None: независимые сцены." />
+            <InfoTooltip :text="t('tipChainingMode')" />
           </div>
           <select id="cr-chaining" v-model="form.chaining" class="w-full glass-input rounded-lg px-3 py-2.5 text-sm text-ink">
             <option value="keyframes">{{ t('modeKeyframes') }}</option>
@@ -333,13 +421,18 @@ async function submitCreative() {
             <option value="none">{{ t('modeNone') }}</option>
           </select>
         </div>
+        <LutSelector v-model="form.lutId" />
+      </div>
+
+      <div class="mb-5">
+        <AssetLibraryPicker :selected-id="form.selectedAssetId" @select="onSelectAsset" />
       </div>
 
       <!-- Reference Image with DropzoneCard -->
       <div class="mb-5">
         <div class="flex items-center justify-between mb-2">
           <label class="block text-sm text-muted font-medium">{{ t('referenceImage') }}</label>
-          <InfoTooltip text="Эталонное изображение персонажа или стиля. Нейросеть зафиксирует внешность главного героя во всех сценах." />
+          <InfoTooltip :text="t('tipReferenceImage')" />
         </div>
         <DropzoneCard
           v-model="form.refImage"

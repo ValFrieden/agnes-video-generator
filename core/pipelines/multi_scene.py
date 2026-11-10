@@ -171,7 +171,8 @@ class MultiScenePipeline(BasePipeline):
                 self._t("progress.multi_scene.composite_running"), self._t("progress.multi_scene.composite_done"),
             )
 
-            # 后处理：水印（继承自 BasePipeline；异步，避免阻塞事件循环）
+            # 后处理：可选 3D LUT 调色 + 水印（异步，避免阻塞事件循环）
+            final_video = await self._apply_lut(final_video)
             final_video = await self._apply_watermark(final_video)
 
             # Post-Processing (AGNES_POST_PROCESS=1 aktiviert auto-editor Stille-Entfernung im ThreadPool)

@@ -36,16 +36,13 @@ const selectedPreset = computed(() => {
   return presets.value.find((p) => p.id === props.modelValue)
 })
 
-const categories = computed(() => {
-  const isRu = currentLang.value === 'ru'
-  return [
-    { id: 'all', name: isRu ? 'Все (20)' : 'All (20)' },
-    { id: 'dramatic', name: isRu ? 'Драматические' : 'Dramatic' },
-    { id: 'dynamic', name: isRu ? 'Динамические' : 'Dynamic' },
-    { id: 'perspective', name: isRu ? 'Ракурсные' : 'Perspective' },
-    { id: 'atmospheric', name: isRu ? 'Атмосферные' : 'Atmospheric' },
-  ]
-})
+const categories = computed(() => [
+  { id: 'all', name: t('camCatAll') },
+  { id: 'dramatic', name: t('camCatDramatic') },
+  { id: 'dynamic', name: t('camCatDynamic') },
+  { id: 'perspective', name: t('camCatPerspective') },
+  { id: 'atmospheric', name: t('camCatAtmospheric') },
+])
 
 const filteredPresets = computed(() => {
   let list = presets.value
@@ -54,15 +51,25 @@ const filteredPresets = computed(() => {
   }
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase().trim()
-    list = list.filter((p) =>
-      p.name_ru.toLowerCase().includes(q) ||
-      p.name_en.toLowerCase().includes(q) ||
-      p.description_ru.toLowerCase().includes(q) ||
-      p.prompt_modifier.toLowerCase().includes(q)
+    list = list.filter(
+      (p) =>
+        p.name_ru.toLowerCase().includes(q) ||
+        p.name_en.toLowerCase().includes(q) ||
+        p.description_ru.toLowerCase().includes(q) ||
+        p.description_en.toLowerCase().includes(q) ||
+        p.prompt_modifier.toLowerCase().includes(q),
     )
   }
   return list
 })
+
+function presetName(p: CameraMovementPreset): string {
+  return currentLang.value === 'ru' ? p.name_ru : p.name_en
+}
+
+function presetDesc(p: CameraMovementPreset): string {
+  return currentLang.value === 'ru' ? p.description_ru : p.description_en
+}
 
 function selectMovement(id: string) {
   if (props.modelValue === id) {
@@ -80,92 +87,104 @@ function clearSelection() {
 
 <template>
   <div class="relative w-full">
-    <!-- Active Selection Chip or Trigger Button -->
-    <div class="flex items-center gap-2">
-      <div v-if="selectedPreset" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-200 text-xs">
-        <span class="font-medium">🎬 {{ currentLang === 'ru' ? selectedPreset.name_ru : selectedPreset.name_en }}</span>
+    <div class="flex flex-wrap items-center gap-2">
+      <div
+        v-if="selectedPreset"
+        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/40 text-accent text-xs"
+      >
+        <span class="font-medium">{{ presetName(selectedPreset) }}</span>
         <button
           type="button"
-          class="text-indigo-400 hover:text-white transition-colors"
-          title="Сбросить"
+          class="text-accent hover:text-ink transition-colors p-0.5"
+          :aria-label="t('clear')"
+          :title="t('clear')"
           @click.stop="clearSelection"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-        :class="selectedPreset ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 hover:from-purple-500/30 hover:to-indigo-500/30 border border-purple-500/30 text-purple-200'"
+        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition cursor-pointer"
+        :class="
+          selectedPreset
+            ? 'bg-paper-2 border-rule text-ink-2 hover:text-ink hover:border-accent/40'
+            : 'bg-paper-2 border-rule text-ink-2 hover:text-ink hover:border-accent/50'
+        "
+        :aria-expanded="open"
         @click="open = !open"
       >
-        <span>🎥</span>
-        <span>{{ selectedPreset ? (currentLang === 'ru' ? 'Сменить движение камеры' : 'Change camera') : (currentLang === 'ru' ? '20 движений камеры (SYNTX)' : '20 Camera Movements (SYNTX)') }}</span>
-        <span class="text-[10px] text-zinc-400">{{ open ? '▲' : '▼' }}</span>
+        <svg class="w-3.5 h-3.5 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+        </svg>
+        <span>{{ selectedPreset ? t('camChange') : t('camPick') }}</span>
+        <span class="text-[10px] text-muted">{{ open ? '▲' : '▼' }}</span>
       </button>
     </div>
 
-    <!-- Dropdown Modal / Picker Grid -->
     <div
       v-if="open"
-      class="mt-2 p-3 rounded-xl bg-zinc-900/95 border border-zinc-700/80 shadow-2xl backdrop-blur-md z-30 flex flex-col gap-3 max-h-[380px] overflow-y-auto"
+      class="mt-2 p-3.5 rounded-xl bg-paper-2 border border-rule shadow-lg z-30 flex flex-col gap-3 max-h-[380px] overflow-y-auto"
     >
-      <!-- Header & Search -->
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-zinc-800 pb-2">
-        <div class="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
-          <span>🎬</span>
-          <span>{{ currentLang === 'ru' ? 'Кинематографический операторский каталог' : 'Cinematic Camera Presets' }}</span>
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-rule pb-2">
+        <div class="text-xs font-semibold text-ink">
+          {{ t('camCatalogTitle') }}
         </div>
         <input
           v-model="searchQuery"
           type="text"
-          :placeholder="currentLang === 'ru' ? 'Поиск пресета...' : 'Search movement...'"
-          class="px-2.5 py-1 text-xs rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 w-full sm:w-48"
+          :placeholder="t('camSearchPlaceholder')"
+          :aria-label="t('camSearchPlaceholder')"
+          class="px-2.5 py-1.5 text-xs rounded-lg glass-input text-ink placeholder-muted w-full sm:w-48"
         />
       </div>
 
-      <!-- Category Filter Tabs -->
-      <div class="flex flex-wrap gap-1">
+      <div class="flex flex-wrap gap-1.5">
         <button
           v-for="cat in categories"
           :key="cat.id"
           type="button"
-          class="px-2 py-0.5 rounded text-[11px] font-medium transition-all"
-          :class="selectedCategory === cat.id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'"
+          class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition"
+          :class="
+            selectedCategory === cat.id
+              ? 'bg-accent text-accent-ink border-accent'
+              : 'bg-paper border-rule text-muted hover:text-ink-2'
+          "
           @click="selectedCategory = cat.id"
         >
           {{ cat.name }}
         </button>
       </div>
 
-      <!-- Presets Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div
+      <div v-if="loading" class="text-xs text-muted py-4 text-center">{{ t('loading') }}</div>
+      <div v-else-if="!filteredPresets.length" class="text-xs text-muted py-4 text-center">{{ t('voiceEmpty') }}</div>
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button
           v-for="p in filteredPresets"
           :key="p.id"
-          class="p-2.5 rounded-lg border text-left cursor-pointer transition-all flex flex-col justify-between"
-          :class="modelValue === p.id ? 'bg-indigo-600/20 border-indigo-500 text-indigo-100 shadow' : 'bg-zinc-800/50 hover:bg-zinc-800 border-zinc-700/50 hover:border-zinc-600 text-zinc-300'"
+          type="button"
+          class="p-2.5 rounded-lg border text-left transition flex flex-col justify-between"
+          :class="
+            modelValue === p.id
+              ? 'bg-accent/10 border-accent text-ink'
+              : 'bg-paper border-rule hover:border-accent/40 text-ink-2'
+          "
           @click="selectMovement(p.id)"
         >
           <div>
             <div class="flex items-center justify-between gap-1">
-              <span class="text-xs font-semibold text-zinc-200">
-                {{ currentLang === 'ru' ? p.name_ru : p.name_en }}
-              </span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-700/60 text-zinc-400">
-                {{ p.category }}
-              </span>
+              <span class="text-xs font-semibold text-ink">{{ presetName(p) }}</span>
+              <span class="badge-neutral text-[10px] px-1.5 py-0">{{ p.category }}</span>
             </div>
-            <p class="text-[11px] text-zinc-400 mt-1 line-clamp-2 leading-snug">
-              {{ currentLang === 'ru' ? p.description_ru : p.description_en }}
-            </p>
+            <p class="text-[11px] text-muted mt-1 line-clamp-2 leading-snug">{{ presetDesc(p) }}</p>
           </div>
-
-          <div class="mt-2 pt-1 border-t border-zinc-700/40 text-[10px] text-indigo-300/80 font-mono italic truncate">
+          <div class="mt-2 pt-1 border-t border-rule/60 text-[10px] text-accent font-mono truncate w-full">
             {{ p.prompt_modifier }}
           </div>
-        </div>
+        </button>
       </div>
     </div>
   </div>

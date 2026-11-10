@@ -1,83 +1,33 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { t } from '@/i18n'
 import { appState } from '@/store'
 import { useGa } from '@/composables/useGa'
+import { CREATE_TASK_TYPES, TASK_MANIFEST } from '@/taskManifest'
+import type { TaskType } from '@/types'
 import SimpleForm from './forms/SimpleForm.vue'
 import CreativeForm from './forms/CreativeForm.vue'
 import ScenarioStudioPanel from './ScenarioStudioPanel.vue'
 import ManuscriptForm from './forms/ManuscriptForm.vue'
 import AnchorForm from './forms/AnchorForm.vue'
 import PoetryForm from './forms/PoetryForm.vue'
+import MusicVideoForm from './forms/MusicVideoForm.vue'
+
+const emit = defineEmits<{
+  (e: 'open-settings'): void
+}>()
 
 const { trackEvent } = useGa()
 
-const taskTypes = [
-  { key: 'creative', label: 'ttCreative', desc: 'AI Story · Keyframes · Audio' },
-  { key: 'simple', label: 'ttSimple', desc: 'Fast T2V / I2V Prompt' },
-  { key: 'manuscript', label: 'ttManuscript', desc: 'Article or Prepared Text' },
-  { key: 'anchor', label: 'ttAnchor', desc: 'Digital Anchor with Audio' },
-  { key: 'poetry', label: 'ttPoetry', desc: 'Poem to Video Clip' },
-]
-
-// v6.0/6.1 手动模式：暂停点选项（按任务类型）
-const pausePointOptions: Record<string, { key: string; label: string }[]> = {
-  creative: [
-    { key: 'image_analysis', label: 'cpImageAnalysis' },
-    { key: 'story', label: 'cpStory' },
-    { key: 'script', label: 'cpScript' },
-    { key: 'character_ref', label: 'cpCharacterRef' },
-    { key: 'end_frame_prompts', label: 'cpEndFramePrompts' },
-    { key: 'end_frame_gen', label: 'cpEndFrameGen' },
-    { key: 'videos', label: 'cpVideos' },
-    { key: 'audio', label: 'cpAudio' },
-    { key: 'subtitle', label: 'cpSubtitle' },
-    { key: 'final', label: 'cpFinal' },
-  ],
-  manuscript: [
-    { key: 'scenes', label: 'cpScenes' },
-    { key: 'keyframes', label: 'cpKeyframes' },
-    { key: 'videos', label: 'cpVideos' },
-    { key: 'audio', label: 'cpAudio' },
-    { key: 'subtitle', label: 'cpSubtitle' },
-    { key: 'final', label: 'cpFinal' },
-  ],
-  poetry: [
-    { key: 'scenes', label: 'cpScenes' },
-    { key: 'keyframes', label: 'cpKeyframes' },
-    { key: 'videos', label: 'cpVideos' },
-    { key: 'audio', label: 'cpAudio' },
-    { key: 'subtitle', label: 'cpSubtitle' },
-    { key: 'final', label: 'cpFinal' },
-  ],
-  anchor: [
-    { key: 'scenes', label: 'cpScenes' },
-    { key: 'references', label: 'cpReferences' },
-    { key: 'videos', label: 'cpVideos' },
-    { key: 'audio', label: 'cpAudio' },
-    { key: 'subtitle', label: 'cpSubtitle' },
-    { key: 'final', label: 'cpFinal' },
-  ],
-}
-
-// 手动模式支持的任务类型（simple/simple_image 不支持暂停，PRD §4.3）
-const manualSupported = computed(() => !['simple', 'image'].includes(appState.createTaskType))
-
-// 当前任务类型可选的暂停点
-const currentPausePoints = computed(() => pausePointOptions[appState.createTaskType] || [])
-
-// 默认暂停点（PRD §4.8 预填，用户可增删）
-const defaultPausePoints: Record<string, string[]> = {
-  creative: ['story', 'script', 'character_ref', 'videos', 'subtitle'],
-  manuscript: ['scenes', 'keyframes', 'videos', 'subtitle'],
-  poetry: ['scenes', 'keyframes', 'videos', 'subtitle'],
-  anchor: ['scenes', 'videos'],
-}
+const activeEntry = computed(() => TASK_MANIFEST[appState.createTaskType as TaskType] || TASK_MANIFEST.creative)
+const manualSupported = computed(() => activeEntry.value.supportsManual)
+const currentPausePoints = computed(() => activeEntry.value.pausePoints)
 
 function switchTaskType(type: string) {
   trackEvent('ui_action', { action: 'switch_task_type', type })
   appState.createTaskType = type
-  appState.pausePoints = [...(defaultPausePoints[type] || [])]
+  const entry = TASK_MANIFEST[type as TaskType]
+  appState.pausePoints = [...(entry?.defaultPausePoints || [])]
 }
 
 function togglePausePoint(key: string) {
@@ -90,14 +40,34 @@ function selectExecMode(mode: 'auto' | 'manual') {
   if (mode === 'manual' && !manualSupported.value) return
   appState.execMode = mode
   if (mode === 'manual' && appState.pausePoints.length === 0) {
-    appState.pausePoints = [...(defaultPausePoints[appState.createTaskType] || [])]
+    appState.pausePoints = [...(activeEntry.value.defaultPausePoints || [])]
   }
 }
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- 1. Task Type Selector (Top Studio Row) -->
+    <!-- First-Run Onboarding Banner when API key is missing -->
+    <div
+      v-if="!appState.apiKeySource"
+      class="glass-card rounded-2xl p-4 border-accent/40 bg-accent/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      role="region"
+      :aria-label="t('onboardingTitle')"
+    >
+      <div class="space-y-0.5">
+        <p class="text-sm font-semibold text-ink">{{ t('onboardingTitle') }}</p>
+        <p class="text-xs text-muted leading-relaxed">{{ t('onboardingDesc') }}</p>
+      </div>
+      <button
+        type="button"
+        class="px-4 py-2 rounded-lg text-xs font-semibold glow-btn shrink-0 self-start sm:self-center"
+        @click="emit('open-settings')"
+      >
+        {{ t('onboardingAction') }}
+      </button>
+    </div>
+
+    <!-- 1. Task Type Selector (Driven by TASK_MANIFEST) -->
     <div>
       <div class="flex items-center justify-between mb-3 px-1">
         <label class="text-xs font-medium text-muted">
@@ -110,9 +80,9 @@ function selectExecMode(mode: 'auto' | 'manual') {
         </div>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <button
-          v-for="tt in taskTypes"
+          v-for="tt in CREATE_TASK_TYPES"
           :key="tt.key"
           type="button"
           class="relative p-3.5 rounded-xl text-left transition-colors duration-150 cursor-pointer flex flex-col justify-between"
@@ -126,23 +96,21 @@ function selectExecMode(mode: 'auto' | 'manual') {
           <div>
             <div class="flex items-center justify-between mb-2">
               <span class="text-accent">
-                <!-- Creative -->
                 <svg v-if="tt.key === 'creative'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
                 </svg>
-                <!-- Simple -->
                 <svg v-else-if="tt.key === 'simple'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                <!-- Manuscript -->
                 <svg v-else-if="tt.key === 'manuscript'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <!-- Anchor -->
                 <svg v-else-if="tt.key === 'anchor'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
-                <!-- Poetry -->
+                <svg v-else-if="tt.key === 'music_video'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
                 <svg v-else class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
@@ -153,17 +121,17 @@ function selectExecMode(mode: 'auto' | 'manual') {
               ></span>
             </div>
             <div class="font-semibold text-sm leading-tight text-ink">
-              {{ t(tt.label) }}
+              {{ t(tt.createLabelKey || tt.labelKey) }}
             </div>
           </div>
           <div class="text-[11px] text-muted leading-tight mt-1">
-            {{ tt.desc }}
+            {{ t(tt.createDescKey || tt.labelKey) }}
           </div>
         </button>
       </div>
     </div>
 
-    <!-- 2. Execution Pipeline Toolbar (Compact & Progressive) -->
+    <!-- 2. Execution Pipeline Toolbar -->
     <div v-if="manualSupported" class="glass-card rounded-xl p-4 border border-rule">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2">
@@ -192,7 +160,6 @@ function selectExecMode(mode: 'auto' | 'manual') {
         </span>
       </div>
 
-      <!-- Manual Pause Point Badges -->
       <div v-if="appState.execMode === 'manual'" class="mt-3 pt-3 border-t border-rule/40">
         <div class="text-xs text-muted mb-2 font-medium">
           {{ t('pausePoints') }}:
@@ -211,7 +178,7 @@ function selectExecMode(mode: 'auto' | 'manual') {
             @click="togglePausePoint(p.key)"
           >
             <span class="w-1.5 h-1.5 rounded-full" :class="appState.pausePoints.includes(p.key) ? 'bg-accent' : 'bg-transparent border border-muted'"></span>
-            <span>{{ t(p.label) }}</span>
+            <span>{{ t(p.labelKey) }}</span>
           </button>
         </div>
       </div>
@@ -226,5 +193,6 @@ function selectExecMode(mode: 'auto' | 'manual') {
     <ManuscriptForm v-else-if="appState.createTaskType === 'manuscript'" />
     <AnchorForm v-else-if="appState.createTaskType === 'anchor'" />
     <PoetryForm v-else-if="appState.createTaskType === 'poetry'" />
+    <MusicVideoForm v-else-if="appState.createTaskType === 'music_video'" />
   </div>
 </template>

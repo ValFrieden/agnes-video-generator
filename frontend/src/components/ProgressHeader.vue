@@ -5,6 +5,7 @@ import { appState } from '@/store'
 import { useProgress } from '@/composables/useProgress'
 import { useTasks } from '@/composables/useTasks'
 import { useNavigation } from '@/composables/useNavigation'
+import { TYPE_LABEL_KEY_MAP } from '@/taskManifest'
 import LangSwitcher from '@/components/shared/LangSwitcher.vue'
 
 const { progressPct, awaitingCheckpoint, taskFailed, needsResume, resumeTask } = useProgress()
@@ -13,15 +14,6 @@ const { goBack, goHome } = useNavigation()
 
 const taskId = computed(() => appState.currentTaskId || appState.progressTaskId || '')
 const dirName = computed(() => appState.currentDirName || '')
-
-const typeLabelKey: Record<string, string> = {
-  simple: 'typeSimple',
-  creative: 'typeCreative',
-  manuscript: 'typeManuscript',
-  anchor: 'typeAnchor',
-  poetry: 'typePoetry',
-  image: 'typeImage',
-}
 
 const statusInfo = computed(() => {
   if (taskFailed.value) return { key: 'statusFailed', cls: 'badge-danger' }
@@ -77,7 +69,7 @@ async function onSwitchAuto() {
 
         <div class="flex items-center gap-2 min-w-0 truncate">
           <span class="text-xs px-2.5 py-0.5 rounded-full neu-sunken text-accent font-medium shrink-0">
-            {{ t(typeLabelKey[appState.currentTaskType] || '') || appState.currentTaskType }}
+            {{ t(TYPE_LABEL_KEY_MAP[appState.currentTaskType] || '') || appState.currentTaskType }}
           </span>
           <h1 class="text-xs sm:text-sm font-semibold truncate text-ink">{{ t('task_') }}: {{ taskId }}</h1>
           <span v-if="dirName" class="text-xs text-muted font-mono truncate hidden lg:inline px-2 py-0.5 rounded-full neu-sunken">{{ dirName }}</span>

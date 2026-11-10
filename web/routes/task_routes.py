@@ -83,6 +83,12 @@ async def list_tasks(limit: int = 0, offset: int = 0, status: str = ""):
             elif isinstance(state, SimpleImageTask):
                 t["prompt"] = state.prompt[:100] if state.prompt else ""
                 t["size"] = state.size
+            # 音乐视频
+            elif getattr(state, "task_type", None) == "music_video":
+                t["song_title"] = getattr(state, "song_title", "")
+                t["prompt"] = getattr(state, "visual_style", "")[:100]
+                t["scene_count"] = getattr(state, "scene_count", 0)
+                t["bpm"] = getattr(state, "bpm", 120)
 
             # v6.0 手动模式：列表徽标判断（PENDING + current_checkpoint 非空 = 等待你操作）
             mc = getattr(state, "manual_config", None)

@@ -6,7 +6,7 @@
 // 语言来源与 ``useI18n().lang`` 同源（localStorage ``lang``），切语言后新
 // 请求立即生效；已创建的异步任务通过 ``BaseTaskState.ui_language`` 快照保持
 // 整个生命周期语种一致。
-import type { GalleryItem, Preset, CameraMovementPreset } from '@/types'
+import type { GalleryItem, Preset, CameraMovementPreset, LutPreset, WorkspaceAsset } from '@/types'
 import { t } from '@/i18n'
 import { withUiLangHeader } from './langHeader'
 
@@ -183,8 +183,13 @@ export function pickDirectory() {
 }
 
 // ── 任务列表与详情 ──
-export function getTasks() {
-  return request('/api/tasks')
+export function getTasks(params?: { limit?: number; offset?: number; status?: string }) {
+  const qs = new URLSearchParams()
+  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.offset) qs.set('offset', String(params.offset))
+  if (params?.status) qs.set('status', params.status)
+  const suffix = qs.toString() ? '?' + qs.toString() : ''
+  return request('/api/tasks' + suffix)
 }
 export function getTask(taskId: string) {
   return request('/api/tasks/' + taskId)
@@ -301,6 +306,58 @@ export function submitPoetry(form: FormData) {
 }
 export function submitImage(form: FormData) {
   return apiFetch('/api/image/generate', { method: 'POST', body: form }).then((r) => r.json())
+}
+export function submitMusicVideo(form: FormData) {
+  return apiFetch('/api/tasks/music-video', { method: 'POST', body: form }).then((r) => r.json())
+}
+
+// ── 预览与辅助工具 ──
+export function previewManuscriptSplit(manuscriptText: string) {
+  const form = new FormData()
+  form.append('manuscript_text', manuscriptText)
+  return request<{ ok: boolean; paragraphs: { index: number; text: string; est_duration_sec: number }[]; total_duration_sec: number }>(
+    '/api/manuscript/preview-split',
+    { method: 'POST', body: form },
+  )
+}
+export function getLuts() {
+  return request<{ ok: boolean; luts: LutPreset[] }>('/api/tools/luts')
+}
+export function extractScenes(payload: {
+  video_path: string
+  threshold?: number
+  min_interval_s?: number
+  max_scenes?: number
+  width?: number
+}) {
+  return request<{ ok: boolean; video: string; scene_count: number; output_dir: string; scenes: any[] }>(
+    '/api/tools/extract-scenes',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  )
+}
+export function getLipsyncHealth() {
+  return request<{ ok: boolean; available: boolean; endpoint: string }>('/api/tools/lipsync-health')
+}
+export function postprocessVideo(taskId: string, form: FormData) {
+  return request<{ ok: boolean; video_url: string; download_url: string }>(
+    '/api/tasks/' + encodeURIComponent(taskId) + '/postprocess',
+    { method: 'POST', body: form },
+  )
+}
+
+// ── 工作区角色与风格资产库 ──
+export function getAssets() {
+  return request<{ ok: boolean; assets: WorkspaceAsset[] }>('/api/assets')
+}
+export function createAsset(form: FormData) {
+  return request<{ ok: boolean; asset: WorkspaceAsset }>('/api/assets', { method: 'POST', body: form })
+}
+export function deleteAsset(assetId: string) {
+  return request<{ ok: boolean }>('/api/assets/' + encodeURIComponent(assetId), { method: 'DELETE' })
 }
 
 // ── v6.0 手动模式 ──

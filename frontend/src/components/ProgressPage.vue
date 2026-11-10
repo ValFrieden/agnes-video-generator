@@ -6,13 +6,21 @@ import { useProgress } from '@/composables/useProgress'
 import { useArtifacts } from '@/composables/useArtifacts'
 import { useNavigation } from '@/composables/useNavigation'
 import { useCompletionNotify } from '@/composables/useCompletionNotify'
+import { useModalA11y } from '@/composables/useModalA11y'
+import { useToast } from '@/composables/useToast'
+import * as api from '@/api'
+import { TASK_MANIFEST, buildDraftFromTaskState } from '@/taskManifest'
+import type { TaskType } from '@/types'
 import { etaForTask, formatDuration } from '@/utils/progressEta'
 import ProgressHeader from './ProgressHeader.vue'
 import StepTimeline from './StepTimeline.vue'
 import ArtifactCard from './ArtifactCard.vue'
 import CheckpointDetail from './CheckpointDetail.vue'
 import FeedbackPanel from './FeedbackPanel.vue'
+import LutSelector from '@/components/shared/LutSelector.vue'
 import { isDeterministicError, isLocalNetworkError } from '@/utils/feedback'
+
+const { showToast } = useToast()
 
 const {
   progressPct,
@@ -134,50 +142,8 @@ const etaText = computed(() =>
     : '',
 )
 
-// 各任务类型：输入提示词字段 → i18n label
-const INPUT_FIELDS: Record<string, { field: string; label: string }[]> = {
-  creative: [{ field: 'idea', label: 'tiIdea' }],
-  manuscript: [{ field: 'manuscript_text', label: 'tiManuscript' }],
-  anchor: [
-    { field: 'script_text', label: 'tiScript' },
-    { field: 'anchor_prompt', label: 'tiAnchorPrompt' },
-  ],
-  poetry: [{ field: 'poem_text', label: 'tiPoem' }],
-  simple: [{ field: 'prompt', label: 'tiPrompt' }],
-}
-
-// 各任务类型：关键配置展示（字段 → i18n label）
-const CONFIG_FIELDS: Record<string, { field: string; label: string; fmt?: (v: any) => string }[]> = {
-  creative: [
-    { field: 'video_width', label: 'tiWidth', fmt: (v) => String(v ?? '') },
-    { field: 'video_height', label: 'tiHeight', fmt: (v) => String(v ?? '') },
-    { field: 'scene_count', label: 'tiScenes', fmt: (v) => String(v ?? '') },
-    { field: 'chaining_mode', label: 'tiChaining' },
-    { field: 'style', label: 'tiStyle' },
-  ],
-  manuscript: [
-    { field: 'scene_count', label: 'tiScenes', fmt: (v) => String(v ?? '') },
-    { field: 'paragraph_count', label: 'tiParagraphs', fmt: (v) => String(v ?? '') },
-  ],
-  anchor: [
-    { field: 'audio_source', label: 'tiAudioSource' },
-    { field: 'video_width', label: 'tiWidth', fmt: (v) => String(v ?? '') },
-    { field: 'video_height', label: 'tiHeight', fmt: (v) => String(v ?? '') },
-  ],
-  poetry: [
-    { field: 'video_width', label: 'tiWidth', fmt: (v) => String(v ?? '') },
-    { field: 'video_height', label: 'tiHeight', fmt: (v) => String(v ?? '') },
-    { field: 'scene_count', label: 'tiScenes', fmt: (v) => String(v ?? '') },
-    { field: 'style', label: 'tiStyle' },
-  ],
-  simple: [
-    { field: 'mode', label: 'tiMode' },
-    { field: 'duration', label: 'tiDuration', fmt: (v) => String(v ?? '') },
-  ],
-}
-
-const taskInputs = computed(() => INPUT_FIELDS[appState.currentTaskType] || [])
-const taskConfigs = computed(() => CONFIG_FIELDS[appState.currentTaskType] || [])
+const taskInputs = computed(() => TASK_MANIFEST[appState.currentTaskType as TaskType]?.inputFields || [])
+const taskConfigs = computed(() => TASK_MANIFEST[appState.currentTaskType as TaskType]?.configFields || [])
 
 // v6.1 问题反馈：诊断报告用的关键配置字符串列表（复用 taskConfigs 展示逻辑）
 const feedbackConfigs = computed(() =>
@@ -203,20 +169,63 @@ const reportFailedStep = computed(
   () => liveFailedStep.value || taskInfo.value?.current_step || '',
 )
 
-// A11y：图片放大弹窗支持 Escape 关闭（配合 role="dialog"）
-function onModalKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && imageModalUrl.value) closeImageModal()
+const imageModalVisible = computed(() => !!imageModalUrl.value)
+const { containerRef: imageModalRef } = useModalA11y(imageModalVisible, closeImageModal)
+
+// Task clone + Post-process editor (Trim · LUT · Aspect Crop)
+const postOpen = ref(false)
+const postStart = ref(0)
+const postEnd = ref(0)
+const postLutId = ref('')
+const postAspect = ref<'keep' | '9:16' | '16:9' | '1:1'>('keep')
+const postBusy = ref(false)
+const postResult = ref<{ video_url: string; download_url: string } | null>(null)
+
+function cloneCurrentTask() {
+  if (!taskInfo.value) return
+  const mapped = buildDraftFromTaskState(taskInfo.value)
+  if (!mapped) {
+    showToast(t('taskCloneUnsupported'), 3000)
+    return
+  }
+  localStorage.setItem('wb_draft_' + mapped.draftKey, JSON.stringify(mapped.payload))
+  appState.createTaskType = mapped.createTab
+  appState.view = 'create'
+  appState.progressTaskId = null
+  location.hash = '#/create'
+  showToast(t('taskCloned'), 3000, 'success')
+}
+
+async function runPostprocess() {
+  const id = appState.progressTaskId
+  if (!id) return
+  postBusy.value = true
+  postResult.value = null
+  try {
+    const fd = new FormData()
+    fd.append('start_sec', String(postStart.value || 0))
+    fd.append('end_sec', String(postEnd.value || 0))
+    fd.append('lut_id', postLutId.value)
+    fd.append('aspect', postAspect.value)
+    const res = await api.postprocessVideo(id, fd)
+    if (res?.ok) {
+      postResult.value = { video_url: res.video_url, download_url: res.download_url }
+      showToast(t('postprocessDone'), 3000, 'success')
+    }
+  } catch (e: any) {
+    showToast(e?.message || t('failCreate'), 4000, 'error')
+  } finally {
+    postBusy.value = false
+  }
 }
 
 onMounted(async () => {
   const taskId = appState.progressTaskId
-  window.addEventListener('keydown', onModalKeydown)
   if (!taskId) return
   taskInfo.value = await mountProgressPage(taskId, appState.currentDirName)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', onModalKeydown)
   unmountProgressPage()
 })
 </script>
@@ -431,16 +440,74 @@ onUnmounted(() => {
           <div class="neu-sunken rounded-2xl p-2 mb-4 bg-paper-3/40">
             <video :src="resultVideoSrc" controls class="w-full rounded-xl max-h-96 shadow-sm"></video>
           </div>
-          <!-- Logikcheck Befund 4：结果区提供下载出口（后端 download=1 走附件下发） -->
-          <div class="mt-3 flex items-center justify-between">
+          <div class="mt-3 flex flex-wrap items-center gap-2.5">
             <a
               :href="resultVideoSrc + '?download=1'"
               download
-              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold neu-raised hover:neu-sunken text-accent transition glow-btn"
+              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold transition glow-btn"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               {{ t('downloadVideo') }}
             </a>
+            <button
+              v-if="taskInfo"
+              type="button"
+              class="px-4 py-2.5 rounded-xl text-xs font-medium bg-paper-2 border border-rule text-ink-2 hover:text-ink transition"
+              @click="cloneCurrentTask"
+            >
+              {{ t('taskCloneBtn') }}
+            </button>
+            <button
+              type="button"
+              class="px-4 py-2.5 rounded-xl text-xs font-medium bg-paper-2 border border-rule text-ink-2 hover:text-ink hover:border-accent/50 transition"
+              :aria-expanded="postOpen"
+              @click="postOpen = !postOpen"
+            >
+              {{ t('postprocessToggle') }}
+            </button>
+          </div>
+
+          <!-- Post-Process Editor (Trim · LUT · Aspect Crop) -->
+          <div v-if="postOpen" class="mt-4 p-4 rounded-2xl bg-paper border border-rule space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs text-muted mb-1">{{ t('mvTrimStart') }}</label>
+                <input v-model.number="postStart" type="number" min="0" step="0.5" class="w-full glass-input rounded-lg px-3 py-1.5 text-xs text-ink" />
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1">{{ t('mvTrimEnd') }}</label>
+                <input v-model.number="postEnd" type="number" min="0" step="0.5" class="w-full glass-input rounded-lg px-3 py-1.5 text-xs text-ink" />
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1">{{ t('postprocessAspect') }}</label>
+                <select v-model="postAspect" class="w-full glass-input rounded-lg px-3 py-1.5 text-xs text-ink">
+                  <option value="keep">{{ t('postprocessAspectKeep') }}</option>
+                  <option value="9:16">9:16</option>
+                  <option value="16:9">16:9</option>
+                  <option value="1:1">1:1</option>
+                </select>
+              </div>
+            </div>
+            <LutSelector v-model="postLutId" />
+            <button
+              type="button"
+              class="px-4 py-2 rounded-lg text-xs font-semibold glow-btn disabled:opacity-50"
+              :disabled="postBusy"
+              @click="runPostprocess"
+            >
+              {{ postBusy ? t('loading') : t('postprocessApply') }}
+            </button>
+
+            <div v-if="postResult" class="pt-3 border-t border-rule/50 space-y-2">
+              <video :src="postResult.video_url" controls class="w-full rounded-xl max-h-80"></video>
+              <a
+                :href="postResult.download_url"
+                download
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold glow-btn"
+              >
+                {{ t('postprocessDownload') }}
+              </a>
+            </div>
           </div>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs">
             <span class="w-2 h-2 rounded-full bg-success inline-block"></span>
@@ -474,13 +541,26 @@ onUnmounted(() => {
     <!-- 图片放大弹窗 -->
     <div
       v-if="imageModalUrl"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer"
+      ref="imageModalRef"
+      class="fixed inset-0 z-[75] flex items-center justify-center bg-black/80 p-4"
       role="dialog"
       aria-modal="true"
       :aria-label="t('imagePreviewTitle')"
-      @click="closeImageModal"
+      @click.self="closeImageModal"
     >
-      <img :src="imageModalUrl" :alt="t('imagePreviewTitle')" class="max-w-[90vw] max-h-[90vh] rounded-lg" />
+      <div class="relative max-w-[90vw] max-h-[90vh]">
+        <button
+          type="button"
+          class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-paper-2 border border-rule text-ink flex items-center justify-center hover:border-accent transition"
+          :aria-label="t('close')"
+          @click="closeImageModal"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <img :src="imageModalUrl" :alt="t('imagePreviewTitle')" class="max-w-[90vw] max-h-[85vh] rounded-lg" />
+      </div>
     </div>
   </div>
 </template>

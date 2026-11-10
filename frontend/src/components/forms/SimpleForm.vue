@@ -11,6 +11,9 @@ import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import DropzoneCard from '@/components/shared/DropzoneCard.vue'
 import InfoTooltip from '@/components/shared/InfoTooltip.vue'
 import CameraMovementPicker from '@/components/presets/CameraMovementPicker.vue'
+import LutSelector from '@/components/shared/LutSelector.vue'
+import AssetLibraryPicker from '@/components/shared/AssetLibraryPicker.vue'
+import type { WorkspaceAsset } from '@/types'
 
 const { trackEvent } = useGa()
 const { saveModels } = useConfig()
@@ -45,6 +48,8 @@ const video = reactive({
   endImage: null as File | null,
   endName: '',
   cameraMovement: '',
+  lutId: '',
+  selectedAssetId: '',
   draftMode: false,
 })
 
@@ -75,6 +80,8 @@ const advancedCollapsed = reactive({ video: true, image: true })
     if (typeof vd.seed === 'string') video.seed = vd.seed
     if (typeof vd.negative === 'string') video.negative = vd.negative
     if (typeof vd.system === 'string') video.system = vd.system
+    if (typeof vd.cameraMovement === 'string') video.cameraMovement = vd.cameraMovement
+    if (typeof vd.lutId === 'string') video.lutId = vd.lutId
   }
   const id = imageDraft.load()
   if (id) {
@@ -86,7 +93,7 @@ const advancedCollapsed = reactive({ video: true, image: true })
 })()
 videoDraft.autoSave(video, (v) => ({
   prompt: v.prompt, mode: v.mode, duration: v.duration, resolution: v.resolution,
-  ratio: v.ratio, size: v.size, seed: v.seed, negative: v.negative, system: v.system,
+  ratio: v.ratio, size: v.size, seed: v.seed, negative: v.negative, system: v.system, cameraMovement: v.cameraMovement, lutId: v.lutId,
 }))
 imageDraft.autoSave(image, (v) => ({
   prompt: v.prompt, size: v.size, negative: v.negative, system: v.system,
@@ -149,6 +156,13 @@ function onRefImageChange(e: Event, target: 'video' | 'image') {
   }
 }
 
+function onSelectAsset(a: WorkspaceAsset | null) {
+  video.selectedAssetId = a ? a.id : ''
+  if (a?.prompt && !video.prompt.includes(a.prompt)) {
+    video.prompt = video.prompt.trim() ? `${video.prompt.trim()}, ${a.prompt}` : a.prompt
+  }
+}
+
 function onEndImageChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0] || null
   video.endImage = file
@@ -193,11 +207,13 @@ async function submitSimple() {
       }
       if (video.cameraMovement) form.append('camera_movement', video.cameraMovement)
       form.append('draft_mode', String(video.draftMode))
+      if (video.lutId) form.append('lut_id', video.lutId)
       if (video.seed) form.append('seed', video.seed)
       // 2.5 系列不支持负面提示词，不提交
       if (!isV25.value && video.negative) form.append('negative_prompt', video.negative)
       if (video.system.trim()) form.append('system_prompt', video.system.trim())
       if (video.refImage) form.append('reference_image', video.refImage)
+      else if (video.selectedAssetId) form.append('reference_asset_id', video.selectedAssetId)
       if (video.endImage) form.append('end_frame_image', video.endImage)
       return form
     },
@@ -314,8 +330,8 @@ async function submitImage() {
         <!-- 20 Cinematic Camera Movements (SYNTX AI) -->
         <div class="mb-4">
           <div class="flex items-center justify-between mb-1.5">
-            <label class="block text-sm text-muted font-medium">Кинематографическое движение камеры (SYNTX)</label>
-            <InfoTooltip text="20 операторских пресетов (Dolly In, Orbital Pan, Snorricam, Vertigo, Crane): задает физику и кинематографическую траекторию камеры." />
+            <label class="block text-sm text-muted font-medium">{{ t('cameraMovementLabel') }}</label>
+            <InfoTooltip :text="t('tipCameraMovement')" />
           </div>
           <CameraMovementPicker v-model="video.cameraMovement" />
         </div>
@@ -359,6 +375,13 @@ async function submitImage() {
         <!-- v7.0 U3：2.5 系列竖屏（9:16）上游画面旋转缺陷提示（零风险：先提示不自动修） -->
         <p v-if="isV25 && video.ratio === '9:16'" class="text-xs text-amber-400 mb-4">{{ t('vmPortraitRotateHint') }}</p>
 
+        <div v-if="needsRefImage" class="mb-4">
+          <AssetLibraryPicker :selected-id="video.selectedAssetId" @select="onSelectAsset" />
+        </div>
+        <div class="mb-4">
+          <LutSelector v-model="video.lutId" />
+        </div>
+
         <!-- Reference Image with Dropzone -->
         <div v-if="needsRefImage" class="mb-4">
           <label class="block text-sm text-muted font-medium mb-1.5">{{ t('refImageSimple') }}</label>
@@ -384,10 +407,10 @@ async function submitImage() {
 
         <!-- Advanced -->
         <div class="border-t border-rule/40 pt-4 mt-4">
-          <div class="collapse-header flex items-center justify-between" @click="toggleCollapse('video')">
+          <button type="button" class="w-full collapse-header flex items-center justify-between text-left" :aria-expanded="!advancedCollapsed.video" @click="toggleCollapse('video')">
             <span class="text-sm text-muted">{{ t('advancedSettings') }}</span>
             <span class="text-muted text-xs">{{ advancedCollapsed.video ? '▶' : '▼' }}</span>
-          </div>
+          </button>
           <div v-show="!advancedCollapsed.video" class="mt-3">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -457,10 +480,10 @@ async function submitImage() {
         </div>
 
         <div class="border-t border-rule/40 pt-4 mt-4">
-          <div class="collapse-header flex items-center justify-between" @click="toggleCollapse('image')">
+          <button type="button" class="w-full collapse-header flex items-center justify-between text-left" :aria-expanded="!advancedCollapsed.image" @click="toggleCollapse('image')">
             <span class="text-sm text-muted">{{ t('advancedSettings') }}</span>
             <span class="text-muted text-xs">{{ advancedCollapsed.image ? '▶' : '▼' }}</span>
-          </div>
+          </button>
           <div v-show="!advancedCollapsed.image" class="mt-3">
             <div>
               <label class="block text-sm text-muted mb-1.5">Negative Prompt ({{ t('optional') }})</label>

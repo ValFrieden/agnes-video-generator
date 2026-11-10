@@ -14,6 +14,7 @@ import AspectPicker from '@/components/shared/AspectPicker.vue'
 import StylePresetChips from '@/components/shared/StylePresetChips.vue'
 import NeuStepper from '@/components/shared/NeuStepper.vue'
 import NeuSwitch from '@/components/shared/NeuSwitch.vue'
+import LutSelector from '@/components/shared/LutSelector.vue'
 
 const { voiceSelections } = useVoice()
 const { submitting, runSubmit } = useTaskSubmit()
@@ -34,6 +35,7 @@ const form = reactive({
   keyframes: false,
   // v7.2 R8 质量闸：生成后逐场景免费 VLM 检查 + FAIL 自动重生成一次
   qc: false,
+  lutId: '',
 })
 
 const promptPanelVisible = ref(false)
@@ -58,12 +60,13 @@ const draft = useDraft('poetry')
   if (typeof d.resolution === 'string') form.resolution = d.resolution
   if (typeof d.keyframes === 'boolean') form.keyframes = d.keyframes
   if (typeof d.qc === 'boolean') form.qc = d.qc
+  if (typeof d.lutId === 'string') form.lutId = d.lutId
 })()
 draft.autoSave(form, (v) => ({
   name: v.name, poem: v.poem, sceneCount: v.sceneCount,
   uniform: v.uniform, uniformDuration: v.uniformDuration,
   independentDurations: v.independentDurations, scenePrompts: v.scenePrompts,
-  style: v.style, resolution: v.resolution, keyframes: v.keyframes, qc: v.qc,
+  style: v.style, resolution: v.resolution, keyframes: v.keyframes, qc: v.qc, lutId: v.lutId,
 }))
 
 function parseResolution(val: string) {
@@ -138,6 +141,7 @@ async function submitPoetry() {
       fd.append('video_duration', '30')
       fd.append('generate_keyframes', String(form.keyframes))
       fd.append('qc_enabled', String(form.qc))
+      if (form.lutId) fd.append('lut_id', form.lutId)
 
       fd.append('duration_source', 'manual')
       fd.append('scene_count', String(form.sceneCount))
@@ -262,6 +266,10 @@ async function submitPoetry() {
       <div class="mb-5">
         <label class="block text-sm text-muted font-medium mb-2">{{ t('resolution') }}</label>
         <AspectPicker v-model="form.resolution" />
+      </div>
+
+      <div class="mb-4">
+        <LutSelector v-model="form.lutId" />
       </div>
 
       <!-- v7.1 关键帧模式（I2V-first） -->

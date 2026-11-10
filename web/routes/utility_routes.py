@@ -193,3 +193,15 @@ async def extract_scenes(req: ExtractScenesRequest):
         "scenes": keyframes
     }
 
+
+@router.get("/api/tools/lipsync-health")
+async def get_lipsync_health():
+    """检查本地 LivePortrait Lip-Sync 服务是否可用。"""
+    import asyncio
+    from core.api.lipsync_provider import create_lipsync_provider
+
+    provider = create_lipsync_provider()
+    available = await provider.is_available()
+    endpoint = getattr(provider, "endpoint_url", "")
+    return {"ok": True, "available": bool(available), "endpoint": endpoint}
+

@@ -247,6 +247,7 @@ class BaseTaskState(BaseModel):
     # ── SYNTX 电影级摄像机与 Draft 模式 ──
     camera_movement: str = ""
     draft_mode: bool = False
+    lut_id: str = ""
 
     # ── v7.2 R8（Batch 2）：VLM 质量闸（opt-in，默认关）──
     # qc_enabled: 任务创建表单勾选后，视频生成完成后逐场景跑免费 Agnes-Vision
@@ -470,7 +471,7 @@ class AnchorVideoTask(BaseTaskState):
 class MusicVideoTask(BaseTaskState):
     """音乐视频任务（类型 7 / SYNTX Audio-First MV Pipeline）"""
 
-    task_type: TaskType = TaskType.MUSIC_VIDEO
+    task_type: Literal[TaskType.MUSIC_VIDEO] = TaskType.MUSIC_VIDEO
     song_title: str = ""
     visual_style: str = "Cinematic Music Video"
     bpm: int = 120
@@ -487,6 +488,13 @@ class MusicVideoTask(BaseTaskState):
     suno_model: str = "V6"
     trim_start_sec: float = 0.0
     trim_end_sec: float = 0.0
+    step_build_scenes: StepStatus = StepStatus.PENDING
+    step_reference_images: StepStatus = StepStatus.PENDING
+    step_keyframes: StepStatus = StepStatus.PENDING
+    step_video_generation: StepStatus = StepStatus.PENDING
+    step_audio: StepStatus = StepStatus.PENDING
+    step_subtitle: StepStatus = StepStatus.PENDING
+    step_concatenation: StepStatus = StepStatus.PENDING
 
 
 class PoetryVideoTask(BaseTaskState):

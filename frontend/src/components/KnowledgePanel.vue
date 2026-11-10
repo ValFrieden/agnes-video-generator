@@ -34,6 +34,8 @@ interface StatusData {
   database_path: string
   categories: Record<string, number>
   top_tools: string[]
+  graph_nodes?: number | null
+  graph_edges?: number | null
 }
 
 const { showToast } = useToast()
@@ -236,7 +238,7 @@ onMounted(() => {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            <span>{{ syncing ? 'Syncing...' : t('knowledgeBtnSync') }}</span>
+            <span>{{ syncing ? t('knowledgeSyncing') : t('knowledgeBtnSync') }}</span>
           </button>
 
           <!-- Open Code Graph Button -->
@@ -258,19 +260,19 @@ onMounted(() => {
       <div v-if="statusData" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-rule/30">
         <div class="p-3 rounded-xl bg-paper/60 border border-rule/30">
           <div class="text-xs text-muted">{{ t('knowledgeTotalDocs') }}</div>
-          <div class="text-lg font-bold text-ink mt-0.5">{{ statusData.document_count }}</div>
+          <div class="text-lg font-bold text-ink mt-0.5 tabular-nums">{{ statusData.document_count }}</div>
         </div>
         <div class="p-3 rounded-xl bg-paper/60 border border-rule/30">
           <div class="text-xs text-muted">{{ t('knowledgeTotalSections') }}</div>
-          <div class="text-lg font-bold text-accent mt-0.5">{{ statusData.section_count }}</div>
+          <div class="text-lg font-bold text-accent mt-0.5 tabular-nums">{{ statusData.section_count }}</div>
         </div>
-        <div class="p-3 rounded-xl bg-paper/60 border border-rule/30">
+        <div v-if="statusData.graph_nodes != null" class="p-3 rounded-xl bg-paper/60 border border-rule/30">
           <div class="text-xs text-muted">{{ t('knowledgeCodeNodes') }}</div>
-          <div class="text-lg font-bold text-ink mt-0.5">10,917</div>
+          <div class="text-lg font-bold text-ink mt-0.5 tabular-nums">{{ statusData.graph_nodes.toLocaleString() }}</div>
         </div>
-        <div class="p-3 rounded-xl bg-paper/60 border border-rule/30">
-          <div class="text-xs text-muted">Graph Edges</div>
-          <div class="text-lg font-bold text-ink mt-0.5">21,535</div>
+        <div v-if="statusData.graph_edges != null" class="p-3 rounded-xl bg-paper/60 border border-rule/30">
+          <div class="text-xs text-muted">{{ t('knowledgeGraphEdges') }}</div>
+          <div class="text-lg font-bold text-ink mt-0.5 tabular-nums">{{ statusData.graph_edges.toLocaleString() }}</div>
         </div>
       </div>
     </div>
@@ -312,7 +314,7 @@ onMounted(() => {
       <!-- Controls row: Category dropdown & Cross-Search toggle -->
       <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-muted">Category:</span>
+          <span class="text-muted">{{ t('knowledgeCategoryLabel') }}:</span>
           <select
             v-model="selectedCategory"
             class="glass-input rounded-lg px-2.5 py-1.5 text-xs text-ink cursor-pointer"
@@ -342,7 +344,7 @@ onMounted(() => {
           @click="doSearch"
         >
           <span v-if="loading" class="inline-block animate-spin mr-1">⌛</span>
-          <span>Search</span>
+          <span>{{ t('knowledgeBtnSearch') }}</span>
         </button>
       </div>
 
@@ -366,7 +368,7 @@ onMounted(() => {
 
       <!-- Top Tools Chips -->
       <div v-if="statusData?.top_tools?.length" class="flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
-        <span>Popular tags:</span>
+        <span>{{ t('knowledgePopularTags') }}:</span>
         <button
           v-for="tool in statusData.top_tools.slice(0, 10)"
           :key="tool"
@@ -421,7 +423,7 @@ onMounted(() => {
                   : 'badge-info'
               "
             >
-              {{ item.source === 'watch' ? 'Video Guide' : 'Project Doc' }}
+              {{ item.source === 'watch' ? t('knowledgeSourceVideo') : t('knowledgeSourceDoc') }}
             </span>
 
             <!-- Category Badge -->
@@ -459,7 +461,7 @@ onMounted(() => {
             @click="openDocument(item)"
           >
             <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-            <span>View Document</span>
+            <span>{{ t('knowledgeViewDoc') }}</span>
           </button>
         </div>
       </article>
@@ -469,7 +471,7 @@ onMounted(() => {
     <div
       v-if="isModalOpen"
       ref="docModalRef"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      class="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
       :aria-label="activeDoc?.title || t('knowledgeDocViewerTitle')"
@@ -500,7 +502,7 @@ onMounted(() => {
         <div class="p-6 overflow-y-auto flex-1 text-xs text-ink-2 leading-relaxed space-y-4 font-mono select-text">
           <div v-if="docLoading" class="text-center py-12 text-muted">
             <span class="inline-block animate-spin text-xl mb-2">⌛</span>
-            <div>Loading document...</div>
+            <div>{{ t('loading') }}</div>
           </div>
           <div v-else-if="activeDoc" class="whitespace-pre-wrap bg-paper/70 p-4 rounded-xl border border-rule/30">
             {{ activeDoc.content }}

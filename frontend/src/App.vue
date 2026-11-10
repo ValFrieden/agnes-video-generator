@@ -333,7 +333,7 @@ async function autoReconnectRunningTask() {
 
       <!-- View Panels -->
       <div v-show="appState.view === 'create'">
-        <CreatePanel />
+        <CreatePanel @open-settings="showSettings = true" />
       </div>
 
       <div v-show="appState.view === 'simple'">
