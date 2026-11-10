@@ -31,7 +31,7 @@ router = APIRouter(tags=["tasks"])
 
 
 @router.get("/api/tasks")
-async def list_tasks(limit: int = 0, offset: int = 0, status: str = ""):
+async def list_tasks(limit: int = 0, offset: int = 0, status: str = "", q: str = ""):
     """任务列表（优化路线图 1.4：状态过滤 + 分页）。
 
     Args:
@@ -46,6 +46,15 @@ async def list_tasks(limit: int = 0, offset: int = 0, status: str = ""):
     if status:
         statuses = {s.strip() for s in status.split(",") if s.strip()}
         tasks = [t for t in tasks if t.get("status") in statuses]
+    if q:
+        ql = q.strip().lower()
+        if ql:
+            def _hay(t: dict) -> str:
+                return " ".join(str(t.get(k) or "") for k in (
+                    "task_id", "creative_name", "idea", "prompt", "song_title",
+                    "manuscript_text", "script_text", "poem_text",
+                )).lower()
+            tasks = [t for t in tasks if ql in _hay(t)]
     total = len(tasks)
     if offset:
         tasks = tasks[offset:]
