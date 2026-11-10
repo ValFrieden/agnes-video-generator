@@ -915,5 +915,13 @@
   "ttDescPoetry": "Gedicht in Bildszenen",
   "ttDescSimple": "Einzelclip T2V / I2V / Bild",
   "ttMusicVideo": "Musikvideo",
-  "typeMusicVideo": "Musikvideo"
+  "typeMusicVideo": "Musikvideo",
+  "knowledgeSearchFailed": "Suche fehlgeschlagen",
+  "knowledgeSearchError": "Suchfehler",
+  "knowledgeSyncSuccess": "Synchronisiert: {updated} aktualisiert, {total} Dokumente gesamt",
+  "knowledgeSyncFailed": "Synchronisation fehlgeschlagen",
+  "knowledgeSyncError": "Synchronisationsfehler",
+  "knowledgeDocLoadFailed": "Dokument konnte nicht geladen werden",
+  "knowledgeWords": "Wörter",
+  "videoLoadFailed": "Video konnte nicht geladen werden"
 }

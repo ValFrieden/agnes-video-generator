@@ -183,11 +183,12 @@ export function pickDirectory() {
 }
 
 // ── 任务列表与详情 ──
-export function getTasks(params?: { limit?: number; offset?: number; status?: string }) {
+export function getTasks(params?: { limit?: number; offset?: number; status?: string; q?: string }) {
   const qs = new URLSearchParams()
   if (params?.limit) qs.set('limit', String(params.limit))
   if (params?.offset) qs.set('offset', String(params.offset))
   if (params?.status) qs.set('status', params.status)
+  if (params?.q) qs.set('q', params.q)
   const suffix = qs.toString() ? '?' + qs.toString() : ''
   return request('/api/tasks' + suffix)
 }

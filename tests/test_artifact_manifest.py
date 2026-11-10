@@ -166,10 +166,10 @@ def test_write_manifest_md_content(monkeypatch, tmp_path):
     assert path == str(task_dir / "MANIFEST.md")
     content = open(path, "r", encoding="utf-8").read()
 
-    assert "任务产物说明" in content
+    assert "Aufgaben-Produktbeschreibung" in content
     assert "script.json" in content
     assert str(task_dir) in content
-    assert "协作提示" in content
+    assert "Hinweise zur Zusammenarbeit" in content
 
 
 # ── list_artifacts schema_hint ──────────────────────────────

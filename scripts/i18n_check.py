@@ -19,10 +19,10 @@ import re
 import sys
 from pathlib import Path
 
-# 基准语言：所有其他语言的 key 集合必须覆盖 zh 的 key 集合
-BASE_LANG = 'zh'
+# 基准语言：所有其他语言的 key 集合必须覆盖 de 的 key 集合
+BASE_LANG = 'de'
 # 硬阻断语言：缺失直接返回 2（CI 硬失败 / 回归前置门槛）
-HARD_LANG = 'en'
+HARD_LANG = 'ru'
 
 
 def load_langs(langs_dir: Path) -> dict[str, dict[str, str]]:

@@ -1,59 +1,42 @@
 import { ref, reactive, computed } from 'vue'
-// 1.8：i18n 懒加载——zh/en 静态预载（首屏用），其余 20 语言经
-// import.meta.glob 动态分包，切换时按需加载（首屏 JS 体积显著下降）
-import zh from './langs/zh.json'
-import en from './langs/en.json'
+// i18n: nur Deutsch + Russisch als UI-Sprachen (v7.1).
+import de from './langs/de.json'
+import ru from './langs/ru.json'
 
-// 支持的语言列表（label 与官网 nav 语言菜单一致：旗帜 + 语言简称，便于多栏面板排版）
 export const LANGS: { code: string; label: string }[] = [
-  { code: 'zh', label: '🇨🇳 中文' },
-  { code: 'en', label: '🇺🇸 English' },
-  { code: 'ru', label: '🇷🇺 Русский' },
-  { code: 'ja', label: '🇯🇵 日本語' },
-  { code: 'ko', label: '🇰🇷 한국어' },
-  { code: 'ms', label: '🇲🇾 Melayu' },
-  { code: 'id', label: '🇮🇩 Indonesia' },
   { code: 'de', label: '🇩🇪 Deutsch' },
-  { code: 'fr', label: '🇫🇷 Français' },
-  { code: 'nl', label: '🇳🇱 Nederlands' },
-  { code: 'es', label: '🇪🇸 Español' },
-  { code: 'pt', label: '🇵🇹 Português' },
-  { code: 'it', label: '🇮🇹 Italiano' },
-  { code: 'tr', label: '🇹🇷 Türkçe' },
-  { code: 'vi', label: '🇻🇳 Tiếng Việt' },
-  { code: 'th', label: '🇹🇭 ไทย' },
-  { code: 'hi', label: '🇮🇳 हिन्दी' },
-  { code: 'bn', label: '🇧🇩 বাংলা' },
-  { code: 'tl', label: '🇵🇭 Filipino' },
-  { code: 'ar', label: '🇸🇦 العربية' },
-  { code: 'fa', label: '🇮🇷 فارسی' },
-  { code: 'ur', label: '🇵🇰 اردو' },
+  { code: 'ru', label: '🇷🇺 Русский' },
 ]
 
 const RTL_LANGS = ['ar', 'fa', 'ur']
 
-// 已加载的语言数据（zh/en 预载；其余按需加载后填入，响应式触发 UI 更新）
-const langData = reactive<Record<string, Record<string, string>>>({ zh, en })
+const langData = reactive<Record<string, Record<string, string>>>({ de, ru })
 
-const currentLang = ref('zh')
+const currentLang = ref('de')
 
 function initLang(): string {
   try {
-    return localStorage.getItem('lang') || 'zh'
+    const stored = localStorage.getItem('lang')
+    if (stored === 'de' || stored === 'ru') return stored
   } catch {
-    return 'zh'
+    /* ignore */
   }
+  try {
+    const nav = (navigator.language || '').toLowerCase()
+    if (nav.startsWith('ru')) return 'ru'
+  } catch {
+    /* ignore */
+  }
+  return 'de'
 }
 
 export function t(key: string): string {
   const lang = currentLang.value
   const data = langData[lang]
-  const val = (data && data[key]) ?? (langData['zh'] && langData['zh'][key]) ?? key
+  const val = (data && data[key]) ?? (langData['de'] && langData['de'][key]) ?? (langData['ru'] && langData['ru'][key]) ?? key
   return val
 }
 
-// v7.0 U1：带插值参数的翻译（后端下发的 i18n key + params 用此渲染）。
-// 占位符为 {name} 形式；同时支持 {count} 这类命名参数。
 export function tf(key: string, params?: Record<string, string | number>): string {
   const template = t(key)
   if (!params) return template
@@ -64,17 +47,17 @@ export function tf(key: string, params?: Record<string, string | number>): strin
 }
 
 export function applyLanguage(lang: string) {
-  currentLang.value = lang || 'zh'
+  const allowed = lang === 'ru' ? 'ru' : 'de'
+  currentLang.value = allowed
   try {
     localStorage.setItem('lang', currentLang.value)
   } catch {
     /* ignore */
   }
-  document.documentElement.lang = currentLang.value === 'zh' ? 'zh-CN' : currentLang.value
+  document.documentElement.lang = currentLang.value
   document.documentElement.dir = RTL_LANGS.includes(currentLang.value) ? 'rtl' : 'ltr'
 }
 
-// 1.8：懒加载语言包（import.meta.glob 静态收集 langs/*.json 为独立 chunk）
 const langLoaders = import.meta.glob('./langs/*.json')
 const loadingLang = ref<string | null>(null)
 
@@ -87,13 +70,12 @@ async function loadLang(lang: string): Promise<void> {
     const mod = (await loader()) as { default: Record<string, string> }
     langData[lang] = mod.default
   } catch (e) {
-    // 加载失败：t() 自动回退 zh，无需阻断
+    /* ignore */
   } finally {
     loadingLang.value = null
   }
 }
 
-// 转义动态文本，防止 innerHTML 注入（XSS 防护）
 export function escapeHtml(s: unknown): string {
   if (s === null || s === undefined) return ''
   return String(s)
@@ -109,11 +91,9 @@ export function useI18n() {
 
   function switchLang(l: string) {
     applyLanguage(l)
-    // 1.8：目标语言未加载则异步加载（加载期间 t() 回退 zh，完成后响应式更新）
     void loadLang(l)
   }
 
-  // 判断某值是否属于某 i18n key 的默认值集合（用于语言切换时刷新默认值）
   function isDefaultValue(value: string, i18nKey: string): boolean {
     const allDefaults = new Set(Object.values(langData).map((l) => l[i18nKey]).filter(Boolean))
     return allDefaults.has(value) || value === ''
@@ -122,9 +102,7 @@ export function useI18n() {
   return { lang, currentLang, t, tf, switchLang, isDefaultValue, applyLanguage, loadingLang, loadLang }
 }
 
-// 初始化语言（模块加载后立即同步）
 currentLang.value = initLang()
-// 1.8：若存储语言非 zh/en（如上次选了日语），首屏异步加载，避免回退中文
 void loadLang(currentLang.value)
 
 export { currentLang }

@@ -82,6 +82,11 @@ function pausePreview(e: Event) {
 
     <!-- Empty State -->
     <div v-if="!loading && !loadError && !items.length" class="glass-card rounded-2xl p-8 text-center space-y-3">
+      <div class="flex justify-center text-muted/40">
+        <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
       <p class="text-muted text-sm">{{ t('galleryEmpty') }}</p>
       <a href="#/create" class="inline-block text-xs px-4 py-2 rounded-lg glow-btn">
         {{ t('tabCreate') }}
@@ -94,7 +99,12 @@ function pausePreview(e: Event) {
         v-for="it in items"
         :key="it.task_id"
         class="neu-raised rounded-2xl overflow-hidden cursor-pointer group transition-all hover:translate-y-[-2px] border border-rule/20"
+        role="button"
+        tabindex="0"
+        :aria-label="it.title"
         @click="openItem(it.task_id)"
+        @keydown.enter.prevent="openItem(it.task_id)"
+        @keydown.space.prevent="openItem(it.task_id)"
       >
         <div class="relative aspect-video bg-paper-2 overflow-hidden neu-sunken">
           <img

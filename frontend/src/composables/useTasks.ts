@@ -21,17 +21,22 @@ let taskListTimer: ReturnType<typeof setInterval> | null = null
 // 1.7：in-flight 守卫，避免慢请求下 5s 轮询请求堆积
 let listInFlight = false
 
-async function loadTaskList() {
-  // 1.7：in-flight 守卫 + loading 状态正确赋值（此前只在 catch 置 false，
-  // 正常路径从不置 true，loading 从未真正生效）
+async function loadTaskList(params?: { limit?: number; offset?: number; status?: string; q?: string; append?: boolean }) {
   if (listInFlight) return
   listInFlight = true
   loading.value = true
+  const limit = params?.limit ?? 50
+  const offset = params?.offset ?? 0
   try {
-    const d = await api.getTasks()
-    tasks.value = d.tasks || []
+    const d = await api.getTasks({ limit, offset, status: params?.status, q: params?.q })
+    const newTasks = d.tasks || []
+    if (params?.append && offset > 0) {
+      tasks.value = tasks.value.concat(newTasks)
+    } else {
+      tasks.value = newTasks
+    }
   } catch (e) {
-    // 保留旧列表，不覆盖为失败态（轮询失败静默，下次重试）
+    // 保留旧列表
   } finally {
     loading.value = false
     listInFlight = false

@@ -313,7 +313,7 @@ async function autoReconnectRunningTask() {
     </header>
 
     <!-- Main Workspace Container -->
-    <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
       <!-- Quick Resource Bar -->
       <div class="flex items-center justify-between flex-wrap gap-2 mb-6 px-1 text-xs text-muted">
         <div class="flex items-center gap-2">

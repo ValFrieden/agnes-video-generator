@@ -101,10 +101,14 @@ async function doSearch() {
       }
       results.value = list
     } else {
-      showToast(res.detail || 'Search failed', 2500, 'error')
+      showToast(
+        t('knowledgeSearchFailed'),
+        2500,
+        'error'
+      )
     }
   } catch (e: any) {
-    showToast(e.message || 'Search error', 2500, 'error')
+    showToast(e.message || t('knowledgeSearchError'), 2500, 'error')
   } finally {
     loading.value = false
   }
@@ -132,7 +136,10 @@ async function triggerSync() {
     const res = await fetch('/api/knowledge/sync?rebuild=false', { method: 'POST' }).then((r) => r.json())
     if (res.ok) {
       showToast(
-        `Synchronized: ${res.result.indexed_or_updated} updated, ${res.result.total_documents} total docs`,
+        tf('knowledgeSyncSuccess', {
+          updated: res.result.indexed_or_updated,
+          total: res.result.total_documents,
+        }),
         3000,
         'success'
       )
@@ -141,10 +148,10 @@ async function triggerSync() {
         await doSearch()
       }
     } else {
-      showToast(res.detail || 'Sync failed', 2500, 'error')
+      showToast(res.detail || t('knowledgeSyncFailed'), 2500, 'error')
     }
   } catch (e: any) {
-    showToast(e.message || 'Sync error', 2500, 'error')
+    showToast(e.message || t('knowledgeSyncError'), 2500, 'error')
   } finally {
     syncing.value = false
   }
@@ -161,11 +168,11 @@ async function openDocument(item: SearchItem) {
     if (res.ok && res.document) {
       activeDoc.value = res.document
     } else {
-      showToast(res.detail || 'Failed to load document', 2500, 'error')
+      showToast(res.detail || t('knowledgeDocLoadFailed'), 2500, 'error')
       isModalOpen.value = false
     }
   } catch (e: any) {
-    showToast(e.message || 'Failed to load document', 2500, 'error')
+    showToast(e.message || t('knowledgeDocLoadFailed'), 2500, 'error')
     isModalOpen.value = false
   } finally {
     docLoading.value = false
@@ -343,7 +350,12 @@ onMounted(() => {
           :disabled="loading"
           @click="doSearch"
         >
-          <span v-if="loading" class="inline-block animate-spin mr-1">⌛</span>
+          <span v-if="loading" class="inline-block animate-spin mr-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+          </span>
           <span>{{ t('knowledgeBtnSearch') }}</span>
         </button>
       </div>
@@ -399,8 +411,10 @@ onMounted(() => {
       v-else-if="hasSearched && !results.length"
       class="glass-card rounded-2xl p-8 text-center text-muted space-y-3"
     >
-      <div class="flex justify-center text-muted">
-        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      <div class="flex justify-center text-muted/40">
+        <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
       </div>
       <p class="text-sm max-w-md mx-auto">{{ t('knowledgeEmpty') }}</p>
     </div>
@@ -486,7 +500,7 @@ onMounted(() => {
               <span>{{ activeDoc?.title || t('knowledgeDocViewerTitle') }}</span>
             </h3>
             <p v-if="activeDoc" class="text-xs text-muted font-mono mt-0.5">
-              {{ activeDoc.rel_path }} · {{ activeDoc.word_count }} words
+              {{ activeDoc.rel_path }} · {{ activeDoc.word_count }} {{ t('knowledgeWords') }}
             </p>
           </div>
           <button
@@ -501,7 +515,12 @@ onMounted(() => {
         <!-- Modal Body -->
         <div class="p-6 overflow-y-auto flex-1 text-xs text-ink-2 leading-relaxed space-y-4 font-mono select-text">
           <div v-if="docLoading" class="text-center py-12 text-muted">
-            <span class="inline-block animate-spin text-xl mb-2">⌛</span>
+            <span class="inline-block animate-spin text-xl mb-2">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+          </span>
             <div>{{ t('loading') }}</div>
           </div>
           <div v-else-if="activeDoc" class="whitespace-pre-wrap bg-paper/70 p-4 rounded-xl border border-rule/30">

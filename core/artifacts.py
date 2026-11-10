@@ -293,26 +293,26 @@ def _get_steps_for_state(state: BaseTaskState) -> list[tuple[Optional[str], str]
 # 按产物 type 的人类可读字段说明，供清单（manifest.json）、MANIFEST.md
 # 与 artifacts 端点输出；外部 Agent / 手动工具依据此说明处理产物。
 _SCHEMA_HINTS = {
-    "image_analysis": "参考图分析文本（纯文本）。可修改，修改后影响故事与分镜生成。",
-    "story": "故事文本（纯文本）。可修改，修改后影响角色参考图、分镜与旁白生成。",
-    "character_ref": "角色参考图 PNG（建议 768x1152，主体居中）。可用外部工具处理后覆盖同名文件。",
-    "script": ("分镜脚本 JSON 数组，UTF-8、缩进 2 空格。字段：scenes[].scene_prompt=画面描述；"
-               "scenes[].end_frame_prompt=尾帧描述；scenes[].narration_text=旁白；scenes[].duration=时长(秒)。"
-               "只修改 scene_prompt/end_frame_prompt 最安全，修改 narration_text 会触发重新配音与字幕。"),
-    "end_frame_prompts": "尾帧描述 JSON：{scene_i: {prompt: 画面描述}}。可修改后影响对应场景尾帧图与视频。",
-    "end_frame": "场景尾帧图 PNG（关键帧衔接用）。可替换后影响后续场景视频。",
-    "keyframe": "场景关键帧图 PNG（v7.1 I2V-first：动画首帧锚点）。可替换后影响该场景视频。",
-    "video": "场景视频 MP4（H.264+AAC）。可用 ffmpeg 或外部 Agent 剪辑/调色后覆盖同名文件。",
-    "qa_trio": "25/50/75% 关键帧接触单 PNG（单段确认用）。只由流水线生成，删除后下次运行会重建。",
-    "audio": "配音音频 MP3。同名 .txt 为旁白纯文本，建议先修改文本再重新生成音频。",
-    "subtitle": "标准 SubRip SRT（UTF-8，每条 ≤2 行）。可手动修正断句与时间轴。",
-    "final_video": "最终成片 MP4（含配音与字幕）。",
-    "scene_prompts": "段落场景 prompt JSON（prompts.json）。可修改后影响对应段落视频。",
-    "anchor_image": "数字人形象 PNG。可替换后影响数字人视频。",
-    "clip_prompts": "数字人视频 prompt JSON（prompts.json）。",
-    "clip": "数字人循环视频 MP4。",
-    "narration_audio": "诗词场景朗诵音频 MP3（scene_{i}/narration.mp3）。逐场景修改后重跑该场景字幕与成片。",
-    "subtitle_srt": "诗词场景字幕 SRT（scene_{i}/subtitle.srt）。",
+    "image_analysis": "Referenzbild-Analyse (reiner Text). Bearbeitbar; Aenderungen beeinflussen Story und Storyboard.",
+    "story": "Story-Text (reiner Text). Bearbeitbar; Aenderungen beeinflussen Referenzbilder, Storyboard und Narration.",
+    "character_ref": "Charakter-Referenzbild PNG (empfohlen 768x1152, Subjekt zentriert). Kann mit externen Tools bearbeitet und ueberschrieben werden.",
+    "script": ("Storyboard-Skript als JSON-Array, UTF-8, 2 Leerzeichen Einzug. Felder: scenes[].scene_prompt=Bildbeschreibung; "
+               "scenes[].end_frame_prompt=Endframe-Beschreibung; scenes[].narration_text=Narration; scenes[].duration=Dauer (Sek). "
+               "Am sichersten nur scene_prompt/end_frame_prompt aendern; Aenderung von narration_text loest Neuvertonung und Untertitel aus."),
+    "end_frame_prompts": "Endframe-Beschreibungen JSON: {scene_i: {prompt: Bildbeschreibung}}. Aenderungen beeinflussen Endframe-Bild und Video.",
+    "end_frame": "Szenen-Endframe PNG (fuer Keyframe-Uebergaenge). Ersetzen beeinflusst nachfolgende Szenenvideos.",
+    "keyframe": "Szenen-Keyframe PNG (v7.1 I2V-first: Animations-Startframe). Ersetzen beeinflusst das Szenenvideo.",
+    "video": "Szenenvideo MP4 (H.264+AAC). Kann mit ffmpeg oder externen Agents geschnitten/color-graded und ueberschrieben werden.",
+    "qa_trio": "25/50/75% Keyframe-Kontaktbogen PNG (Einzelsegment-Bestätigung). Wird nur von der Pipeline erzeugt; bei Loeschung beim naechsten Lauf neu erstellt.",
+    "audio": "Narrations-Audio MP3. Gleichnamige .txt ist der reine Narrationstext; zuerst Text aendern, dann Audio neu erzeugen.",
+    "subtitle": "Standard SubRip SRT (UTF-8, max. 2 Zeilen pro Eintrag). Zeilenumbrueche und Timing manuell korrigierbar.",
+    "final_video": "Finales Video MP4 (mit Narration und Untertiteln).",
+    "scene_prompts": "Absatz-Szenen-Prompt JSON (prompts.json). Aenderungen beeinflussen das entsprechende Absatzvideo.",
+    "anchor_image": "Digitaler-Avatar PNG. Ersetzen beeinflusst das Avatar-Video.",
+    "clip_prompts": "Digitaler-Avatar Video-Prompt JSON (prompts.json).",
+    "clip": "Digitaler-Avatar Schleifen-Video MP4.",
+    "narration_audio": "Gedicht-Szenen-Rezitations-Audio MP3 (scene_{i}/narration.mp3). Pro Szene aenderbar, loest Untertitel und Finaleschnitt neu aus.",
+    "subtitle_srt": "Gedicht-Szenen-Untertitel SRT (scene_{i}/subtitle.srt).",
 }
 
 
@@ -1080,26 +1080,26 @@ def write_manifest_md(state: BaseTaskState, task_dir: str) -> str:
     try:
         manifest = build_manifest(state, task_dir)
         lines = [
-            "# 任务产物说明（自动生成）",
+            "# Aufgaben-Produktbeschreibung (automatisch erzeugt)",
             "",
-            "> 本文件由系统自动生成，说明任务目录内各产物的含义、格式与可修改性。",
-            "> 修改产物后可通过网页操作或直接覆盖同名文件；修改 JSON / 文本 / SRT",
-            "> 后需重新生成受影响的下游步骤（见各产物的「说明」）。",
+            "> Diese Datei wird automatisch erzeugt und beschreibt Bedeutung, Format und Aenderbarkeit der Task-Artefakte.",
+            "> Artefakte koennen ueber die Web-UI oder durch Ueberschreiben gleichnamiger Dateien geaendert werden; Aenderungen an JSON/Text/SRT",
+            "> erfordern die Neuerzeugung der betroffenen nachgelagerten Schritte (siehe 'Beschreibung' pro Artefakt).",
             "",
-            "## 任务信息",
+            "## Aufgaben-Information",
             "",
-            f"- 任务 ID：`{manifest['task_id']}`",
-            f"- 任务类型：`{manifest['task_type']}`",
-            f"- 任务状态：`{manifest['task_status']}`",
-            f"- 工作目录：`{manifest['working_dir']}`",
+            f"- Aufgaben-ID: `{manifest['task_id']}`",
+            f"- Aufgaben-Typ: `{manifest['task_type']}`",
+            f"- Aufgaben-Status: `{manifest['task_status']}`",
+            f"- Arbeitsverzeichnis: `{manifest['working_dir']}`",
             "",
         ]
 
         if manifest["artifacts"]:
             lines += [
-                "## 产物清单",
+                "## Artefakt-Uebersicht",
                 "",
-                "| 文件（相对路径） | 类型 | 说明 |",
+                "| Datei (relativer Pfad) | Typ | Beschreibung |",
                 "|---|---|---|",
             ]
             for a in manifest["artifacts"]:
@@ -1113,7 +1113,7 @@ def write_manifest_md(state: BaseTaskState, task_dir: str) -> str:
 
         if manifest["files"]:
             lines += [
-                "## 目录文件树",
+                "## Verzeichnis-Dateibaum",
                 "",
                 "```",
             ]
@@ -1121,11 +1121,11 @@ def write_manifest_md(state: BaseTaskState, task_dir: str) -> str:
             lines += ["```", ""]
 
         lines += [
-            "## 协作提示",
+            "## Hinweise zur Zusammenarbeit",
             "",
-            "- 文本 / JSON / SRT 产物可直接用编辑器或外部 AI Agent（如 TraeWork、opencode、workbuddy）修改。",
-            "- 图片 / 视频产物可用 ffmpeg、Python 等外部工具处理后覆盖同名文件。",
-            "- 产物字段说明见 `docs/dev/artifact_standard.md`。",
+            "- Text-/JSON-/SRT-Artefakte koennen direkt mit einem Editor oder externen AI-Agents (z.B. TraeWork, opencode, workbuddy) bearbeitet werden.",
+            "- Bild-/Video-Artefakte koennen mit externen Tools (ffmpeg, Python) bearbeitet und als gleichnamige Datei ueberschrieben werden.",
+            "- Feldbeschreibungen der Artefakte siehe `docs/dev/artifact_standard.md`.",
             "",
         ]
 

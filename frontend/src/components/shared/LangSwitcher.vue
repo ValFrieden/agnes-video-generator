@@ -25,11 +25,7 @@ const triggerClass = computed(() =>
 // 语言名映射（label 形如 "🇨🇳 中文"）+ 地区分组（与官网 langGroups 一致）
 const labelOf: Record<string, string> = Object.fromEntries(LANGS.map((l) => [l.code, l.label]))
 const groups: { id: string; items: string[] }[] = [
-  { id: 'langGroupEastAsia', items: ['zh', 'ja', 'ko'] },
-  { id: 'langGroupSoutheastAsia', items: ['ms', 'id', 'vi', 'th', 'tl'] },
-  { id: 'langGroupSouthAsia', items: ['hi', 'bn', 'ur'] },
-  { id: 'langGroupMiddleEast', items: ['tr', 'ar', 'fa'] },
-  { id: 'langGroupEurope', items: ['en', 'de', 'fr', 'nl', 'es', 'pt', 'it', 'ru'] },
+  { id: 'langGroupEurope', items: ['de', 'ru'] },
 ]
 
 // 触发按钮显示语言代码 (如 EN, ZH, DE)

@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['PingFang SC', 'Microsoft YaHei', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
       },
       // Design tokens (CSS vars from style.css :root) — lets Tailwind generate the
       // bare token utilities (text-ink, bg-paper-2, border-rule …). The `/n`

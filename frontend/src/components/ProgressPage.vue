@@ -57,6 +57,9 @@ watch(taskFailed, (failed) => {
   if (!failed) return
   notifyCompletion(appState.progressTaskId || '', false, failedMessage.value || '')
 })
+watch(resultVideoSrc, () => {
+  resultVideoError.value = false
+})
 watch(progressPct, (pct, prev) => {
   if (pct >= 100 && (prev ?? 0) < 100 && !taskFailed.value) {
     notifyCompletion(appState.progressTaskId || '', true, '')
@@ -173,6 +176,7 @@ const imageModalVisible = computed(() => !!imageModalUrl.value)
 const { containerRef: imageModalRef } = useModalA11y(imageModalVisible, closeImageModal)
 
 // Task clone + Post-process editor (Trim · LUT · Aspect Crop)
+const resultVideoError = ref(false)
 const postOpen = ref(false)
 const postStart = ref(0)
 const postEnd = ref(0)
@@ -438,7 +442,8 @@ onUnmounted(() => {
             <p class="text-success text-sm font-semibold">{{ t('videoComplete') }}</p>
           </div>
           <div class="neu-sunken rounded-2xl p-2 mb-4 bg-paper-3/40">
-            <video :src="resultVideoSrc" controls class="w-full rounded-xl max-h-96 shadow-sm"></video>
+            <video :src="resultVideoSrc" controls class="w-full rounded-xl max-h-96 shadow-sm" @error="resultVideoError = true"></video>
+            <p v-if="resultVideoError" class="text-xs text-danger mt-2">{{ t('videoLoadFailed') }}</p>
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-2.5">
             <a

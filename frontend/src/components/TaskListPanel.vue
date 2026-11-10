@@ -234,6 +234,11 @@ function onMainBtn(task: TaskListItem) {
 
     <!-- Empty State -->
     <div v-else-if="!loading && !tasks.length" class="neu-card rounded-2xl p-8 text-center border border-rule/30">
+      <div class="flex justify-center mb-4 text-muted/40">
+        <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+        </svg>
+      </div>
       <p class="text-muted text-sm mb-4">{{ t('noTasks') }}</p>
       <a href="#/create" class="inline-block text-sm px-5 py-2.5 neu-raised hover:neu-sunken text-accent font-medium rounded-xl transition">
         {{ t('tabCreate') }}
@@ -253,11 +258,12 @@ function onMainBtn(task: TaskListItem) {
     </div>
 
     <!-- Task Cards -->
-    <div
-      v-for="task in pagedTasks"
-      :key="task.task_id"
-      class="neu-raised rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all hover:translate-y-[-1px] border border-rule/20 mb-3"
-    >
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div
+        v-for="task in pagedTasks"
+        :key="task.task_id"
+        class="neu-raised rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all hover:translate-y-[-1px] border border-rule/20 mb-3"
+      >
       <div class="flex items-start gap-3 flex-1 min-w-0">
         <input
           v-if="!isRunning(task)"
@@ -338,13 +344,14 @@ function onMainBtn(task: TaskListItem) {
         </button>
       </div>
     </div>
+    </div>
 
     <!-- Pagination -->
     <div v-if="hasMore" class="flex items-center justify-center pt-2">
       <button
         type="button"
         class="px-5 py-2 rounded-xl text-xs font-medium bg-paper-2 border border-rule text-ink-2 hover:text-ink hover:border-accent/50 transition"
-        @click="visibleLimit += pageSize"
+        @click="visibleLimit += pageSize; if (visibleLimit > tasks.length && !loading) loadTaskList({ limit: 50, offset: tasks.length, append: true })"
       >
         {{ t('taskLoadMore').replace('{shown}', String(pagedTasks.length)).replace('{total}', String(filteredTasks.length)) }}
       </button>
