@@ -108,6 +108,9 @@ scratch_*.txt
 screenshots-debug/
 tmp_pytest/
 t[0-9].png
+/*.png
+.claude/
+run_chrome_wmi.ps1
 
 # Tools & ML models
 tools/insightface_models/

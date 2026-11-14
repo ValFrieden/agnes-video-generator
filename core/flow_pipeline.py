@@ -208,10 +208,11 @@ async def cmd_image(args) -> int:
 async def cmd_video(args) -> int:
     accounts = FlowAccounts.load(args.root / ACCOUNTS_FILE)
     account = args.account or accounts.default_name
-    problems = flow_frames.check_frame(args.frame).problems
-    if problems:
-        print(f"Startkader {args.frame}: {'; '.join(problems)}")
-        return 1
+    if not getattr(args, "force", False):
+        problems = flow_frames.check_frame(args.frame).problems
+        if problems:
+            print(f"Startkader {args.frame}: {'; '.join(problems)} (Nutze --force zum Ignorieren)")
+            return 1
     for ref in args.ref or []:
         if not Path(ref).is_file():
             print(f"Referenz nicht gefunden: {ref}")
@@ -226,7 +227,8 @@ async def cmd_video(args) -> int:
     )
     policy = BudgetPolicy(per_clip_max=args.max_clip, session_budget=args.budget, reserve=args.reserve)
     store, ledger = _store(args.root), _ledger(args.root)
-    engine = GoogleFlowEngine()
+    model_name = getattr(args, "model", "Veo 3.1 - Fast")
+    engine = GoogleFlowEngine(default_model=model_name)
     try:
         await open_project(engine, accounts, account)
         if ledger.last_balance(account) is None:
@@ -324,6 +326,8 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--add-to-scene", action="store_true", help="Fügt den fertigen Clip der Flow-Szene hinzu")
     v.add_argument("--ref", action="append", help="Zusatzreferenz hinter dem Startkader (Charakterkarte, Props-Karte)")
     v.add_argument("--seconds", type=float, default=flow_prompts.VEO_FAST_16_9_SECONDS)
+    v.add_argument("--model", default="Veo 3.1 - Fast", help="Flow-Modell (z. B. 'Veo 3.1 - Fast', 'Veo 3.1 - Quality')")
+    v.add_argument("--force", action="store_true", help="Ignoriert Format-Warnungen des Startbildes")
     v.add_argument("--max-clip", type=int, default=20)
     v.add_argument("--budget", type=int, default=None, help="Gesamtbudget dieses Laufs")
     v.add_argument("--reserve", type=int, default=0, help="Guthaben, das übrig bleiben muss")

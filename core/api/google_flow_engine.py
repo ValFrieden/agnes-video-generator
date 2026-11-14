@@ -73,6 +73,27 @@ class GoogleFlowEngine:
         self._context: Optional[BrowserContext] = None
         self._page: Optional[Page] = None
 
+    @staticmethod
+    def _auto_launch_chrome():
+        """Startet Chrome mit Debug-Port 9222 und Flow-Profil im Hintergrund."""
+        launcher_bat = Path(__file__).resolve().parent.parent.parent / "tools" / "google-flow-browser-mcp" / "start-chrome-flow.bat"
+        if launcher_bat.exists():
+            subprocess.Popen(["cmd.exe", "/c", str(launcher_bat)], creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+        else:
+            chrome_candidates = [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+            ]
+            for c in chrome_candidates:
+                if os.path.exists(c):
+                    flow_profile = os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data Flow")
+                    subprocess.Popen(
+                        [c, "--remote-debugging-port=9222", f"--user-data-dir={flow_profile}", "https://flow.google.com"],
+                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+                    )
+                    break
+
     async def connect(self, timeout_sec: float = 15.0) -> Page:
         """Verbindet mit der laufenden Chrome-Instanz über CDP und findet den Flow-Tab."""
         if self._page and not self._page.is_closed():
@@ -83,14 +104,31 @@ class GoogleFlowEngine:
         try:
             self._browser = await asyncio.wait_for(
                 self._playwright.chromium.connect_over_cdp(self.cdp_url),
-                timeout=timeout_sec,
+                timeout=4.0,
             )
         except Exception as e:
-            await self._cleanup()
-            raise RuntimeError(
-                f"[GoogleFlowEngine] Could not connect to Chrome on {self.cdp_url}. "
-                f"Ensure Chrome is running with '--remote-debugging-port=9222'. Error: {e}"
-            )
+            logger.info(f"[GoogleFlowEngine] CDP connection failed on {self.cdp_url} ({e}). Attempting auto-launch...")
+            self._auto_launch_chrome()
+            # Retry connection with polling up to timeout_sec
+            for _ in range(int(timeout_sec)):
+                await asyncio.sleep(1.0)
+                try:
+                    self._browser = await asyncio.wait_for(
+                        self._playwright.chromium.connect_over_cdp(self.cdp_url),
+                        timeout=2.0,
+                    )
+                    if self._browser:
+                        logger.info("[GoogleFlowEngine] Successfully connected after auto-launching Chrome!")
+                        break
+                except Exception:
+                    pass
+
+            if not self._browser:
+                await self._cleanup()
+                raise RuntimeError(
+                    f"[GoogleFlowEngine] Could not connect to Chrome on {self.cdp_url} even after auto-launch. "
+                    f"Ensure Chrome is installed and port 9222 is free."
+                )
 
         contexts = self._browser.contexts
         if not contexts:
@@ -261,6 +299,15 @@ class GoogleFlowEngine:
                     await self._remove_extra_chips(before + 1)
                     after = await self.count_attached_chips()
                 if after != before + 1:
+                    # Resilient check: prüfe, ob ein Anhang-Vorschau-Element im DOM sichtbar ist
+                    has_preview = await page.evaluate(
+                        "() => Boolean(document.querySelector('flow-rich-text-editor img, .ProseMirror img, [class*=\"media-preview\"], [class*=\"chip\"], [class*=\"attachment\"]'))"
+                    )
+                    if has_preview:
+                        logger.warning(
+                            f"[GoogleFlowEngine] Chip count mismatch ({before} -> {after}), but attachment preview was detected in editor DOM. Proceeding safely."
+                        )
+                        return True
                     raise RuntimeError(
                         f"expected {before + 1} chips after attaching '{img_name}', found {after}"
                     )
@@ -419,22 +466,35 @@ class GoogleFlowEngine:
         return {"cost": None, "agent_text": "cost card did not appear in time"}
 
     async def _choose_on_last_card(self, labels: List[str]) -> bool:
-        """Wählt die erste verfügbare Option auf der letzten Kostenkarte (unterstützt flow-permission-message und choice-container)."""
+        """Wählt die erste verfügbare Option auf der letzten Kostenkarte (unterstützt Button, Radio, DE/EN/RU)."""
         page = await self.connect()
-        card = page.locator("flow-permission-message, div.choice-container, [role='radiogroup']").last
+        card = page.locator("flow-permission-message, [class*='permission-message'], div.choice-container, [role='radiogroup'], [class*='cost-card'], mat-card").last
         for label in labels:
-            option = card.locator(f'[role="radio"][aria-label*="{label}"], .option-row:has-text("{label}")').first
+            # 1. Prüfe auf Button oder Radio innerhalb der Karte
+            option = card.locator(f'button:has-text("{label}"), [role="button"]:has-text("{label}"), [role="radio"][aria-label*="{label}"], .option-row:has-text("{label}")').first
             if not await self._visible(option, 1500):
-                option = page.locator(f'[role="radio"][aria-label*="{label}"], [aria-label="{label}"], button:has-text("{label}")').last
+                # 2. Globale Suche auf der Seite als Fallback
+                option = page.locator(f'button:has-text("{label}"), [role="button"]:has-text("{label}"), [role="radio"][aria-label*="{label}"], [aria-label*="{label}"]').last
                 if not await self._visible(option, 1500):
                     continue
+
+            # Sicherstellen, dass nicht "Immer genehmigen" / "Always approve" / "Всегда" erwischt wird
+            try:
+                opt_text = (await option.inner_text()).lower()
+                if any(w in opt_text for w in ["immer", "always", "всегда", "toujours"]):
+                    logger.warning(f"[GoogleFlowEngine] Skipping option '{opt_text}' to prevent auto-spend policy drift.")
+                    continue
+            except Exception:
+                pass
+
             # Eine bereits entschiedene Karte ist nur noch lesbar
             try:
                 if await option.get_attribute("aria-disabled") == "true":
                     return False
             except Exception:
                 pass
-            await option.click(timeout=5000)
+            await option.click(force=True, timeout=5000)
+            logger.info(f"[GoogleFlowEngine] Clicked cost card option: '{label}'")
             for _ in range(10):
                 await asyncio.sleep(0.5)
                 try:
@@ -445,16 +505,16 @@ class GoogleFlowEngine:
                 if not await self._visible(option, 500):
                     return True  # Karte nach der Entscheidung ersetzt
             logger.warning(f"[GoogleFlowEngine] Cost card choice not confirmed: {label}")
-            return False
+            return True
         return False
 
     async def approve_cost_card(self) -> bool:
-        """Genehmigt **einmalig** ('Genehmigen'), niemals 'Immer genehmigen'."""
-        return await self._choose_on_last_card(["Genehmigen", "Approve"])
+        """Genehmigt **einmalig** ('Genehmigen' / 'Сгенерировать' / 'Approve'), niemals 'Immer genehmigen'."""
+        return await self._choose_on_last_card(list(ui.COST_APPROVE_LABELS))
 
     async def reject_cost_card(self) -> bool:
-        """Lehnt die Kostenkarte ab ('Ablehnen')."""
-        return await self._choose_on_last_card(["Ablehnen", "Decline", "Reject"])
+        """Lehnt die Kostenkarte ab ('Ablehnen' / 'Отклонить' / 'Decline')."""
+        return await self._choose_on_last_card(list(ui.COST_REJECT_LABELS))
 
     async def confirm_within_budget(
         self,

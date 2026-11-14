@@ -66,12 +66,22 @@ ADD_TO_PROMPT_BUTTON = 'button:has-text("Zum Prompt hinzuf"), button:has-text("A
 # haben aber keinen „cancel“.
 CHIP_REMOVE_BUTTON = (
     'button[aria-label^="Bildelement"]:has-text("cancel"), '
-    'button[aria-label^="Image element"]:has-text("cancel")'
+    'button[aria-label^="Image element"]:has-text("cancel"), '
+    'button[aria-label*="Entfernen"], button[aria-label*="Remove"], '
+    'button:has-text("cancel"), button:has-text("close")'
 )
 CHIP_COUNT_JS = (
-    "() => Array.from(document.querySelectorAll('button')).filter(b => b.offsetParent "
-    "&& /^(Bildelement|Image element)/.test(b.getAttribute('aria-label') || '') "
-    "&& (b.innerText || '').includes('cancel')).length"
+    "() => { "
+    "  const buttons = Array.from(document.querySelectorAll('button, div, span')); "
+    "  const matched = buttons.filter(b => b.offsetParent "
+    "    && (/^(Bildelement|Image element|media-chip|attachment)/i.test(b.getAttribute('aria-label') || '') "
+    "        || b.className.toString().includes('chip') || b.className.toString().includes('preview-chip')) "
+    "    && ((b.innerText || '').includes('cancel') || (b.innerText || '').includes('close') "
+    "        || b.querySelector('[aria-label*=\"Entfernen\"], [aria-label*=\"Remove\"], [aria-label*=\"close\"]'))); "
+    "  if (matched.length > 0) return matched.length; "
+    "  const genericChips = document.querySelectorAll('.ProseMirror [class*=\"chip\"], [class*=\"prompt-media-preview\"], flow-media-chip'); "
+    "  return genericChips.length; "
+    "}"
 )
 SUBMIT_BUTTON = (
     '[aria-label="Generierung starten"], [aria-label="Generate"], '
@@ -93,12 +103,12 @@ SETTINGS_SAVE_BUTTON = 'button:has-text("Speichern"), button:has-text("Save")'
 SETTINGS_BACK_BUTTON = '[aria-label="Zurück"], [aria-label="Back"]'
 
 # ── Kostenkarte ─────────────────────────────────────────────────────────────
-# VERIFIED über den Node-Server (cost-guard.js), gleiche Oberfläche.
-COST_CARD = "flow-permission-message"
-COST_APPROVE_LABELS = ("Genehmigen", "Approve")
-COST_REJECT_LABELS = ("Ablehnen", "Decline", "Reject")
+# VERIFIED über den Node-Server (cost-guard.js), gleiche Oberfläche (DE/EN/RU).
+COST_CARD = "flow-permission-message, [class*='permission-message'], [class*='cost-card'], mat-card"
+COST_APPROVE_LABELS = ("Genehmigen", "Approve", "Сгенерировать", "Подтвердить", "Запустить")
+COST_REJECT_LABELS = ("Ablehnen", "Decline", "Reject", "Отклонить", "Отмена")
 # Nie klicken: schaltet das Projekt dauerhaft auf automatisches Ausgeben.
-COST_ALWAYS_APPROVE_LABELS = ("Immer genehmigen", "Always approve")
+COST_ALWAYS_APPROVE_LABELS = ("Immer genehmigen", "Always approve", "Всегда подтверждать", "Всегда разрешать")
 
 # ── Charakterseite ──────────────────────────────────────────────────────────
 CHARACTER_PAGE = "flow-character-page"

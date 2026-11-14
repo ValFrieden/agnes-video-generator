@@ -65,13 +65,29 @@ To generate a video clip:
 
    **Cost guard rules (verified 2026-10-23):**
    * The project setting „Vor dem Generieren bestätigen“ (prompt `Settings` panel) must be **Immer**. On **Nie** the tool refuses with `CONFIRM_POLICY_OFF`. Change it only after asking the user.
+   * **MANDATORY APPROVAL CLICK**: Whenever a prompt is sent, Google Flow displays a confirmation card: *„Soll ich diese 1 Videogenerierung starten? Das kostet 100 Guthabenpunkte“*. **You MUST immediately click the single-generation „Genehmigen“ button**! If left unclicked, Flow times out after 2-3 minutes with *„The generation timed out while waiting for confirmation...“* and no video is generated.
    * Never click „Immer genehmigen“ on the agent cost card. It switches the project to „Nie“ (auto-spend). The tool only ever clicks the one-time „Genehmigen“.
    * Price unreadable → `cost_unreadable`, nothing is approved (fail-closed).
 
-### B. Calling via Python Engine (`GoogleFlowEngine` - Recommended)
+### B. Calling via Unified CLI & Engine (`core.flow_pipeline` / `GoogleFlowEngine` - Recommended)
 
-Die native Python-Engine (`core.api.google_flow_engine.GoogleFlowEngine`) nutzt Playwright über CDP ohne Zwischendateien oder Subprozesse:
+Die native Python-Engine (`core.api.google_flow_engine.GoogleFlowEngine`) nutzt Playwright über CDP ohne Ad-hoc-Zwischenskripte:
+* **Automatischer Chrome-Start**: Ist Port 9222 nicht aktiv, startet die Engine Chrome automatisch im Hintergrund (`start-chrome-flow.bat`).
+* **Mehrsprachige Genehmigung**: Erkennt Bestätigungskarten auf Deutsch („Genehmigen“), Russisch („Сгенерировать“ / „Подтвердить“) und Englisch („Approve“).
+* **Anti-Chimären-Schutz**: Striktes Hochladen per FileChooser nach genauem lokalem Pfad; blindes Auswählen per DOM-Index (`items[0]`) ist verboten.
+* **Auto-QC-Trio**: Nach jedem Download generiert FFmpeg automatisch den 25%/50%/75% Kontaktbogen.
 
+CLI-Aufruf (Standardweg für Agenten):
+```bash
+.venv\Scripts\python.exe -m core.flow_pipeline video \
+  --shot S04 \
+  --frame path/to/scene_04_keyframe.png \
+  --motion "Slow tracking shot from behind, authentic physics, wind in leaves" \
+  --out path/to/clips/clip_04.mp4 \
+  --model "Veo 3.1 - Fast"
+```
+
+Python-Direktaufruf:
 ```python
 from core.api.google_flow_engine import GoogleFlowEngine
 
@@ -79,17 +95,12 @@ engine = GoogleFlowEngine(cdp_url="http://127.0.0.1:9222")
 await engine.connect()
 
 success = await engine.generate_scene(
-    prompt="A woman walking in rain with a yellow umbrella",
+    prompt="Slow tracking shot from behind, walking through forest, realistic lighting",
     reference_image_path="kuda_idu_frames/spina_04.png",
     output_clip_path="kuda_idu_frames/clips/clip_04.mp4",
     skip_if_exists=True
 )
 await engine.close()
-```
-
-Für Master-Batchläufe (z.B. Szenen 4 bis 16):
-```bash
-python run_spina_master_batch.py 4 16
 ```
 
 ---
